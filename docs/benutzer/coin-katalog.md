@@ -1,7 +1,35 @@
 # Coin-Katalog – Anleitung
 
 Im Coin-Katalog erfassen Sie Coins und sehen alle erfassten Coins in einer Liste.
-Die Startseite enthält oben das Formular „Neuen Coin erfassen“ und darunter den Katalog.
+
+## Navigation
+
+Links befindet sich die Seitenleiste mit zwei Einträgen:
+
+- **Startseite**: Begrüßung mit kurzer Einleitung und dem Button **Zur Coin-Liste**.
+- **Coin-Liste**: oben das Formular „Neuen Coin erfassen“, darunter der Katalog.
+
+Der Eintrag der aktuell geöffneten Seite ist hervorgehoben.
+
+Mit dem Button ganz links in der Kopfzeile (**Seitenleiste ein-/ausblenden**) blenden Sie die
+Seitenleiste aus und wieder ein. Dasselbe geht mit **Strg+B** (am Mac **Cmd+B**), solange der
+Cursor nicht in einem Eingabefeld steht. Dort behält die Tastenkombination ihre übliche Wirkung.
+
+Auf schmalen Bildschirmen, z. B. auf dem Smartphone, ist die Seitenleiste zunächst verborgen.
+Der Button öffnet sie als Überlagerung über der Seite. Nach der Auswahl eines Eintrags schließt
+sie sich wieder.
+
+Ruft man eine Adresse auf, die es nicht gibt, erscheint „Seite nicht gefunden.“ mit einem Link
+**Zur Startseite**.
+
+## Farbschema
+
+Über den Button **Farbschema wählen** rechts in der Kopfzeile (Symbol Sonne/Mond) wählen Sie:
+
+- **Hell** oder **Dunkel**: festes Farbschema.
+- **System**: übernimmt die Einstellung Ihres Betriebssystems. Das ist die Voreinstellung.
+
+Ihre Wahl wird im Browser gespeichert und gilt auch nach dem Neuladen der Seite.
 
 ## Katalog ansehen
 

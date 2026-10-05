@@ -47,7 +47,7 @@ Ein Benutzer erfasst über die Weboberfläche einen Coin-Typ (Name, Herausgeber,
 - **AK-27** `GET /api/coins/{id}/bild` für unbekannten Coin oder Coin ohne Bild → `404`.
 
 ### Oberfläche
-- **AK-28** Die Startseite zeigt die Katalogliste als Tabelle mit den Spalten Bild, Name, Herausgeber, Auflage, Erfasst am (deutsches Datumsformat). Bild: Vorschaubild max. 64×64 px (Seitenverhältnis erhalten, `loading="lazy"`, `alt="Motiv: {name}"`) oder Text „Kein Bild“. Auflage `null` → „unbekannt“. Leere Liste: „Noch keine Coins erfasst.“
+- **AK-28** Die Seite „Coin-Liste“ (`/coins`, seit [frontend-grundgeruest.md](frontend-grundgeruest.md); `/` ist eine eigene Startseite) zeigt die Katalogliste als Tabelle mit den Spalten Bild, Name, Herausgeber, Auflage, Erfasst am (deutsches Datumsformat). Bild: Vorschaubild max. 64×64 px (Seitenverhältnis erhalten, `loading="lazy"`, `alt="Motiv: {name}"`) oder Text „Kein Bild“. Auflage `null` → „unbekannt“. Leere Liste: „Noch keine Coins erfasst.“
 - **AK-29** Während des Ladens wird ein Ladehinweis angezeigt; schlägt das Laden fehl, eine verständliche Fehlermeldung ohne technische Details.
 - **AK-30** Das Formular „Coin anlegen“ hat beschriftete Felder (Label mit Feld verknüpft) für Name, Herausgeber, Auflage (optional), Beschreibung (optional), Motivbild (optional; Dateiauswahl mit `accept="image/jpeg,image/png,image/webp"`) und einen Button „Coin anlegen“. Ein ausgewähltes Bild wird vor dem Absenden als Vorschau angezeigt und kann wieder entfernt werden.
 - **AK-31** Clientseitig wird wie in AK-2 bis AK-5 und AK-10/AK-11 geprüft (Bild: Dateityp laut Browser und Größe); bei Fehlern wird nicht gesendet und die Meldung steht am jeweiligen Feld. Leere Auflage ist gültig.
@@ -159,16 +159,17 @@ Umsetzung der Limits: eigener `MultipartDateiLeser` (6 MiB Lesegrenze, max. 16 F
 Vollständige API-Beschreibung: [docs/api.md](../api.md).
 
 ## 6. Oberfläche (`web/`)
+Router (TanStack Router), Struktur (Feature-Sliced Design) und UI-Bibliothek (shadcn/ui, Base UI, Tailwind) kommen aus dem Feature [frontend-grundgeruest.md](frontend-grundgeruest.md) (ADR-0008 bis ADR-0011). Das Verhalten nach AK-28 bis AK-36 gilt unverändert für die Seite `/coins`.
+
 - Vite-Proxy: `/api` → `http://localhost:5172`, überschreibbar per `VITE_API_PROXY_TARGET`. Kein CORS.
-- Template-Inhalt von `App.tsx` und Demo-Assets werden ersetzt.
-- Bausteine:
-  - `src/api/types.ts` – `Coin`, `CoinAnlegen`, `ProblemDetails`.
-  - `src/api/coins.ts` – `ladeCoins()`, `legeCoinAn(daten)`, `ladeBildHoch(id, datei)` (`FormData`, Feld `datei`, kein manueller Content-Type-Header); typisierte Ergebnisse `ok | validierung | konflikt | zuGross | formatUngueltig | nichtGefunden | fehler`.
-  - `src/katalog/validiereCoin.ts` – reine Funktion für Felder und Bild (Typ `file.type` ∈ erlaubte Typen, `file.size` 1 … 5.242.880).
-  - `src/katalog/CoinFormular.tsx` – Formular inkl. Dateiauswahl und Vorschau (`URL.createObjectURL`, beim Entfernen/Unmount `revokeObjectURL`), Ablauf POST → PUT, Teilerfolg mit „Bild erneut hochladen“ (AK-34), `aria-invalid`/`aria-describedby`, Meldungen mit `role="status"`/`role="alert"`.
-  - `src/katalog/CoinListe.tsx` – Tabelle mit Vorschaubild (`<img src={bildUrl}>`, CSS `object-fit: contain`, 64×64), Lade-, Leer-, Fehlerzustand; Auflage `null` → „unbekannt“; Datum via `Intl.DateTimeFormat('de-DE')`.
-  - `src/katalog/KatalogSeite.tsx` – lädt Liste, rendert Formular und Liste, aktualisiert die Liste nach Anlegen/Upload.
-- Kein Router, keine UI-Bibliothek, kein State-Management-Framework.
+- Bausteine (Pfade unter `web/src/`):
+  - `entities/coin/model/types.ts` – `Coin`, `CoinAnlegen`; `ProblemDetails` in `shared/api/problem-details.ts`.
+  - `entities/coin/api/coins.ts` – `ladeCoins()`, `legeCoinAn(daten)`, `ladeBildHoch(id, datei)` (`FormData`, Feld `datei`, kein manueller Content-Type-Header). Der generische Teil (Ergebnistyp `ApiErgebnis` mit `ok | validierung | konflikt | zuGross | formatUngueltig | nichtGefunden | fehler`, Statuscode-Abbildung) liegt in `shared/api/http.ts`.
+  - `features/coin-anlegen/model/validiereCoin.ts` – reine Funktion für Felder und Bild (Typ `file.type` ∈ erlaubte Typen, `file.size` 1 … 5.242.880).
+  - `features/coin-anlegen/ui/CoinFormular.tsx` – Formular inkl. Dateiauswahl und Vorschau (`URL.createObjectURL`, beim Entfernen/Unmount `revokeObjectURL`), Ablauf POST → PUT, Teilerfolg mit „Bild erneut hochladen“ (AK-34), `aria-invalid`/`aria-describedby`, Meldungen mit `role="status"`/`role="alert"`.
+  - `entities/coin/ui/CoinListe.tsx` – Tabelle mit Vorschaubild (`<img src={bildUrl}>`, `object-fit: contain`, 64×64), Leerzustand; Auflage `null` → „unbekannt“; Datum via `Intl.DateTimeFormat('de-DE')`.
+  - `pages/coin-liste/ui/CoinListeSeite.tsx` – lädt die Liste (Lade- und Fehlerzustand), rendert Formular und Liste, aktualisiert die Liste nach Anlegen/Upload.
+- Kein State-Management-Framework.
 - Vorschaubilder werden im Pilot vom Browser aus dem Originalbild skaliert (keine serverseitigen Thumbnails, siehe Abschnitt 9).
 
 ## 7. Teststrategie
@@ -176,7 +177,7 @@ Vollständige API-Beschreibung: [docs/api.md](../api.md).
 |---|---|---|---|
 | Unit (xUnit) | `tests/Coin.UnitTests` | `CoinTyp.Erstellen` AK-1..7 inkl. Grenzwerte (0/1/200/201 Zeichen; Auflage `null`/0/1/1.000.000/1.000.001). `BildFormatErkennung`: JPEG/PNG/WebP positiv; GIF, SVG-Text, „RIFF“ ohne „WEBP“, zu kurze Daten negativ. `CoinBild.Erstellen`: 0 Bytes, 5.242.880 ok, 5.242.881 zu groß, SHA-256 korrekt. `CoinKatalogService` mit Fake-Repository: Duplikat, Upload für unbekannten Coin, Zeit aus `FakeTimeProvider` | `Microsoft.Extensions.TimeProvider.Testing` |
 | Integration (xUnit) | `tests/Coin.IntegrationTests` | HTTP gegen `WebApplicationFactory<Program>` + PostgreSQL (Testcontainers): AK-12..27, u. a. Unique-Index bei parallelen POSTs, Sortierung, Persistenz; Upload und Download byte-identisch mit Content-Type und Sicherheits-Headern; ETag/304; Ersetzen ändert `bildUrl`; SVG/GIF/Text-als-PNG → 415 und altes Bild bleibt; 5 MiB + 1 Byte und 20 MiB → 413 ProblemDetails; kein multipart → 415; fehlendes Feld/leere Datei → 400; Liste enthält keine Bildbytes | Collection-Fixture mit `PostgreSqlContainer`; `UseSetting("ConnectionStrings:CoinDb", ...)`; `TRUNCATE coin_typ CASCADE` vor jedem Test. Bilddaten synthetisch in den Tests erzeugt (gültige Signatur + Füllbytes; der Server decodiert nicht). Docker erforderlich |
-| Frontend (Vitest) | `web/src/**/*.test.ts(x)` | `validiereCoin` (AK-31), `CoinFormular` (AK-30..35 mit gemocktem `fetch`, inkl. Teilerfolg und Wiederholung ohne zweiten POST), `CoinListe` (AK-28, 29: Vorschaubild/„Kein Bild“/„unbekannt“), `coins.ts` (Statuscode-Abbildung) | `vitest`, `jsdom`, `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`; Skript `"test": "vitest run"`; `test`-Block in `vite.config.ts`; `URL.createObjectURL` in jsdom mocken |
+| Frontend (Vitest) | `web/src/**/*.test.ts(x)` | `validiereCoin` (AK-31), `CoinFormular` (AK-30..35 mit gemocktem `fetch`, inkl. Teilerfolg und Wiederholung ohne zweiten POST), `CoinListe` (AK-28, 29: Vorschaubild/„Kein Bild“/„unbekannt“), `coins.ts` (Statuscode-Abbildung) | `vitest`, `jsdom`, `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`; Skript `"test": "vitest run"`; Konfiguration in `vitest.config.ts`, Setup in `web/test/setup.ts`; `URL.createObjectURL` in jsdom mocken |
 | System (Playwright) | `e2e/` | Coin mit Bild anlegen → erscheint mit Vorschaubild (Bild geladen, `naturalWidth > 0`); Coin ohne Auflage → „unbekannt“; Pflichtfeld leer → Feldfehler; Duplikat → Konfliktmeldung | eigenes `package.json` mit `@playwright/test`; `playwright.config.ts` mit `webServer` für API (`dotnet run --project src/Coin.Api --launch-profile http`) und `web`; DB per `compose.yaml`; synthetisches Testbild (selbst erzeugtes kleines PNG) unter `e2e/fixtures/`; Namen mit eindeutigem Suffix |
 
 ## 8. Sicherheit und Datenschutz (ADR-0004, ADR-0005)

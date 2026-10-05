@@ -17,8 +17,10 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
 
 ## Technik
 - Backend: C# / .NET 10, ASP.NET Core Web API, EF Core, PostgreSQL
-- Frontend: React + TypeScript (Vite) in `web/`
-- Tests: xUnit (Unit, Integration mit Testcontainers), Vitest (Frontend), Playwright (System, `e2e/`)
+- Frontend: React 19 + TypeScript (Vite) in `web/`, Tailwind CSS v4, shadcn/ui (Base UI),
+  TanStack Router (code-basiert), Feature-Sliced Design (geprüft mit Steiger), ESLint + Prettier
+- Tests: xUnit (Unit, Integration mit Testcontainers), Vitest (Frontend), Playwright
+  (UI-Tests mit gemockter API in `web/ui-tests`, Systemtests mit echter API in `e2e/`)
 
 ## Projektstruktur
 - `src/Coin.Domain` – Fachlogik, Entitäten, keine Abhängigkeit nach außen
@@ -26,6 +28,11 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
 - `src/Coin.Api` – HTTP-API, Authentifizierung, DTOs
 - `tests/Coin.UnitTests`, `tests/Coin.IntegrationTests`
 - `web/` – React-Frontend, `e2e/` – Systemtests, `docs/` – Dokumentation
+- Frontend nach FSD (ADR-0008): `web/src/{app,pages,widgets,features,entities,shared}`, Public API
+  je Slice über `index.ts`, Alias `@/`; Importe nur nach unten, keine Querimporte zwischen Slices.
+  shadcn-Komponenten liegen in `shared/ui` und sind nachbearbeitet (deutsche Texte, kein Cookie,
+  `cn` aus `@/shared/lib/cn`) – nach `npx shadcn add` immer den Diff prüfen (ADR-0009).
+  Testhilfen in `web/test/`.
 - Abhängigkeiten zeigen immer nach innen zur Domain.
   Ist-Stand: Api → Domain + Infrastructure, Infrastructure → Domain, UnitTests → Domain,
   IntegrationTests → Api + Infrastructure (für `WebApplicationFactory`).
@@ -35,7 +42,8 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
 
 ## Aktueller Stand
 Umgesetzt: Coin-Katalog-Pilot (`docs/features/coin-katalog.md`) – Coin anlegen/auflisten,
-Motivbild hochladen/abrufen, ohne Anmeldung (ADR-0004). Noch nicht vorhanden: Exemplare,
+Motivbild hochladen/abrufen, ohne Anmeldung (ADR-0004); Frontend-Grundgerüst mit App-Shell
+(Startseite `/`, Coin-Liste `/coins`, Sidebar, Hell/Dunkel). Noch nicht vorhanden: Exemplare,
 Verleihungen, Zertifikate, Authentifizierung/Rollen, Audit-Log.
 Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup im `README.md`.
 `dotnet build` ohne Warnungen ist Pflicht, `TreatWarningsAsErrors` ist aber (noch) nicht gesetzt.
@@ -50,8 +58,11 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
   - Integrationstests brauchen ein laufendes Docker (Testcontainers startet PostgreSQL).
 - API lokal: `dotnet run --project src/Coin.Api` (http://localhost:5172, https://localhost:7176);
   Migrationen laufen nur in Development/Testing automatisch
-- Frontend (in `web/`): `npm install`, `npm run dev` (Proxy `/api` → 5172), `npm run build`
-  (inkl. `tsc -b`), `npm run lint` (oxlint), `npm test` (Vitest)
+- Frontend (in `web/`): `npm install` (aktiviert den Pre-Commit-Hook: lint + test bei jedem
+  Commit), `npm run dev` (Proxy `/api` → 5172), `npm run build` (ESLint + `tsc -b` + Vite),
+  `npm run lint` (ESLint + Steiger, 0 Warnungen), `npm run format`, `npm test` (Vitest,
+  einzeln: `npx vitest run <datei> -t "<name>"`), `npm run test:ui` (Playwright, gemockte API,
+  vorher einmalig `npm run install-browser`)
 - Systemtests (in `e2e/`): `npm install`, einmalig `npm run install-browser`, `npx playwright test`
   (einzeln: `npx playwright test <datei> -g "<name>"`); braucht nur Docker und Node ≥ 22.18 –
   eigener Wegwerf-PostgreSQL-Container pro Lauf, API/Web auf 5182/5183, Dev-DB bleibt unberührt
