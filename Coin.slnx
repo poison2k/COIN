@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Coin.Api/Coin.Api.csproj" />
+    <Project Path="src/Coin.Domain/Coin.Domain.csproj" />
+    <Project Path="src/Coin.Infrastructure/Coin.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Coin.IntegrationTests/Coin.IntegrationTests.csproj" />
+    <Project Path="tests/Coin.UnitTests/Coin.UnitTests.csproj" />
+  </Folder>
+</Solution>
