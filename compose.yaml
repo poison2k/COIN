@@ -1,0 +1,24 @@
+# Lokale PostgreSQL-Datenbank für die Entwicklung (ADR-0003).
+# Passwort steht in der gitignorierten Datei .env (Vorlage: .env.example).
+#
+#   docker compose up -d
+#   dotnet user-secrets set "ConnectionStrings:CoinDb" "Host=localhost;Port=5432;Database=coin;Username=coin;Password=<aus .env>" --project src/Coin.Api
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: coin
+      POSTGRES_USER: coin
+      POSTGRES_PASSWORD: ${COIN_DB_PASSWORD:?COIN_DB_PASSWORD in .env setzen (siehe .env.example)}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - coin-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coin -d coin"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  coin-db:

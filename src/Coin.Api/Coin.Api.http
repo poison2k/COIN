@@ -1,6 +1,13 @@
 @Coin.Api_HostAddress = http://localhost:5172
 
-GET {{Coin.Api_HostAddress}}/weatherforecast/
+### Alle Coins
+GET {{Coin.Api_HostAddress}}/api/coins
 Accept: application/json
+
+### Coin anlegen (synthetische Beispieldaten)
+POST {{Coin.Api_HostAddress}}/api/coins
+Content-Type: application/json
+
+{ "name": "Einsatzkontingent Beispiel 2025", "herausgeber": "Beispielbataillon 1", "auflage": null, "beschreibung": "Optionaler Text" }
 
 ###
