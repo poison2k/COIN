@@ -28,26 +28,32 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
 - `web/` – React-Frontend, `e2e/` – Systemtests, `docs/` – Dokumentation
 - Abhängigkeiten zeigen immer nach innen zur Domain.
   Ist-Stand: Api → Domain + Infrastructure, Infrastructure → Domain, UnitTests → Domain,
-  IntegrationTests → Api (für `WebApplicationFactory`).
+  IntegrationTests → Api + Infrastructure (für `WebApplicationFactory`).
 - Solution-Datei ist `Coin.slnx` (neues XML-Format).
+- Die Katalog-Entität heißt `CoinTyp` (Namespace `Coin.Domain.Katalog`), weil `Coin` mit dem
+  Wurzel-Namespace kollidiert (CS0118). In API und UI heißt sie „Coin“.
 
 ## Aktueller Stand
-Das Repo ist ein frisches Gerüst: `Program.cs` enthält noch das WeatherForecast-Template,
-Domain/Infrastructure nur `Class1.cs`, Tests nur Platzhalter. Noch nicht vorhanden und beim
-ersten Feature einzurichten: EF-Core-/Npgsql-Pakete, Vitest (`npm test` existiert noch nicht),
-das `e2e/`-Projekt, `README.md`, `docs/api.md`, `docs/adr/`, `docs/features/`.
+Umgesetzt: Coin-Katalog-Pilot (`docs/features/coin-katalog.md`) – Coin anlegen/auflisten,
+Motivbild hochladen/abrufen, ohne Anmeldung (ADR-0004). Noch nicht vorhanden: Exemplare,
+Verleihungen, Zertifikate, Authentifizierung/Rollen, Audit-Log.
+Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup im `README.md`.
 `dotnet build` ohne Warnungen ist Pflicht, `TreatWarningsAsErrors` ist aber (noch) nicht gesetzt.
 
 ## Befehle
-- Build: `dotnet build`
+- Lokale DB: `.env` aus `.env.example` anlegen (`COIN_DB_PASSWORD`), `docker compose up -d`,
+  Connection-String als User-Secret `ConnectionStrings:CoinDb` (`--project src/Coin.Api`)
+- Build: `dotnet build`; EF-Tools: `dotnet tool restore`, dann `dotnet ef ...`
 - Tests Backend: `dotnet test`
   - Ein Projekt: `dotnet test tests/Coin.UnitTests`
   - Ein Test: `dotnet test --filter "FullyQualifiedName~<Klasse>.<Methode>"`
   - Integrationstests brauchen ein laufendes Docker (Testcontainers startet PostgreSQL).
-- API lokal: `dotnet run --project src/Coin.Api` (http://localhost:5172, https://localhost:7176)
-- Frontend (in `web/`): `npm install`, `npm run dev`, `npm run build` (inkl. `tsc -b`),
-  `npm run lint` (oxlint), `npm test` sobald Vitest eingerichtet ist
-- Systemtests: `cd e2e; npx playwright test` (einzeln: `npx playwright test <datei> -g "<name>"`)
+- API lokal: `dotnet run --project src/Coin.Api` (http://localhost:5172, https://localhost:7176);
+  Migrationen laufen nur in Development/Testing automatisch
+- Frontend (in `web/`): `npm install`, `npm run dev` (Proxy `/api` → 5172), `npm run build`
+  (inkl. `tsc -b`), `npm run lint` (oxlint), `npm test` (Vitest)
+- Systemtests (in `e2e/`): `npm install`, einmalig `npm run install-browser`, `npx playwright test`
+  (einzeln: `npx playwright test <datei> -g "<name>"`); braucht laufende DB und das User-Secret
 
 ## Konventionen
 - C#: nullable aktiviert, `async` mit CancellationToken, keine Logik in Controllern
