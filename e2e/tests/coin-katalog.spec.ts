@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
 
 // Systemtests Coin-Katalog (Pilot): zentraler Nutzerfluss über Browser, Vite-Proxy, API und PostgreSQL.
-// Testdaten sind synthetisch; Namen erhalten ein eindeutiges Suffix, da die Datenbank nicht geleert wird.
+// Testdaten sind synthetisch; Namen erhalten ein eindeutiges Suffix, da sich die Tests eines Laufs die (pro Lauf neue) Datenbank teilen.
 
 const MOTIV_PNG = fileURLToPath(new URL('../fixtures/motiv.png', import.meta.url))
 

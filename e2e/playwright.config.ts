@@ -1,22 +1,25 @@
 import { defineConfig, devices } from '@playwright/test'
 
 /**
- * Systemtests für C.O.I.N.
+ * Systemtests für C.O.I.N. (Feature e2e-testdatenbank, ADR-0007).
  *
  * Voraussetzungen:
- * - PostgreSQL läuft (z. B. `docker compose up -d` im Repo-Wurzelverzeichnis).
- * - Connection-String `ConnectionStrings:CoinDb` ist per User-Secrets des Projekts Coin.Api
- *   oder per Umgebungsvariable `ConnectionStrings__CoinDb` gesetzt (nie im Repo).
+ * - Docker läuft. Compose-DB, `.env` und User-Secrets sind nicht nötig.
  * - Browser installiert: `npm run install-browser`.
  *
- * Die API läuft im Profil "http" (Development, Port 5172, Migrationen beim Start),
- * das Frontend über den Vite-Dev-Server (Port 5173, Proxy /api → 5172).
+ * Jeder Lauf bekommt eine eigene, leere Wegwerf-Datenbank: `scripts/start-api.mjs` startet einen
+ * PostgreSQL-Container (Testcontainers) und danach die API in der Umgebung `Testing` ohne
+ * Launch-Profil auf Port 5182 (Migrationen beim Start). Das Frontend läuft über den Vite-Dev-Server
+ * auf Port 5183 (Proxy /api → 5182). Laufende Server werden nie wiederverwendet; ist ein Port belegt,
+ * bricht der Lauf ab. `global-setup.ts` prüft vor dem ersten Test, dass die Datenbank leer ist.
+ * Die Entwicklungs-DB und Dev-Server (5172/5173) bleiben unberührt.
  */
-const API_URL = 'http://localhost:5172'
-const WEB_URL = 'http://localhost:5173'
+const API_URL = 'http://localhost:5182'
+const WEB_URL = 'http://localhost:5183'
 
 export default defineConfig({
   testDir: './tests',
+  globalSetup: './global-setup.ts',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -29,17 +32,20 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      command: 'dotnet run --project ../src/Coin.Api --launch-profile http',
+      command: 'node scripts/start-api.mjs',
       url: `${API_URL}/api/coins`,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 180_000,
       stdout: 'pipe',
+      // POSIX: SIGTERM an das Startskript, das API und Container stoppt. Windows: hartes Beenden, Ryuk räumt auf.
+      gracefulShutdown: { signal: 'SIGTERM', timeout: 10_000 },
     },
     {
-      command: 'npm run dev -- --port 5173 --strictPort',
+      command: 'npm run dev -- --port 5183 --strictPort',
       cwd: '../web',
       url: WEB_URL,
-      reuseExistingServer: !process.env.CI,
+      env: { VITE_API_PROXY_TARGET: API_URL },
+      reuseExistingServer: false,
       timeout: 120_000,
     },
   ],
