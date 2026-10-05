@@ -53,7 +53,9 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
 - Frontend (in `web/`): `npm install`, `npm run dev` (Proxy `/api` → 5172), `npm run build`
   (inkl. `tsc -b`), `npm run lint` (oxlint), `npm test` (Vitest)
 - Systemtests (in `e2e/`): `npm install`, einmalig `npm run install-browser`, `npx playwright test`
-  (einzeln: `npx playwright test <datei> -g "<name>"`); braucht laufende DB und das User-Secret
+  (einzeln: `npx playwright test <datei> -g "<name>"`); braucht nur Docker und Node ≥ 22.18 –
+  eigener Wegwerf-PostgreSQL-Container pro Lauf, API/Web auf 5182/5183, Dev-DB bleibt unberührt
+  (ADR-0007). Hilfsskript-Tests: `npm run test:skripte`
 
 ## Konventionen
 - C#: nullable aktiviert, `async` mit CancellationToken, keine Logik in Controllern

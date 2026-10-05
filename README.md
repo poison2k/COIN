@@ -13,8 +13,8 @@ Der Pilot hat keine Anmeldung und ist nur für den lokalen Entwicklungsbetrieb g
 ## Voraussetzungen
 
 - .NET 10 SDK
-- Node.js mit npm
-- Docker (lokale PostgreSQL-Datenbank, Integrationstests mit Testcontainers, Systemtests)
+- Node.js mit npm (für die Systemtests ≥ 22.18)
+- Docker (lokale PostgreSQL-Datenbank, Integrations- und Systemtests mit Testcontainers)
 
 ## Projektstruktur
 
@@ -98,7 +98,10 @@ npm run lint     # oxlint
 npm run build    # TypeScript-Prüfung und Produktions-Build
 ```
 
-Systemtests (in `e2e/`):
+### Systemtests (in `e2e/`)
+
+Voraussetzungen: Docker läuft, Node.js ≥ 22.18, .NET 10 SDK, `npm install` in `web/` und `e2e/`.
+Compose-DB, `.env` und User-Secrets sind nicht nötig.
 
 ```powershell
 cd e2e
@@ -107,8 +110,31 @@ npm run install-browser          # einmalig: Chromium für Playwright
 npx playwright test
 ```
 
-Für die Systemtests müssen die lokale Datenbank laufen (`docker compose up -d`) und der
-Connection-String gesetzt sein (User-Secret oder Umgebungsvariable). Abhängigkeiten in `web/`
-müssen installiert sein. API (Port 5172) und Frontend (Port 5173) startet Playwright selbst; laufen
-sie bereits, werden sie außerhalb von CI wiederverwendet. Die Tests legen Coins mit eindeutigen
-Namen in der lokalen Datenbank an und löschen sie nicht.
+Ablauf pro Lauf (ADR-0007):
+
+- `scripts/start-api.mjs` startet per Testcontainers einen eigenen Wegwerf-Container `postgres:17`
+  (Datenbank `coin_e2e`, zufälliges Passwort) und danach die API als Release-Build in der Umgebung
+  `Testing` ohne Launch-Profil auf `http://localhost:5182`. Die Migrationen laufen beim Start.
+- Das Frontend läuft über Vite auf `http://localhost:5183` (Proxy `/api` → 5182).
+- Laufende Server werden nie wiederverwendet. Ist Port 5182 oder 5183 belegt, bricht der Lauf ab.
+- `global-setup.ts` prüft vor dem ersten Test, dass die Datenbank leer ist (`GET /api/coins` liefert
+  `[]`), sonst bricht der Lauf ab.
+- Die Entwicklungs-DB und die Dev-Server (5172/5173) bleiben unberührt und dürfen parallel laufen.
+  In der Shell gesetzte `ConnectionStrings__CoinDb`, `ASPNETCORE_ENVIRONMENT` oder `ASPNETCORE_URLS`
+  werden für die e2e-API überschrieben.
+- Nach dem Lauf wird der Container gestoppt. Unter Windows wird der API-Prozessbaum per `taskkill`
+  beendet; den Container räumt dann in der Praxis Ryuk nach etwa 25 s auf.
+- Bei der ersten Migration erscheint einmalig ein Logeintrag `fail: …` zu `__ef_migrations_history`
+  (die Tabelle existiert in der frischen Datenbank noch nicht). Das ist erwartet und kein Fehler.
+
+Weitere Befehle (in `e2e/`):
+
+```powershell
+npm run test:skripte                         # node --test für die Hilfsskripte in scripts/
+node scripts/abnahme-dev-db-unberuehrt.mjs   # Abnahme: Dev-DB vor und nach einem Lauf gleich
+```
+
+Das Abnahmeskript braucht die laufende Compose-DB (Container `coin-db-1`), liest dort nur die
+Zeilenzahlen von `coin_typ` und `coin_bild` und startet dazwischen einen vollständigen
+Playwright-Lauf (Option `--ci` setzt `CI=1`). Es prüft außerdem, dass danach kein
+Systemtest-Container mehr läuft und die Ausgabe kein Passwort enthält.
