@@ -21,6 +21,8 @@ const TEXT_TEILERFOLG = 'Coin wurde angelegt, das Bild konnte nicht gespeichert 
 const TEXT_KONFLIKT = 'Ein Coin mit diesem Namen und Herausgeber existiert bereits.'
 const TEXT_ALLGEMEINER_FEHLER = 'Der Coin konnte nicht angelegt werden. Bitte später erneut versuchen.'
 const TEXT_SERVER_VALIDIERUNG = 'Die Eingaben wurden vom Server abgelehnt. Bitte prüfen.'
+const TEXT_KEIN_ZUGRIFF = 'Sie sind nicht berechtigt, Coins zu erfassen.'
+const TEXT_NICHT_ANGEMELDET = 'Ihre Anmeldung ist abgelaufen. Sie werden zur Anmeldung weitergeleitet …'
 
 const LEERE_WERTE = { name: '', herausgeber: '', auflage: '', beschreibung: '' }
 type TextFeld = keyof typeof LEERE_WERTE
@@ -38,7 +40,7 @@ const SERVER_FELDER: Record<string, CoinFeld> = {
 const DATEIFELD_KLASSEN =
   'w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm file:mr-2 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-invalid:border-destructive dark:bg-input/30'
 
-type Meldung = { art: 'erfolg' | 'fehler' | 'teilerfolg'; text: string }
+type Meldung = { art: 'erfolg' | 'hinweis' | 'fehler' | 'teilerfolg'; text: string }
 
 function serverFehler(fehler: Record<string, string[]>): CoinFehler {
   const ergebnis: CoinFehler = {}
@@ -59,6 +61,10 @@ function grundFuerBildFehler(ergebnis: Exclude<ApiErgebnis<Coin>, { art: 'ok' }>
       return ergebnis.fehler.datei?.join(' ') || 'Die Datei wurde vom Server abgelehnt.'
     case 'nichtGefunden':
       return 'Der Coin wurde nicht gefunden.'
+    case 'keinZugriff':
+      return TEXT_KEIN_ZUGRIFF
+    case 'nichtAngemeldet':
+      return 'Ihre Anmeldung ist abgelaufen.'
     default:
       return 'Der Server war nicht erreichbar. Bitte erneut versuchen.'
   }
@@ -192,6 +198,13 @@ export function CoinFormular({ onGespeichert }: CoinFormularProps) {
         case 'konflikt':
           setMeldung({ art: 'fehler', text: TEXT_KONFLIKT })
           return
+        case 'keinZugriff':
+          setMeldung({ art: 'fehler', text: TEXT_KEIN_ZUGRIFF })
+          return
+        case 'nichtAngemeldet':
+          // Die App entfernt die Sitzung und startet die Anmeldung (AK-27); die Eingaben gehen dabei verloren.
+          setMeldung({ art: 'hinweis', text: TEXT_NICHT_ANGEMELDET })
+          return
         default:
           setMeldung({ art: 'fehler', text: TEXT_ALLGEMEINER_FEHLER })
           return
@@ -318,7 +331,8 @@ export function CoinFormular({ onGespeichert }: CoinFormularProps) {
           {meldung.text}
         </p>
       )}
-      {meldung && meldung.art !== 'erfolg' && (
+      {meldung?.art === 'hinweis' && <p role="status">{meldung.text}</p>}
+      {(meldung?.art === 'fehler' || meldung?.art === 'teilerfolg') && (
         <div role="alert" className="grid justify-items-start gap-2 text-destructive">
           <p>{meldung.text}</p>
           {meldung.art === 'teilerfolg' && offenerUpload && (

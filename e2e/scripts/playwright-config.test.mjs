@@ -69,4 +69,19 @@ describe('playwright.config.ts', () => {
   test('Web-webServer verwendet nie einen laufenden Server wieder', () => {
     assert.equal(webServer?.reuseExistingServer, false)
   })
+
+  // Feature anmeldung-keycloak (ADR-0015): Vite braucht die Authority des Systemtest-Keycloaks schon beim Start.
+  test('Web-webServer setzt VITE_OIDC_AUTHORITY auf den Systemtest-Keycloak (5184)', () => {
+    assert.equal(webServer?.env?.VITE_OIDC_AUTHORITY, 'http://localhost:5184/realms/coin')
+  })
+
+  test('Web-webServer setzt VITE_OIDC_CLIENT_ID auf coin-web', () => {
+    assert.equal(webServer?.env?.VITE_OIDC_CLIENT_ID, 'coin-web')
+  })
+
+  test('kein webServer verweist auf den Dev-Keycloak 8180', () => {
+    for (const s of config.webServer) {
+      assert.doesNotMatch(`${s.url} ${s.command} ${JSON.stringify(s.env ?? {})}`, /8180/)
+    }
+  })
 })

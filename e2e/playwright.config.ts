@@ -13,9 +13,15 @@ import { defineConfig, devices } from '@playwright/test'
  * auf Port 5183 (Proxy /api → 5182). Laufende Server werden nie wiederverwendet; ist ein Port belegt,
  * bricht der Lauf ab. `global-setup.ts` prüft vor dem ersten Test, dass die Datenbank leer ist.
  * Die Entwicklungs-DB und Dev-Server (5172/5173) bleiben unberührt.
+ *
+ * Anmeldung (anmeldung-keycloak, ADR-0015): `start-api.mjs` startet zusätzlich einen Wegwerf-Keycloak mit
+ * dem Realm aus infra/keycloak/coin-realm.json auf dem festen Port 5184. Vite bekommt dessen Authority schon
+ * beim Start. Der Dev-Keycloak (8180) bleibt unberührt.
  */
 const API_URL = 'http://localhost:5182'
 const WEB_URL = 'http://localhost:5183'
+const OIDC_AUTHORITY = 'http://localhost:5184/realms/coin'
+const OIDC_CLIENT_ID = 'coin-web'
 
 export default defineConfig({
   testDir: './tests',
@@ -35,7 +41,8 @@ export default defineConfig({
       command: 'node scripts/start-api.mjs',
       url: `${API_URL}/api/coins`,
       reuseExistingServer: false,
-      timeout: 180_000,
+      // Container (PostgreSQL, Keycloak) und Release-Build der API.
+      timeout: 300_000,
       stdout: 'pipe',
       // POSIX: SIGTERM an das Startskript, das API und Container stoppt. Windows: hartes Beenden, Ryuk räumt auf.
       gracefulShutdown: { signal: 'SIGTERM', timeout: 10_000 },
@@ -44,7 +51,7 @@ export default defineConfig({
       command: 'npm run dev -- --port 5183 --strictPort',
       cwd: '../web',
       url: WEB_URL,
-      env: { VITE_API_PROXY_TARGET: API_URL },
+      env: { VITE_API_PROXY_TARGET: API_URL, VITE_OIDC_AUTHORITY: OIDC_AUTHORITY, VITE_OIDC_CLIENT_ID: OIDC_CLIENT_ID },
       reuseExistingServer: false,
       timeout: 120_000,
     },

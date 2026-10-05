@@ -15,6 +15,7 @@
     "@playwright/test": "^1.63.0",
     "@testcontainers/postgresql": "^12.2.0",
     "@types/node": "^24.13.3",
+    "testcontainers": "^12.2.0",
     "typescript": "~6.0.2"
   }
 }

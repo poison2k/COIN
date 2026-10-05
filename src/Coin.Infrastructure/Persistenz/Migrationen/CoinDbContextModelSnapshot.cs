@@ -22,6 +22,61 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.BenutzerDatensatz", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AktualisiertAm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("aktualisiert_am");
+
+                    b.Property<string>("Anzeigename")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("anzeigename");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("email");
+
+                    b.Property<DateTimeOffset>("ErstelltAm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("erstellt_am");
+
+                    b.Property<string>("Issuer")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("issuer");
+
+                    b.Property<string>("Rolle")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("rolle");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("subject");
+
+                    b.HasKey("Id")
+                        .HasName("pk_benutzer");
+
+                    b.HasIndex("Issuer", "Subject")
+                        .IsUnique()
+                        .HasDatabaseName("ux_benutzer_issuer_subject");
+
+                    b.ToTable("benutzer", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_benutzer_rolle", "rolle IS NULL OR rolle IN ('Administrator', 'Sachbearbeiter', 'Betrachter')");
+                        });
+                });
+
             modelBuilder.Entity("Coin.Infrastructure.Persistenz.CoinBildDatensatz", b =>
                 {
                     b.Property<Guid>("CoinId")

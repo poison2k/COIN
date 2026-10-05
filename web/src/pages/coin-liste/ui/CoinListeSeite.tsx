@@ -1,8 +1,20 @@
 import { useEffect, useState } from 'react'
 import { CoinListe, ladeCoins, type Coin } from '@/entities/coin'
+import { AnmeldenButton } from '@/features/anmeldung'
 import { CoinFormular } from '@/features/coin-anlegen'
 
 type Zustand = { art: 'laedt' } | { art: 'fehler' } | { art: 'bereit'; coins: Coin[] }
+
+/**
+ * Darf der Benutzer Coins erfassen (AK-33)? erlaubt: Administrator, Sachbearbeiter; anmelden: anonym;
+ * keineBerechtigung: angemeldet ohne Schreibrolle; unbekannt: Anmeldung wird noch geprüft oder Prüfung gescheitert.
+ */
+export type Erfassen = 'erlaubt' | 'anmelden' | 'keineBerechtigung' | 'unbekannt'
+
+export interface CoinListeSeiteProps {
+  /** Standard 'erlaubt'. */
+  erfassen?: Erfassen
+}
 
 function sortiere(coins: Coin[]): Coin[] {
   return [...coins].sort(
@@ -12,9 +24,10 @@ function sortiere(coins: Coin[]): Coin[] {
 
 /**
  * Seite „Coin-Liste“ (/coins): Formular „Coin anlegen“ und Katalogliste (AK-28, AK-29, AK-33).
+ * Die Katalogliste sieht jeder; der Abschnitt „Neuen Coin erfassen“ hängt von `erfassen` ab (anmeldung-keycloak).
  * Rendert kein eigenes <main>; das Landmark stellt die App-Shell (SidebarInset).
  */
-export function CoinListeSeite() {
+export function CoinListeSeite({ erfassen = 'erlaubt' }: CoinListeSeiteProps) {
   const [zustand, setZustand] = useState<Zustand>({ art: 'laedt' })
 
   useEffect(() => {
@@ -48,7 +61,16 @@ export function CoinListeSeite() {
         <h2 id="ueberschrift-anlegen" className="text-lg font-semibold">
           Neuen Coin erfassen
         </h2>
-        <CoinFormular onGespeichert={gespeichert} />
+        {erfassen === 'erlaubt' && <CoinFormular onGespeichert={gespeichert} />}
+        {erfassen === 'anmelden' && (
+          <div className="grid justify-items-start gap-3">
+            <p>Zum Erfassen von Coins melden Sie sich bitte an.</p>
+            <AnmeldenButton />
+          </div>
+        )}
+        {erfassen === 'keineBerechtigung' && (
+          <p className="text-muted-foreground">Coins erfassen können nur Administratoren und Sachbearbeiter.</p>
+        )}
       </section>
 
       <section aria-labelledby="ueberschrift-liste" className="grid gap-4">

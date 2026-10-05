@@ -6,26 +6,87 @@ using System.Text.Json;
 
 namespace Coin.IntegrationTests.Infrastruktur;
 
-/// <summary>Gemeinsame Basis: leert die Datenbank vor jedem Test und bietet HTTP-Hilfen.</summary>
+/// <summary>
+/// Gemeinsame Basis: leert die Datenbank vor jedem Test und bietet HTTP-Hilfen.
+/// <see cref="Client"/> sendet das Token des Bootstrap-Administrators (schreibende Aufrufe),
+/// <see cref="Anonym"/> sendet kein Token (öffentliches Lesen, ADR-0014).
+/// </summary>
 [Collection(PostgresCollection.Name)]
 public abstract class IntegrationTestBasis(PostgresFixture fixture) : IAsyncLifetime
 {
     protected const string CoinsUrl = "/api/coins";
 
+    protected const string MeUrl = "/api/me";
+
     protected PostgresFixture Fixture { get; } = fixture;
 
+    /// <summary>Standard-Client mit dem Token des Bootstrap-Administrators.</summary>
     protected HttpClient Client { get; private set; } = null!;
+
+    /// <summary>Client ohne Token.</summary>
+    protected HttpClient Anonym { get; private set; } = null!;
+
+    protected BenutzerTabelle BenutzerDb => new(Fixture.ConnectionString);
+
+    protected static TestIdentitaetsanbieter Idp => TestIdentitaetsanbieter.Standard;
+
+    private readonly List<HttpClient> _weitereClients = [];
 
     public async Task InitializeAsync()
     {
         await Fixture.DatenbankLeerenAsync();
         Client = Fixture.Factory.CreateClient();
+        Anonym = Fixture.Factory.ClientOhneToken();
     }
 
     public Task DisposeAsync()
     {
         Client.Dispose();
+        Anonym.Dispose();
+        foreach (var client in _weitereClients)
+        {
+            client.Dispose();
+        }
+
         return Task.CompletedTask;
+    }
+
+    /// <summary>Client ohne Token (wird am Testende entsorgt).</summary>
+    protected HttpClient ClientOhneToken() => Merken(Fixture.Factory.ClientOhneToken());
+
+    /// <summary>Client mit beliebigem (auch ungültigem) Bearer-Token.</summary>
+    protected HttpClient ClientMitToken(string token) => Merken(Fixture.Factory.ClientMitToken(token));
+
+    /// <summary>Client mit einem gültigen Token zu den angegebenen Daten.</summary>
+    protected HttpClient ClientMit(TokenDaten daten) => ClientMitToken(Idp.ErzeugeToken(daten));
+
+    /// <summary>
+    /// Legt einen Benutzer per /api/me an und setzt seine Rolle direkt in der Test-DB (Sachbearbeiter, Betrachter
+    /// werden erst in einem späteren Feature vergeben, AK-19). <c>null</c> = keine Rolle.
+    /// </summary>
+    protected async Task<HttpClient> ClientMitRolleAsync(string? rolle)
+    {
+        var daten = new TokenDaten
+        {
+            Subject = $"sub-{rolle ?? "keine"}-{Guid.NewGuid():N}",
+            Email = $"{(rolle ?? "keine").ToLowerInvariant()}@coin-test.invalid",
+            Name = $"Test {rolle ?? "Ohne Rolle"}",
+        };
+        var client = ClientMit(daten);
+        using var me = await client.GetAsync(MeUrl);
+        Assert.Equal(HttpStatusCode.OK, me.StatusCode);
+        if (rolle is not null)
+        {
+            await BenutzerDb.RolleSetzenAsync(daten.Subject!, rolle);
+        }
+
+        return client;
+    }
+
+    private HttpClient Merken(HttpClient client)
+    {
+        _weitereClients.Add(client);
+        return client;
     }
 
     protected static string BildUrl(Guid id) => $"{CoinsUrl}/{id}/bild";
@@ -83,7 +144,7 @@ public abstract class IntegrationTestBasis(PostgresFixture fixture) : IAsyncLife
 
     protected async Task<JsonElement[]> LadeListeAsync()
     {
-        using var antwort = await Client.GetAsync(CoinsUrl);
+        using var antwort = await Anonym.GetAsync(CoinsUrl);
         Assert.Equal(HttpStatusCode.OK, antwort.StatusCode);
         var json = await JsonAsync(antwort);
         Assert.Equal(JsonValueKind.Array, json.ValueKind);

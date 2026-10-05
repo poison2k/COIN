@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
+import { meldeAn } from './hilfen/anmeldung'
 
 // Systemtests Coin-Katalog (Pilot): zentraler Nutzerfluss über Browser, Vite-Proxy, API und PostgreSQL.
 // Testdaten sind synthetisch; Namen erhalten ein eindeutiges Suffix, da sich die Tests eines Laufs die (pro Lauf neue) Datenbank teilen.
@@ -25,6 +26,8 @@ function zeileMit(page: Page, name: string) {
 }
 
 test.beforeEach(async ({ page }) => {
+  // Feature anmeldung-keycloak (AK-37): Schreiben nur angemeldet; Anmeldung als Bootstrap-Admin über Keycloak.
+  await meldeAn(page, 'admin@test.local')
   await page.goto('/coins')
   // Warten, bis die Liste geladen ist (Tabelle oder Leermeldung), damit keine späte GET-Antwort neue Einträge überschreibt.
   await expect(page.getByRole('table').or(page.getByText('Noch keine Coins erfasst.'))).toBeVisible()

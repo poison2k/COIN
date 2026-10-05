@@ -31,13 +31,13 @@ public sealed class PostgresFixture : IAsyncLifetime
     }
 
     /// <summary>Erzeugt einen weiteren, unabhängigen Testhost auf derselben Datenbank (z. B. für Neustart-Tests).</summary>
-    public CoinApiFactory NeueFactory() => new(ConnectionString);
+    public CoinApiFactory NeueFactory(FactoryOptionen? optionen = null) => new(ConnectionString, optionen);
 
     public async Task DatenbankLeerenAsync()
     {
         using var scope = Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CoinDbContext>();
-        await db.Database.ExecuteSqlRawAsync("TRUNCATE coin_typ CASCADE");
+        await db.Database.ExecuteSqlRawAsync("TRUNCATE coin_typ, benutzer CASCADE");
     }
 
     public async Task DisposeAsync()

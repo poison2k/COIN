@@ -1,3 +1,4 @@
+using Coin.Domain.Benutzer;
 using Coin.Domain.Katalog;
 using Coin.Infrastructure.Persistenz;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,7 @@ public static class InfrastrukturRegistrierung
             Konfigurieren(options, ConnectionString(sp.GetRequiredService<IConfiguration>())));
 
         services.AddScoped<ICoinKatalogRepository, CoinKatalogRepository>();
+        services.AddScoped<IBenutzerRepository, BenutzerRepository>();
         return services;
     }
 

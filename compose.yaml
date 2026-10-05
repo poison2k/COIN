@@ -1,8 +1,12 @@
-# Lokale PostgreSQL-Datenbank für die Entwicklung (ADR-0003).
-# Passwort steht in der gitignorierten Datei .env (Vorlage: .env.example).
+# Lokale Entwicklungsumgebung: PostgreSQL (ADR-0003) und Test-Keycloak (ADR-0012).
+# Passwörter stehen in der gitignorierten Datei .env (Vorlage: .env.example).
 #
 #   docker compose up -d
 #   dotnet user-secrets set "ConnectionStrings:CoinDb" "Host=localhost;Port=5432;Database=coin;Username=coin;Password=<aus .env>" --project src/Coin.Api
+#
+# Keycloak: http://localhost:8180, Realm „coin“ aus infra/keycloak/coin-realm.json (nur Testdaten).
+# --import-realm überspringt einen vorhandenen Realm; nach Änderungen an der Realm-Datei:
+#   docker compose up -d --force-recreate keycloak
 services:
   db:
     image: postgres:17
@@ -19,6 +23,27 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.0
+    command: start-dev --import-realm
+    environment:
+      KC_HOSTNAME: http://localhost:8180
+      KC_HEALTH_ENABLED: "true"
+      # Admin-Konsole (/admin); hat nichts mit dem Testbenutzer admin@test.local zu tun.
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${COIN_KEYCLOAK_ADMIN_PASSWORD:?COIN_KEYCLOAK_ADMIN_PASSWORD in .env setzen (siehe .env.example)}
+    ports:
+      - "127.0.0.1:8180:8080"
+    volumes:
+      - ./infra/keycloak/coin-realm.json:/opt/keycloak/data/import/coin-realm.json:ro
+    healthcheck:
+      # Management-Port 9000 wird nicht veröffentlicht; Prüfung per Bash im Container (kein curl im Image).
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
 
 volumes:
   coin-db:

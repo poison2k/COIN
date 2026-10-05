@@ -1,3 +1,4 @@
+using Coin.Domain.Benutzer;
 using Coin.Domain.Katalog;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -42,5 +43,28 @@ internal sealed class CoinBildKonfiguration : IEntityTypeConfiguration<CoinBildD
         builder.Property(b => b.Sha256).HasColumnType("char(64)").IsRequired();
         builder.Property(b => b.GroesseBytes).IsRequired();
         builder.Property(b => b.HochgeladenAm).HasColumnType("timestamp with time zone").IsRequired();
+    }
+}
+
+internal sealed class BenutzerKonfiguration : IEntityTypeConfiguration<BenutzerDatensatz>
+{
+    public const int MaxRolleLaenge = 20;
+
+    public void Configure(EntityTypeBuilder<BenutzerDatensatz> builder)
+    {
+        var rollen = string.Join(", ", Enum.GetNames<Rolle>().Select(r => $"'{r}'"));
+        builder.ToTable("benutzer", t => t.HasCheckConstraint("ck_benutzer_rolle", $"rolle IS NULL OR rolle IN ({rollen})"));
+
+        builder.HasKey(b => b.Id);
+        builder.Property(b => b.Id).ValueGeneratedNever();
+        builder.Property(b => b.Issuer).HasMaxLength(BenutzerIdentitaet.MaxIssuerLaenge).IsRequired();
+        builder.Property(b => b.Subject).HasMaxLength(BenutzerIdentitaet.MaxSubjectLaenge).IsRequired();
+        builder.Property(b => b.Email).HasMaxLength(BenutzerIdentitaet.MaxEmailLaenge);
+        builder.Property(b => b.Anzeigename).HasMaxLength(BenutzerIdentitaet.MaxAnzeigenameLaenge).IsRequired();
+        builder.Property(b => b.Rolle).HasMaxLength(MaxRolleLaenge);
+        builder.Property(b => b.ErstelltAm).HasColumnType("timestamp with time zone").IsRequired();
+        builder.Property(b => b.AktualisiertAm).HasColumnType("timestamp with time zone").IsRequired();
+
+        builder.HasIndex(b => new { b.Issuer, b.Subject }).IsUnique().HasDatabaseName("ux_benutzer_issuer_subject");
     }
 }

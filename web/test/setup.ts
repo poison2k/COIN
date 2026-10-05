@@ -22,5 +22,8 @@ afterEach(() => {
   vi.unstubAllGlobals()
   // Theme-Zustand (AK-16) darf nicht von einem Test in den nächsten wandern.
   localStorage.clear()
+  // Anmeldung (anmeldung-keycloak): keine Sitzung und keine Browser-URL in den nächsten Test mitnehmen.
+  sessionStorage.clear()
+  window.history.replaceState(null, '', '/')
   document.documentElement.classList.remove('light', 'dark')
 })

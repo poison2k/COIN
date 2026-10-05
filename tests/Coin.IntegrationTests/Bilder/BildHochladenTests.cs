@@ -16,14 +16,14 @@ public class BildHochladenTests(PostgresFixture fixture) : IntegrationTestBasis(
 
     private async Task<byte[]> LadeBildAsync(Guid id)
     {
-        using var antwort = await Client.GetAsync(BildUrl(id));
+        using var antwort = await Anonym.GetAsync(BildUrl(id));
         Assert.Equal(HttpStatusCode.OK, antwort.StatusCode);
         return await antwort.Content.ReadAsByteArrayAsync();
     }
 
     private async Task AssertKeinBildAsync(Guid id)
     {
-        using var antwort = await Client.GetAsync(BildUrl(id));
+        using var antwort = await Anonym.GetAsync(BildUrl(id));
         Assert.Equal(HttpStatusCode.NotFound, antwort.StatusCode);
     }
 
@@ -273,7 +273,7 @@ public class BildHochladenTests(PostgresFixture fixture) : IntegrationTestBasis(
         using var antwort = await PutBildAsync(id, Testbilder.Text(), contentType: "image/png");
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, antwort.StatusCode);
 
-        using var abruf = await Client.GetAsync($"{CoinsUrl}/{id}");
+        using var abruf = await Anonym.GetAsync($"{CoinsUrl}/{id}");
         Assert.Equal(urlVorher, (await JsonAsync(abruf)).GetProperty("bildUrl").GetString());
     }
 

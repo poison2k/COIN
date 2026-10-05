@@ -33,3 +33,23 @@ public sealed class CoinBildDatensatz
 
     public DateTimeOffset HochgeladenAm { get; set; }
 }
+
+/// <summary>Persistenzmodell der Tabelle <c>benutzer</c> (ADR-0013). <see cref="Rolle"/> <c>null</c> = keine Rolle.</summary>
+public sealed class BenutzerDatensatz
+{
+    public Guid Id { get; set; }
+
+    public string Issuer { get; set; } = string.Empty;
+
+    public string Subject { get; set; } = string.Empty;
+
+    public string? Email { get; set; }
+
+    public string Anzeigename { get; set; } = string.Empty;
+
+    public string? Rolle { get; set; }
+
+    public DateTimeOffset ErstelltAm { get; set; }
+
+    public DateTimeOffset AktualisiertAm { get; set; }
+}

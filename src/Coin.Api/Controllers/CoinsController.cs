@@ -1,6 +1,8 @@
+using Coin.Api.Authentifizierung;
 using Coin.Api.Contracts;
 using Coin.Api.Http;
 using Coin.Domain.Katalog;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
 
@@ -8,7 +10,8 @@ namespace Coin.Api.Controllers;
 
 /// <summary>
 /// Coin-Katalog. Aktionen bilden nur HTTP auf die Use Cases in <see cref="CoinKatalogService"/> ab (ADR-0001).
-/// Pilot ohne Authentifizierung (ADR-0004); Policies werden später pro Aktion ergänzt.
+/// Lesen ist öffentlich (ADR-0014, ausdrücklich <c>[AllowAnonymous]</c>), Schreiben verlangt die Policy
+/// <see cref="Policies.KatalogSchreiben"/>. Die Autorisierung läuft vor Model Binding und Body-Lesen (AK-19).
 /// </summary>
 [ApiController]
 [Route("api/coins")]
@@ -24,7 +27,8 @@ public sealed class CoinsController(CoinKatalogService service) : ControllerBase
     private const string DateiFeld = "datei";
 
     [HttpPost]
-    [Consumes("application/json")]
+    [Authorize(Policy = Policies.KatalogSchreiben)]
+    [Inhaltstyp("application/json")]
     public async Task<ActionResult<CoinResponse>> Anlegen([FromBody] CoinAnlegenRequest request, CancellationToken ct)
     {
         var ergebnis = await service.AnlegenAsync(
@@ -44,6 +48,7 @@ public sealed class CoinsController(CoinKatalogService service) : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<CoinResponse>>> Auflisten(CancellationToken ct)
     {
         var coins = await service.AuflistenAsync(ct);
@@ -51,6 +56,7 @@ public sealed class CoinsController(CoinKatalogService service) : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [AllowAnonymous]
     public async Task<ActionResult<CoinResponse>> Finden(Guid id, CancellationToken ct)
     {
         var coin = await service.FindenAsync(id, ct);
@@ -58,7 +64,8 @@ public sealed class CoinsController(CoinKatalogService service) : ControllerBase
     }
 
     [HttpPut("{id:guid}/bild")]
-    [Consumes("multipart/form-data")]
+    [Authorize(Policy = Policies.KatalogSchreiben)]
+    [Inhaltstyp("multipart/form-data")]
     [RequestSizeLimit(KestrelUploadLimitBytes)]
     [FormularBindungDeaktivieren]
     public async Task<ActionResult<CoinResponse>> BildHochladen([FromRoute] Guid id, CancellationToken ct)
@@ -93,6 +100,7 @@ public sealed class CoinsController(CoinKatalogService service) : ControllerBase
     }
 
     [HttpGet("{id:guid}/bild")]
+    [AllowAnonymous]
     public async Task<IActionResult> BildAbrufen(Guid id, CancellationToken ct)
     {
         // Der Query-Parameter v dient nur dem Cache-Busting und wird ignoriert.

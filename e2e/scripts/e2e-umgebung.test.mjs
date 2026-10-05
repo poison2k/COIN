@@ -239,3 +239,37 @@ describe('Docker-Fehlermeldung (AK-8)', () => {
     assert.match(startFehlerMeldung('kaputt'), /Docker starten/)
   })
 })
+
+// Feature anmeldung-keycloak (QA-Hinweis H7): WebApplication liest auch ASPNETCORE_- und DOTNET_-präfixierte
+// Umgebungsvariablen als Konfiguration (Präfix wird entfernt). Geerbte Varianten dürfen die API nicht umkonfigurieren.
+describe('baueApiUmgebung – präfixierte Varianten (ASPNETCORE_, DOTNET_)', () => {
+  const praefixiert = [
+    'ASPNETCORE_Bootstrap__AdminEmails__1',
+    'DOTNET_Bootstrap__AdminEmails__0',
+    'DOTNET_Oidc__Authority',
+    'ASPNETCORE_Oidc__Audience',
+    'dotnet_oidc__clientid',
+    'ASPNETCORE_Frontend__Ursprung',
+    'DOTNET_Authentication__Schemes__Bearer__Authority',
+    'ASPNETCORE_Authentication__Schemes__Bearer__ValidAudiences__0',
+    'DOTNET_ConnectionStrings__CoinDb',
+    'ASPNETCORE_ConnectionStrings__CoinDb',
+  ]
+
+  for (const name of praefixiert) {
+    test(`entfernt ${name}`, () => {
+      const env = baueApiUmgebung({ [name]: 'http://boese.example' }, CONTAINER_CS)
+      assert.deepEqual(schluesselCaseInsensitiv(env, name), [])
+    })
+  }
+
+  test('behält die eigenen Werte, wenn präfixierte Varianten geerbt wurden', () => {
+    const env = baueApiUmgebung({ DOTNET_Oidc__Authority: 'http://boese.example' }, CONTAINER_CS)
+    assert.equal(env.Oidc__Authority, 'http://localhost:5184/realms/coin')
+  })
+
+  test('behält unbeteiligte ASPNETCORE_- und DOTNET_-Variablen (z. B. DOTNET_CLI_TELEMETRY_OPTOUT)', () => {
+    const env = baueApiUmgebung({ DOTNET_CLI_TELEMETRY_OPTOUT: '1' }, CONTAINER_CS)
+    assert.equal(env.DOTNET_CLI_TELEMETRY_OPTOUT, '1')
+  })
+})

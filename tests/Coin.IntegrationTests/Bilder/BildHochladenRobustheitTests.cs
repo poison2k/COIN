@@ -79,7 +79,7 @@ public class BildHochladenRobustheitTests(PostgresFixture fixture) : Integration
         using var antwort = await Client.PutAsync(BildUrl(id), inhalt);
         Assert.NotEqual(HttpStatusCode.OK, antwort.StatusCode);
 
-        using var abruf = await Client.GetAsync(BildUrl(id));
+        using var abruf = await Anonym.GetAsync(BildUrl(id));
         Assert.Equal(HttpStatusCode.NotFound, abruf.StatusCode);
     }
 
@@ -131,7 +131,10 @@ public class BildHochladenRobustheitTests(PostgresFixture fixture) : Integration
         using var vorlage = factory.CreateClient();
         var adresse = vorlage.BaseAddress!;
         Assert.NotEqual(80, adresse.Port); // Voraussetzung: echter Kestrel mit dynamischem Port, nicht TestServer
-        return new HttpClient { BaseAddress = adresse, Timeout = TimeSpan.FromMinutes(2) };
+        var client = new HttpClient { BaseAddress = adresse, Timeout = TimeSpan.FromMinutes(2) };
+        // Schreibende Aufrufe brauchen das Admin-Token des Standard-Clients (anmeldung-keycloak, AK-19).
+        client.DefaultRequestHeaders.Authorization = vorlage.DefaultRequestHeaders.Authorization;
+        return client;
     }
 
     private static HttpRequestMessage ChunkedPut(Guid id, HttpContent inhalt)

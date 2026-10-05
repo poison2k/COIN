@@ -24,7 +24,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
     {
         var (id, inhalt) = await CoinMitBildAsync(Testbilder.Png(4096));
 
-        using var antwort = await Client.GetAsync(BildUrl(id));
+        using var antwort = await Anonym.GetAsync(BildUrl(id));
 
         Assert.Equal(HttpStatusCode.OK, antwort.StatusCode);
         Assert.Equal(inhalt, await antwort.Content.ReadAsByteArrayAsync());
@@ -44,7 +44,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
         };
         var (id, _) = await CoinMitBildAsync(inhalt);
 
-        using var antwort = await Client.GetAsync(BildUrl(id));
+        using var antwort = await Anonym.GetAsync(BildUrl(id));
 
         Assert.Equal(contentType, antwort.Content.Headers.ContentType?.MediaType);
     }
@@ -58,7 +58,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
             Assert.Equal(HttpStatusCode.OK, upload.StatusCode);
         }
 
-        using var antwort = await Client.GetAsync(BildUrl(id));
+        using var antwort = await Anonym.GetAsync(BildUrl(id));
 
         Assert.Equal("image/jpeg", antwort.Content.Headers.ContentType?.MediaType);
     }
@@ -68,7 +68,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
     {
         var (id, inhalt) = await CoinMitBildAsync(Testbilder.Png());
 
-        using var antwort = await Client.GetAsync($"{BildUrl(id)}?v=beliebig");
+        using var antwort = await Anonym.GetAsync($"{BildUrl(id)}?v=beliebig");
 
         Assert.Equal(HttpStatusCode.OK, antwort.StatusCode);
         Assert.Equal(inhalt, await antwort.Content.ReadAsByteArrayAsync());
@@ -81,7 +81,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
         var inhalt = Testbilder.Webp(777);
         var bildUrl = (await LadeBildHochAsync(id, inhalt)).GetProperty("bildUrl").GetString();
 
-        using var antwort = await Client.GetAsync(bildUrl);
+        using var antwort = await Anonym.GetAsync(bildUrl);
 
         Assert.Equal(HttpStatusCode.OK, antwort.StatusCode);
         Assert.Equal(inhalt, await antwort.Content.ReadAsByteArrayAsync());
@@ -94,7 +94,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
     {
         var (id, _) = await CoinMitBildAsync(Testbilder.Png());
 
-        using var antwort = await Client.GetAsync(BildUrl(id));
+        using var antwort = await Anonym.GetAsync(BildUrl(id));
 
         Assert.Equal(["nosniff"], antwort.Headers.GetValues("X-Content-Type-Options"));
     }
@@ -104,7 +104,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
     {
         var (id, _) = await CoinMitBildAsync(Testbilder.Png());
 
-        using var antwort = await Client.GetAsync(BildUrl(id));
+        using var antwort = await Anonym.GetAsync(BildUrl(id));
 
         Assert.Equal(["default-src 'none'; sandbox"], antwort.Headers.GetValues("Content-Security-Policy"));
     }
@@ -127,7 +127,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
             Assert.Equal(HttpStatusCode.OK, upload.StatusCode);
         }
 
-        using var antwort = await Client.GetAsync(BildUrl(id));
+        using var antwort = await Anonym.GetAsync(BildUrl(id));
 
         var disposition = antwort.Content.Headers.ContentDisposition;
         Assert.NotNull(disposition);
@@ -141,7 +141,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
     {
         var (id, _) = await CoinMitBildAsync(Testbilder.Png());
 
-        using var antwort = await Client.GetAsync(BildUrl(id));
+        using var antwort = await Anonym.GetAsync(BildUrl(id));
 
         var cache = antwort.Headers.CacheControl;
         Assert.NotNull(cache);
@@ -156,7 +156,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
     {
         var (id, inhalt) = await CoinMitBildAsync(Testbilder.Jpeg(2222));
 
-        using var antwort = await Client.GetAsync(BildUrl(id));
+        using var antwort = await Anonym.GetAsync(BildUrl(id));
 
         var etag = antwort.Headers.ETag;
         Assert.NotNull(etag);
@@ -171,7 +171,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
         using var anfrage = new HttpRequestMessage(HttpMethod.Get, BildUrl(id));
         anfrage.Headers.IfNoneMatch.Add(new EntityTagHeaderValue($"\"{Sha256(inhalt)}\""));
 
-        using var antwort = await Client.SendAsync(anfrage);
+        using var antwort = await Anonym.SendAsync(anfrage);
 
         Assert.Equal(HttpStatusCode.NotModified, antwort.StatusCode);
         Assert.Empty(await antwort.Content.ReadAsByteArrayAsync());
@@ -184,7 +184,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
         using var anfrage = new HttpRequestMessage(HttpMethod.Get, BildUrl(id));
         anfrage.Headers.IfNoneMatch.Add(new EntityTagHeaderValue($"\"{new string('0', 64)}\""));
 
-        using var antwort = await Client.SendAsync(anfrage);
+        using var antwort = await Anonym.SendAsync(anfrage);
 
         Assert.Equal(HttpStatusCode.OK, antwort.StatusCode);
         Assert.Equal(inhalt, await antwort.Content.ReadAsByteArrayAsync());
@@ -197,7 +197,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
         var neuerInhalt = Testbilder.Jpeg(300);
         await LadeBildHochAsync(id, neuerInhalt);
 
-        using var antwort = await Client.GetAsync(BildUrl(id));
+        using var antwort = await Anonym.GetAsync(BildUrl(id));
 
         Assert.Equal($"\"{Sha256(neuerInhalt)}\"", antwort.Headers.ETag?.Tag);
     }
@@ -207,7 +207,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
     [Fact]
     public async Task Get_fuer_unbekannten_Coin_liefert_404_ProblemDetails()
     {
-        using var antwort = await Client.GetAsync(BildUrl(Guid.NewGuid()));
+        using var antwort = await Anonym.GetAsync(BildUrl(Guid.NewGuid()));
 
         await AssertProblemDetailsAsync(antwort, HttpStatusCode.NotFound);
     }
@@ -217,7 +217,7 @@ public class BildAbrufenTests(PostgresFixture fixture) : IntegrationTestBasis(fi
     {
         var id = await LegeCoinAnUndLiefereIdAsync();
 
-        using var antwort = await Client.GetAsync(BildUrl(id));
+        using var antwort = await Anonym.GetAsync(BildUrl(id));
 
         await AssertProblemDetailsAsync(antwort, HttpStatusCode.NotFound);
     }

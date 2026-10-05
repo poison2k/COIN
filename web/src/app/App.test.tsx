@@ -2,6 +2,7 @@ import { createMemoryHistory } from '@tanstack/react-router'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { erstelleTestAnmeldung, ME, type TestBenutzer } from '../../test/anmeldung'
 import { erstelleFakeApi } from '../../test/fakeApi'
 import { TEXTE } from '../../test/hilfen'
 import { DUNKEL_QUERY, stubMatchMedia } from '../../test/matchMedia'
@@ -10,17 +11,23 @@ import { erstelleRouter } from './router/router'
 
 // AK-13 bis AK-17, AK-21: Verdrahtung von Router, App-Shell (Sidebar) und Theme.
 // Der Router wird mit Memory-History erzeugt (Abschnitt 4.4 des Entwurfs).
+// Feature anmeldung-keycloak: Die App läuft standardmäßig mit angemeldetem Administrator (Abschnitt 6.2),
+// damit die bestehenden Assertions (z. B. Formular unter /coins) unverändert gelten.
 
 const THEME_SCHLUESSEL = 'coin-theme'
 
+let als: TestBenutzer = 'admin'
+
 beforeEach(() => {
-  vi.stubGlobal('fetch', erstelleFakeApi().fetch)
+  als = 'admin'
+  vi.stubGlobal('fetch', erstelleFakeApi([], { me: ME[als] }).fetch)
 })
 
 function zeigeApp(pfad: string) {
   const user = userEvent.setup()
   const router = erstelleRouter(createMemoryHistory({ initialEntries: [pfad] }))
-  render(<App router={router} />)
+  const anmeldung = erstelleTestAnmeldung('angemeldet', ME[als].name)
+  render(<App router={router} userManager={anmeldung.userManager} />)
   return { user, router }
 }
 

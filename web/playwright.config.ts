@@ -26,7 +26,12 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev -- --port 5193 --strictPort',
     url: WEB_URL,
-    env: { VITE_API_PROXY_TARGET: 'http://127.0.0.1:9' },
+    // Anmeldung (anmeldung-keycloak, Abschnitt 6.3): IdP absichtlich unerreichbar, alle Aufrufe werden gemockt.
+    env: {
+      VITE_API_PROXY_TARGET: 'http://127.0.0.1:9',
+      VITE_OIDC_AUTHORITY: 'http://127.0.0.1:9/realms/coin',
+      VITE_OIDC_CLIENT_ID: 'coin-web',
+    },
     reuseExistingServer: false,
     timeout: 120_000,
   },

@@ -12,7 +12,7 @@ public class CoinLesenTests(PostgresFixture fixture) : IntegrationTestBasis(fixt
     [Fact]
     public async Task GetListe_ohne_Coins_liefert_leeres_Array()
     {
-        using var antwort = await Client.GetAsync(CoinsUrl);
+        using var antwort = await Anonym.GetAsync(CoinsUrl);
 
         Assert.Equal(HttpStatusCode.OK, antwort.StatusCode);
         Assert.Equal("application/json", antwort.Content.Headers.ContentType?.MediaType);
@@ -87,7 +87,7 @@ public class CoinLesenTests(PostgresFixture fixture) : IntegrationTestBasis(fixt
         var angelegt = await LegeCoinAnAsync("Coin Alpha", "Herausgeber Beta", 250, "Ein Text");
         var id = angelegt.GetProperty("id").GetGuid();
 
-        using var antwort = await Client.GetAsync($"{CoinsUrl}/{id}");
+        using var antwort = await Anonym.GetAsync($"{CoinsUrl}/{id}");
 
         Assert.Equal(HttpStatusCode.OK, antwort.StatusCode);
         var coin = await JsonAsync(antwort);
@@ -106,7 +106,7 @@ public class CoinLesenTests(PostgresFixture fixture) : IntegrationTestBasis(fixt
     {
         await LegeCoinAnAsync();
 
-        using var antwort = await Client.GetAsync($"{CoinsUrl}/{Guid.NewGuid()}");
+        using var antwort = await Anonym.GetAsync($"{CoinsUrl}/{Guid.NewGuid()}");
 
         await AssertProblemDetailsAsync(antwort, HttpStatusCode.NotFound);
     }
@@ -116,7 +116,7 @@ public class CoinLesenTests(PostgresFixture fixture) : IntegrationTestBasis(fixt
     [InlineData("123")]
     public async Task GetEinzeln_mit_ungueltiger_Id_liefert_404(string id)
     {
-        using var antwort = await Client.GetAsync($"{CoinsUrl}/{id}");
+        using var antwort = await Anonym.GetAsync($"{CoinsUrl}/{id}");
 
         Assert.Equal(HttpStatusCode.NotFound, antwort.StatusCode);
     }
@@ -129,7 +129,7 @@ public class CoinLesenTests(PostgresFixture fixture) : IntegrationTestBasis(fixt
         await LadeBildHochAsync(id, inhalt);
         var sha = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(inhalt));
 
-        using var antwort = await Client.GetAsync($"{CoinsUrl}/{id}");
+        using var antwort = await Anonym.GetAsync($"{CoinsUrl}/{id}");
         var coin = await JsonAsync(antwort);
 
         Assert.Equal($"/api/coins/{id}/bild?v={sha[..16]}", coin.GetProperty("bildUrl").GetString());

@@ -1,10 +1,13 @@
 // Startskript der Systemtest-API (webServer-Kommando in playwright.config.ts).
 // Feature e2e-testdatenbank, ADR-0007:
-// 1. Startet einen frischen PostgreSQL-Container (Testcontainers) mit zufälligem Passwort.
+// 1. Startet parallel einen frischen PostgreSQL-Container (zufälliges Passwort) und einen frischen
+//    Keycloak-Container (anmeldung-keycloak, ADR-0015: gleicher Image-Tag wie compose.yaml, Realm-Datei per
+//    Kopie, `start-dev --import-realm`, fester Host-Port 5184, Wait auf die Discovery).
 // 2. Startet die API (`dotnet run`, Release, ohne Launch-Profil, Umgebung Testing, Port 5182)
-//    mit dem Connection-String dieses Containers. Migrationen laufen in Testing beim Start.
-// 3. Beendet beim Abbruch (SIGINT/SIGTERM) oder Ende der API beide sauber; Ryuk räumt
-//    den Container auf, falls dieser Prozess hart beendet wird (AK-9).
+//    mit dem Connection-String dieses Containers und Oidc:* des Systemtest-Keycloaks. Migrationen laufen in
+//    Testing beim Start.
+// 3. Beendet beim Abbruch (SIGINT/SIGTERM) oder Ende der API alles sauber; Ryuk räumt
+//    die Container auf, falls dieser Prozess hart beendet wird (AK-9).
 // Connection-String und Passwort werden nie ausgegeben (AK-12).
 // Erwartet: Bei der ersten Migration auf der leeren DB protokolliert EF Core einmalig einen
 // „fail … __ef_migrations_history“-Eintrag (Tabelle existiert noch nicht). Das SQL-Protokoll bleibt
@@ -12,17 +15,25 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
+import { GenericContainer, Wait } from 'testcontainers'
 import {
   E2E_DATENBANK,
+  E2E_KEYCLOAK_PORT,
+  KEYCLOAK_FEHLERMELDUNG,
+  KEYCLOAK_IMAGE,
   POSTGRES_IMAGE,
+  REALM_DATEI,
   baueApiUmgebung,
   baueConnectionString,
   baueDotnetArgumente,
+  baueKeycloakUmgebung,
   beschreibeDatenbank,
+  beschreibeKeycloak,
   startFehlerMeldung,
 } from './e2e-umgebung.mjs'
 
 let container
+let keycloak
 let api
 let beendet = false
 
@@ -40,15 +51,33 @@ function stoppeApi() {
   }
 }
 
-async function stoppeContainer() {
-  const c = container
-  container = undefined
+async function stoppe(c, name) {
   if (!c) return
   try {
     await c.stop({ timeout: 5_000 })
   } catch (e) {
-    console.error(`Systemtest-Datenbank konnte nicht gestoppt werden (Ryuk räumt auf): ${e instanceof Error ? e.message : e}`)
+    console.error(`${name} konnte nicht gestoppt werden (Ryuk räumt auf): ${e instanceof Error ? e.message : e}`)
   }
+}
+
+async function stoppeContainer() {
+  const db = container
+  const kc = keycloak
+  container = undefined
+  keycloak = undefined
+  await Promise.all([stoppe(db, 'Systemtest-Datenbank'), stoppe(kc, 'Systemtest-Keycloak')])
+}
+
+/** Frischer Keycloak mit dem Realm coin auf Port 5184 (ADR-0015). */
+function starteKeycloak() {
+  return new GenericContainer(KEYCLOAK_IMAGE)
+    .withCommand(['start-dev', '--import-realm'])
+    .withEnvironment(baueKeycloakUmgebung())
+    .withCopyFilesToContainer([{ source: REALM_DATEI, target: '/opt/keycloak/data/import/coin-realm.json' }])
+    .withExposedPorts({ container: 8080, host: E2E_KEYCLOAK_PORT })
+    .withWaitStrategy(Wait.forHttp('/realms/coin/.well-known/openid-configuration', 8080).forStatusCode(200))
+    .withStartupTimeout(180_000)
+    .start()
 }
 
 async function beenden(exitCode) {
@@ -64,17 +93,28 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) {
 }
 
 async function main() {
-  try {
-    container = await new PostgreSqlContainer(POSTGRES_IMAGE)
+  const [db, kc] = await Promise.allSettled([
+    new PostgreSqlContainer(POSTGRES_IMAGE)
       .withDatabase(E2E_DATENBANK)
       .withPassword(randomBytes(24).toString('hex'))
-      .start()
-  } catch (e) {
-    console.error(startFehlerMeldung(e))
+      .start(),
+    starteKeycloak(),
+  ])
+  if (db.status === 'fulfilled') container = db.value
+  if (kc.status === 'fulfilled') keycloak = kc.value
+  if (db.status === 'rejected') {
+    console.error(startFehlerMeldung(db.reason))
+    await beenden(1)
+    return
+  }
+  if (kc.status === 'rejected') {
+    console.error(`${KEYCLOAK_FEHLERMELDUNG}
+Ursache: ${kc.reason instanceof Error ? kc.reason.message : kc.reason}`)
     await beenden(1)
     return
   }
   if (beendet) return
+  console.log(beschreibeKeycloak())
 
   const daten = {
     host: container.getHost(),

@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import type { Benutzer } from '@/entities/benutzer'
 import type { Coin } from '@/entities/coin'
 
 /** Eine vom Frontend an die API gesendete Anfrage, wie sie der Fake-Server gesehen hat. */
@@ -76,16 +77,21 @@ function bodyVon(init: RequestInit | undefined): unknown {
 /**
  * In-Memory-Nachbildung der Coin-API. Standardverhalten:
  * GET /api/coins → Liste (nach Name sortiert), POST /api/coins → 201,
- * PUT /api/coins/{id}/bild → 200 mit gesetzter bildUrl bzw. 404.
+ * PUT /api/coins/{id}/bild → 200 mit gesetzter bildUrl bzw. 404,
+ * GET /api/me → 200 mit `optionen.me` bzw. 401 ohne angemeldeten Benutzer (anmeldung-keycloak).
  * Mit `einmal(...)` lässt sich die nächste passende Antwort überschreiben.
  */
-export function erstelleFakeApi(startCoins: Coin[] = []) {
+export function erstelleFakeApi(startCoins: Coin[] = [], optionen: { me?: Benutzer | null } = {}) {
   const coins: Coin[] = [...startCoins]
+  let me: Benutzer | null = optionen.me ?? null
   const anfragen: Anfrage[] = []
   const ueberschreibungen: Array<{ methode: string; pfad: RegExp; antwort: Antwortgeber }> = []
   let zaehler = 0
 
   const standard: Antwortgeber = (anfrage) => {
+    if (anfrage.methode === 'GET' && anfrage.pfad === '/api/me') {
+      return me ? jsonAntwort(200, me) : problemAntwort(401, { title: 'Nicht angemeldet' })
+    }
     if (anfrage.methode === 'GET' && anfrage.pfad === '/api/coins') {
       const sortiert = [...coins].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
       return jsonAntwort(200, sortiert)
@@ -160,6 +166,10 @@ export function erstelleFakeApi(startCoins: Coin[] = []) {
     },
     /** Wendet die Standard-Logik an (z. B. aus einer Überschreibung heraus verzögert). */
     standard,
+    /** Setzt die Antwort von GET /api/me (null = 401). */
+    setzeMe(neu: Benutzer | null) {
+      me = neu
+    },
   }
 }
 

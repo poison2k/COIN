@@ -1,5 +1,6 @@
 // Reine Hilfsfunktionen und Konstanten für das Startskript der Systemtest-API (scripts/start-api.mjs).
-// Feature e2e-testdatenbank, siehe docs/features/e2e-testdatenbank.md und ADR-0007.
+// Feature e2e-testdatenbank, siehe docs/features/e2e-testdatenbank.md und ADR-0007;
+// Systemtest-Keycloak: Feature anmeldung-keycloak, ADR-0015.
 // Keine Seiteneffekte: Die Funktionen bauen nur Werte zusammen und sind mit `node --test` prüfbar.
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,6 +15,20 @@ export const DOCKER_FEHLERMELDUNG =
 const REPO_WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const API_PROJEKT = path.join(REPO_WURZEL, 'src', 'Coin.Api')
 
+// Systemtest-Keycloak (ADR-0015): fester Port, damit Vite und API die Authority schon vor dem Start kennen.
+export const E2E_KEYCLOAK_PORT = 5184
+export const E2E_KEYCLOAK_URL = `http://localhost:${E2E_KEYCLOAK_PORT}`
+export const E2E_OIDC_AUTHORITY = `${E2E_KEYCLOAK_URL}/realms/coin`
+export const E2E_OIDC_AUDIENCE = 'coin-api'
+export const E2E_OIDC_CLIENT_ID = 'coin-web'
+/** Bootstrap-Administrator der Systemtests (synthetischer Testbenutzer aus der Realm-Datei). */
+export const E2E_BOOTSTRAP_ADMIN = 'admin@test.local'
+/** Derselbe exakte Tag wie in compose.yaml (ein Test prüft die Gleichheit). */
+export const KEYCLOAK_IMAGE = 'quay.io/keycloak/keycloak:26.8.0'
+export const REALM_DATEI = path.join(REPO_WURZEL, 'infra', 'keycloak', 'coin-realm.json')
+export const KEYCLOAK_FEHLERMELDUNG =
+  'Systemtest-Keycloak konnte nicht gestartet werden. Läuft Docker, und ist Port 5184 frei?'
+
 // Variablen, die die Ziel-DB, Umgebung oder Adresse der API beeinflussen könnten (AK-6, AK-7).
 // .NET liest Umgebungsvariablen case-insensitiv und behandelt `:` und `__` gleich. Zum Vergleich werden
 // `:`, `__` und `_` auf `_` vereinheitlicht, damit z. B. auch `aspnetcore:environment` erfasst wird.
@@ -25,6 +40,20 @@ const UEBERSCHRIEBENE_VARIABLEN = [
   'POSTGRESQLCONNSTR_CoinDb',
   'CUSTOMCONNSTR_CoinDb',
 ].map(normalisiere)
+
+// Sektionen, die Anmeldung, Bootstrap, CORS oder die Token-Prüfung beeinflussen könnten (ADR-0015):
+// geerbte Werte werden in jeder Schreibweise entfernt, danach werden nur die Systemtest-Werte gesetzt.
+const ENTFERNTE_PRAEFIXE = ['Oidc_', 'Bootstrap_', 'Frontend_', 'Authentication_'].map(normalisiere)
+// WebApplication liest auch ASPNETCORE_- und DOTNET_-präfixierte Variablen als Konfiguration (Präfix entfällt).
+// Deshalb wird jeder Name zusätzlich ohne dieses Präfix verglichen; unbeteiligte Variablen wie
+// DOTNET_CLI_TELEMETRY_OPTOUT bleiben erhalten.
+const HOST_PRAEFIX = /^(aspnetcore|dotnet)_/
+const istBetroffen = (name) =>
+  UEBERSCHRIEBENE_VARIABLEN.includes(name) || ENTFERNTE_PRAEFIXE.some((praefix) => name.startsWith(praefix))
+const wirdEntfernt = (schluessel) => {
+  const name = normalisiere(schluessel)
+  return istBetroffen(name) || istBetroffen(name.replace(HOST_PRAEFIX, ''))
+}
 
 function pflichtwert(name, wert) {
   if (wert === undefined || wert === null || String(wert).trim() === '') {
@@ -56,12 +85,29 @@ export function baueApiUmgebung(basis, connectionString) {
   }
   const umgebung = {}
   for (const [schluessel, wert] of Object.entries(basis ?? {})) {
-    if (!UEBERSCHRIEBENE_VARIABLEN.includes(normalisiere(schluessel))) umgebung[schluessel] = wert
+    if (!wirdEntfernt(schluessel)) umgebung[schluessel] = wert
   }
   umgebung.ASPNETCORE_ENVIRONMENT = 'Testing'
   umgebung.ASPNETCORE_URLS = E2E_API_URL
   umgebung.ConnectionStrings__CoinDb = connectionString
+  umgebung.Oidc__Authority = E2E_OIDC_AUTHORITY
+  umgebung.Oidc__Audience = E2E_OIDC_AUDIENCE
+  umgebung.Oidc__ClientId = E2E_OIDC_CLIENT_ID
+  umgebung.Bootstrap__AdminEmails__0 = E2E_BOOTSTRAP_ADMIN
   return umgebung
+}
+
+/**
+ * Umgebung des Systemtest-Keycloaks: Hostname wie im Browser und in der API (Issuer), Health-Endpunkte an.
+ * Bewusst ohne KC_BOOTSTRAP_ADMIN_*: Die Admin-Konsole wird im Systemtest nicht gebraucht.
+ */
+export function baueKeycloakUmgebung() {
+  return { KC_HOSTNAME: E2E_KEYCLOAK_URL, KC_HEALTH_ENABLED: 'true' }
+}
+
+/** Log-Zeile zum gestarteten Keycloak (ohne Zugangsdaten). */
+export function beschreibeKeycloak() {
+  return `Systemtest-Keycloak (${KEYCLOAK_IMAGE}) läuft auf ${E2E_KEYCLOAK_URL}, Realm „coin“.`
 }
 
 /** Argumente für `dotnet`: eigenes Release-Build, ohne Launch-Profil. */
