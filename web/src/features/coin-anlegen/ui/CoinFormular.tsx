@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
-import { ladeBildHoch, legeCoinAn, type ApiErgebnis } from '../api/coins'
-import type { Coin } from '../api/types'
+import { ladeBildHoch, legeCoinAn, type Coin } from '@/entities/coin'
+import type { ApiErgebnis } from '@/shared/api'
+import { Button } from '@/shared/ui/button'
+import { Input } from '@/shared/ui/input'
+import { Label } from '@/shared/ui/label'
+import { Textarea } from '@/shared/ui/textarea'
 import {
   ERLAUBTE_BILDTYPEN,
   MELDUNG_FORMAT,
@@ -10,7 +14,7 @@ import {
   validiereCoin,
   type CoinFehler,
   type CoinFeld,
-} from './validiereCoin'
+} from '../model/validiereCoin'
 
 const TEXT_ERFOLG = 'Coin wurde angelegt.'
 const TEXT_TEILERFOLG = 'Coin wurde angelegt, das Bild konnte nicht gespeichert werden:'
@@ -29,6 +33,10 @@ const SERVER_FELDER: Record<string, CoinFeld> = {
   beschreibung: 'beschreibung',
   datei: 'bild',
 }
+
+/** Styling des nativen Dateifelds wie Input (das Dateifeld bleibt ein natives <input type="file">). */
+const DATEIFELD_KLASSEN =
+  'w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm file:mr-2 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-invalid:border-destructive dark:bg-input/30'
 
 type Meldung = { art: 'erfolg' | 'fehler' | 'teilerfolg'; text: string }
 
@@ -226,23 +234,23 @@ export function CoinFormular({ onGespeichert }: CoinFormularProps) {
 
   function feldFehler(feld: CoinFeld) {
     return fehler[feld] ? (
-      <p id={`coin-${feld}-fehler`} className="feld-fehler">
+      <p id={`coin-${feld}-fehler`} className="text-sm text-destructive">
         {fehler[feld]}
       </p>
     ) : null
   }
 
   return (
-    <form className="coin-formular" onSubmit={absenden} noValidate>
-      <div className="feld">
-        <label htmlFor="coin-name">Name</label>
-        <input type="text" value={werte.name} onChange={aendereText('name')} {...feldAttribute('name')} />
+    <form className="grid max-w-lg gap-4" onSubmit={absenden} noValidate>
+      <div className="grid gap-1.5">
+        <Label htmlFor="coin-name">Name</Label>
+        <Input type="text" value={werte.name} onChange={aendereText('name')} {...feldAttribute('name')} />
         {feldFehler('name')}
       </div>
 
-      <div className="feld">
-        <label htmlFor="coin-herausgeber">Herausgeber</label>
-        <input
+      <div className="grid gap-1.5">
+        <Label htmlFor="coin-herausgeber">Herausgeber</Label>
+        <Input
           type="text"
           value={werte.herausgeber}
           onChange={aendereText('herausgeber')}
@@ -251,9 +259,9 @@ export function CoinFormular({ onGespeichert }: CoinFormularProps) {
         {feldFehler('herausgeber')}
       </div>
 
-      <div className="feld">
-        <label htmlFor="coin-auflage">Auflage (optional)</label>
-        <input
+      <div className="grid gap-1.5">
+        <Label htmlFor="coin-auflage">Auflage (optional)</Label>
+        <Input
           type="text"
           inputMode="numeric"
           value={werte.auflage}
@@ -263,9 +271,9 @@ export function CoinFormular({ onGespeichert }: CoinFormularProps) {
         {feldFehler('auflage')}
       </div>
 
-      <div className="feld">
-        <label htmlFor="coin-beschreibung">Beschreibung (optional)</label>
-        <textarea
+      <div className="grid gap-1.5">
+        <Label htmlFor="coin-beschreibung">Beschreibung (optional)</Label>
+        <Textarea
           rows={4}
           value={werte.beschreibung}
           onChange={aendereText('beschreibung')}
@@ -274,48 +282,55 @@ export function CoinFormular({ onGespeichert }: CoinFormularProps) {
         {feldFehler('beschreibung')}
       </div>
 
-      <div className="feld">
-        <label htmlFor="coin-bild">Motivbild (optional)</label>
+      <div className="grid gap-1.5">
+        <Label htmlFor="coin-bild">Motivbild (optional)</Label>
         <input
           ref={dateiRef}
           type="file"
+          className={DATEIFELD_KLASSEN}
           accept={ERLAUBTE_BILDTYPEN.join(',')}
           onChange={aendereBild}
           {...feldAttribute('bild', 'coin-bild-formate coin-bild-hinweis')}
         />
-        <p id="coin-bild-formate" className="hinweis">
+        <p id="coin-bild-formate" className="text-sm text-muted-foreground">
           JPEG, PNG oder WebP, höchstens 5 MB.
         </p>
-        <p id="coin-bild-hinweis" className="hinweis">
+        <p id="coin-bild-hinweis" className="text-sm text-muted-foreground">
           Bitte nur Bilder ohne personenbezogene Metadaten hochladen.
         </p>
         {feldFehler('bild')}
         {vorschau && (
-          <div className="vorschau">
-            <img src={vorschau} alt="Vorschau des Motivbilds" />
-            <button type="button" onClick={entferneBild} disabled={sendet}>
+          <div className="flex items-center gap-4">
+            <img src={vorschau} alt="Vorschau des Motivbilds" className="max-h-32 max-w-32 object-contain" />
+            <Button type="button" variant="outline" onClick={entferneBild} disabled={sendet}>
               Bild entfernen
-            </button>
+            </Button>
           </div>
         )}
       </div>
 
-      <button type="submit" disabled={sendet}>
+      <Button type="submit" className="justify-self-start" disabled={sendet}>
         Coin anlegen
-      </button>
+      </Button>
 
       {meldung?.art === 'erfolg' && (
-        <p role="status" className="meldung erfolg">
+        <p role="status" className="text-success">
           {meldung.text}
         </p>
       )}
       {meldung && meldung.art !== 'erfolg' && (
-        <div role="alert" className="meldung fehler">
+        <div role="alert" className="grid justify-items-start gap-2 text-destructive">
           <p>{meldung.text}</p>
           {meldung.art === 'teilerfolg' && offenerUpload && (
-            <button type="button" onClick={erneutHochladen} disabled={sendet}>
+            <Button
+              type="button"
+              variant="outline"
+              className="text-foreground"
+              onClick={erneutHochladen}
+              disabled={sendet}
+            >
               Bild erneut hochladen
-            </button>
+            </Button>
           )}
         </div>
       )}

@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Coin } from '../api/types'
+import type { Coin } from '@/entities/coin'
 import {
   erstelleFakeApi,
   jsonAntwort,
@@ -9,8 +9,8 @@ import {
   problemAntwort,
   testDatei,
   type FakeApi,
-} from '../test/fakeApi'
-import { formularFelder, fuelleAus, meldungMit, seitentext, TEXTE } from '../test/hilfen'
+} from '../../../../test/fakeApi'
+import { formularFelder, fuelleAus, meldungMit, seitentext, TEXTE } from '../../../../test/hilfen'
 import { CoinFormular } from './CoinFormular'
 
 // AK-30 bis AK-36: Formular „Coin anlegen“.
@@ -238,7 +238,11 @@ describe('AK-31: clientseitige Prüfung', () => {
     await user.click(formularFelder().absenden)
 
     await waitFor(() => expect(api.anfragenMit('POST')).toHaveLength(1))
-    expect(api.anfragenMit('POST')[0].body).toMatchObject({ name: 'Coin Alpha', herausgeber: 'Herausgeber Beta', auflage: 250 })
+    expect(api.anfragenMit('POST')[0].body).toMatchObject({
+      name: 'Coin Alpha',
+      herausgeber: 'Herausgeber Beta',
+      auflage: 250,
+    })
   })
 
   it('zeigt den Fehler für eine zu lange Beschreibung am Beschreibungsfeld', async () => {
@@ -301,7 +305,11 @@ describe('AK-32: vom Server gemeldete Fehler', () => {
   })
 
   it('behält die Eingaben nach einer 400-Antwort', async () => {
-    api.einmal('POST', /^\/api\/coins$/, problemAntwort(400, { errors: { auflage: ['Auflage vom Server abgelehnt.'] } }))
+    api.einmal(
+      'POST',
+      /^\/api\/coins$/,
+      problemAntwort(400, { errors: { auflage: ['Auflage vom Server abgelehnt.'] } }),
+    )
     const { user } = zeigeFormular()
     await fuelleAus(user, { ...PFLICHT, auflage: '250', beschreibung: 'Ein Text' })
 
@@ -378,7 +386,9 @@ describe('AK-32: vom Server gemeldete Fehler', () => {
     await user.click(formularFelder().absenden)
 
     await waitFor(() =>
-      expect(formularFelder().motivbild).toHaveAccessibleDescription(expect.stringContaining('Datei vom Server abgelehnt.')),
+      expect(formularFelder().motivbild).toHaveAccessibleDescription(
+        expect.stringContaining('Datei vom Server abgelehnt.'),
+      ),
     )
   })
 
@@ -473,9 +483,7 @@ describe('AK-34: Teilerfolg beim Bild-Upload', () => {
 
     await user.click(formularFelder().absenden)
 
-    await waitFor(() =>
-      expect(meldungMit(`${TEXTE.teilerfolgPraefix} ${TEXTE.formatUngueltig}`)).toBeDefined(),
-    )
+    await waitFor(() => expect(meldungMit(`${TEXTE.teilerfolgPraefix} ${TEXTE.formatUngueltig}`)).toBeDefined())
   })
 
   it('nennt bei 413 die Größe als Grund', async () => {
@@ -558,7 +566,16 @@ describe('AK-35: kein Doppelversand', () => {
     await user.click(formularFelder().absenden)
 
     await waitFor(() => expect(formularFelder().absenden).toBeDisabled())
-    offen.aufloesen(jsonAntwort(201, { ...PFLICHT, id: 'x', auflage: null, beschreibung: null, erstelltAm: '2026-10-05T12:00:00+00:00', bildUrl: null }))
+    offen.aufloesen(
+      jsonAntwort(201, {
+        ...PFLICHT,
+        id: 'x',
+        auflage: null,
+        beschreibung: null,
+        erstelltAm: '2026-10-05T12:00:00+00:00',
+        bildUrl: null,
+      }),
+    )
     await waitFor(() => expect(formularFelder().absenden).toBeEnabled())
   })
 

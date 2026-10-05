@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { testDatei } from '../test/fakeApi'
+import { testDatei } from '../../../../test/fakeApi'
 import { validiereCoin } from './validiereCoin'
 
 // AK-31: clientseitige Prüfung wie AK-2 bis AK-5 sowie AK-10/AK-11.

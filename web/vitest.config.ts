@@ -1,13 +1,17 @@
-import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig, mergeConfig } from 'vitest/config'
+import viteConfig from './vite.config.ts'
 
-// Eigene Testkonfiguration, damit vite.config.ts (Produktivkonfiguration) unverändert bleibt.
-export default defineConfig({
-  plugins: [react()],
-  test: {
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
-    restoreMocks: true,
-  },
-})
+// Übernimmt Plugins und den Alias `@/*` aus vite.config.ts (AK-12), damit vite.config.ts unverändert bleibt.
+// Playwright-UI-Tests (ui-tests/) laufen nicht unter Vitest (AK-23).
+export default mergeConfig(
+  viteConfig,
+  defineConfig({
+    test: {
+      environment: 'jsdom',
+      setupFiles: ['./test/setup.ts'],
+      include: ['src/**/*.test.{ts,tsx}'],
+      exclude: [...configDefaults.exclude, 'ui-tests/**'],
+      restoreMocks: true,
+    },
+  }),
+)

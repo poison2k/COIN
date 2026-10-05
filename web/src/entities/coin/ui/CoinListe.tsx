@@ -1,4 +1,5 @@
-import type { Coin } from '../api/types'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
+import type { Coin } from '../model/types'
 
 const datumsFormat = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
@@ -14,27 +15,27 @@ export interface CoinListeProps {
 /** Katalogliste als Tabelle (AK-28). Inhalte werden als Text gerendert, nie als HTML. */
 export function CoinListe({ coins }: CoinListeProps) {
   if (coins.length === 0) {
-    return <p>Noch keine Coins erfasst.</p>
+    return <p className="text-muted-foreground">Noch keine Coins erfasst.</p>
   }
 
   return (
-    <table className="coin-liste">
-      <thead>
-        <tr>
-          <th scope="col">Bild</th>
-          <th scope="col">Name</th>
-          <th scope="col">Herausgeber</th>
-          <th scope="col">Auflage</th>
-          <th scope="col">Erfasst am</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead scope="col">Bild</TableHead>
+          <TableHead scope="col">Name</TableHead>
+          <TableHead scope="col">Herausgeber</TableHead>
+          <TableHead scope="col">Auflage</TableHead>
+          <TableHead scope="col">Erfasst am</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {coins.map((coin) => (
-          <tr key={coin.id}>
-            <td>
+          <TableRow key={coin.id}>
+            <TableCell>
               {coin.bildUrl ? (
                 <img
-                  className="coin-vorschau"
+                  className="block size-16 object-contain"
                   src={coin.bildUrl}
                   alt={`Motiv: ${coin.name}`}
                   loading="lazy"
@@ -42,16 +43,16 @@ export function CoinListe({ coins }: CoinListeProps) {
                   height={64}
                 />
               ) : (
-                <span className="kein-bild">Kein Bild</span>
+                <span className="text-sm text-muted-foreground">Kein Bild</span>
               )}
-            </td>
-            <td>{coin.name}</td>
-            <td>{coin.herausgeber}</td>
-            <td>{coin.auflage ?? 'unbekannt'}</td>
-            <td>{formatiereDatum(coin.erstelltAm)}</td>
-          </tr>
+            </TableCell>
+            <TableCell>{coin.name}</TableCell>
+            <TableCell>{coin.herausgeber}</TableCell>
+            <TableCell>{coin.auflage ?? 'unbekannt'}</TableCell>
+            <TableCell>{formatiereDatum(coin.erstelltAm)}</TableCell>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   )
 }

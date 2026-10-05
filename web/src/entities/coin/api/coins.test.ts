@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { erstelleFakeApi, jsonAntwort, problemAntwort, testCoin, testDatei, type FakeApi } from '../test/fakeApi'
+import {
+  erstelleFakeApi,
+  jsonAntwort,
+  problemAntwort,
+  testCoin,
+  testDatei,
+  type FakeApi,
+} from '../../../../test/fakeApi'
 import { ladeBildHoch, ladeCoins, legeCoinAn } from './coins'
 
 // Abbildung der HTTP-Statuscodes auf typisierte Ergebnisse (Abschnitt 6 des Entwurfs, AK-12 bis AK-25).
@@ -52,7 +59,12 @@ describe('legeCoinAn', () => {
     const [anfrage] = api.anfragenMit('POST')
     expect(anfrage.pfad).toBe('/api/coins')
     expect(anfrage.headers.get('Content-Type')).toMatch(/^application\/json/)
-    expect(anfrage.body).toEqual({ name: 'Coin Alpha', herausgeber: 'Herausgeber Beta', auflage: 250, beschreibung: 'Text' })
+    expect(anfrage.body).toEqual({
+      name: 'Coin Alpha',
+      herausgeber: 'Herausgeber Beta',
+      auflage: 250,
+      beschreibung: 'Text',
+    })
   })
 
   it('liefert ok mit dem angelegten Coin bei 201', async () => {

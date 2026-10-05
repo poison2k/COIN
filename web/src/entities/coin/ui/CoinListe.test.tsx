@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { testCoin } from '../test/fakeApi'
+import { testCoin } from '../../../../test/fakeApi'
 import { CoinListe } from './CoinListe'
 
 // AK-28: Katalogliste als Tabelle.

@@ -25,7 +25,7 @@ function zeileMit(page: Page, name: string) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/coins')
   // Warten, bis die Liste geladen ist (Tabelle oder Leermeldung), damit keine späte GET-Antwort neue Einträge überschreibt.
   await expect(page.getByRole('table').or(page.getByText('Noch keine Coins erfasst.'))).toBeVisible()
 })

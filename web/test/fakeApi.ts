@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { Coin } from '../api/types'
+import type { Coin } from '@/entities/coin'
 
 /** Eine vom Frontend an die API gesendete Anfrage, wie sie der Fake-Server gesehen hat. */
 export interface Anfrage {
@@ -91,7 +91,12 @@ export function erstelleFakeApi(startCoins: Coin[] = []) {
       return jsonAntwort(200, sortiert)
     }
     if (anfrage.methode === 'POST' && anfrage.pfad === '/api/coins') {
-      const daten = anfrage.body as { name: string; herausgeber: string; auflage: number | null; beschreibung: string | null }
+      const daten = anfrage.body as {
+        name: string
+        herausgeber: string
+        auflage: number | null
+        beschreibung: string | null
+      }
       zaehler++
       const coin: Coin = {
         id: `0199a1b2-0000-7000-8000-${String(zaehler).padStart(12, '0')}`,

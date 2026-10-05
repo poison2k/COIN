@@ -9,9 +9,9 @@ import {
   testCoin,
   testDatei,
   type FakeApi,
-} from '../test/fakeApi'
-import { formularFelder, fuelleAus, meldungMit, seitentext, TEXTE } from '../test/hilfen'
-import { KatalogSeite } from './KatalogSeite'
+} from '../../../../test/fakeApi'
+import { formularFelder, fuelleAus, meldungMit, seitentext, TEXTE } from '../../../../test/hilfen'
+import { CoinListeSeite } from './CoinListeSeite'
 
 // AK-28, AK-29, AK-33, AK-34, AK-36: Zusammenspiel von Liste und Formular auf der Startseite.
 
@@ -24,7 +24,7 @@ beforeEach(() => {
 
 function zeigeSeite() {
   const user = userEvent.setup({ applyAccept: false })
-  render(<KatalogSeite />)
+  render(<CoinListeSeite />)
   return { user }
 }
 

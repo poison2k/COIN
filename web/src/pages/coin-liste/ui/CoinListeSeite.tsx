@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ladeCoins } from '../api/coins'
-import type { Coin } from '../api/types'
-import { CoinFormular } from './CoinFormular'
-import { CoinListe } from './CoinListe'
+import { CoinListe, ladeCoins, type Coin } from '@/entities/coin'
+import { CoinFormular } from '@/features/coin-anlegen'
 
 type Zustand = { art: 'laedt' } | { art: 'fehler' } | { art: 'bereit'; coins: Coin[] }
 
@@ -12,8 +10,11 @@ function sortiere(coins: Coin[]): Coin[] {
   )
 }
 
-/** Startseite: Formular „Coin anlegen“ und Katalogliste (AK-28, AK-29, AK-33). */
-export function KatalogSeite() {
+/**
+ * Seite „Coin-Liste“ (/coins): Formular „Coin anlegen“ und Katalogliste (AK-28, AK-29, AK-33).
+ * Rendert kein eigenes <main>; das Landmark stellt die App-Shell (SidebarInset).
+ */
+export function CoinListeSeite() {
   const [zustand, setZustand] = useState<Zustand>({ art: 'laedt' })
 
   useEffect(() => {
@@ -40,22 +41,28 @@ export function KatalogSeite() {
   }
 
   return (
-    <main className="katalog">
-      <h1>Coin-Katalog</h1>
+    <div className="mx-auto grid w-full max-w-5xl gap-8 p-6">
+      <h1 className="text-2xl font-semibold">Coin-Katalog</h1>
 
-      <section aria-labelledby="ueberschrift-anlegen">
-        <h2 id="ueberschrift-anlegen">Neuen Coin erfassen</h2>
+      <section aria-labelledby="ueberschrift-anlegen" className="grid gap-4">
+        <h2 id="ueberschrift-anlegen" className="text-lg font-semibold">
+          Neuen Coin erfassen
+        </h2>
         <CoinFormular onGespeichert={gespeichert} />
       </section>
 
-      <section aria-labelledby="ueberschrift-liste">
-        <h2 id="ueberschrift-liste">Katalog</h2>
+      <section aria-labelledby="ueberschrift-liste" className="grid gap-4">
+        <h2 id="ueberschrift-liste" className="text-lg font-semibold">
+          Katalog
+        </h2>
         {zustand.art === 'laedt' && <p role="status">Coins werden geladen …</p>}
         {zustand.art === 'fehler' && (
-          <p role="alert">Coins konnten nicht geladen werden. Bitte später erneut versuchen.</p>
+          <p role="alert" className="text-destructive">
+            Coins konnten nicht geladen werden. Bitte später erneut versuchen.
+          </p>
         )}
         {zustand.art === 'bereit' && <CoinListe coins={zustand.coins} />}
       </section>
-    </main>
+    </div>
   )
 }

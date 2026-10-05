@@ -18,12 +18,3 @@ export interface CoinAnlegen {
   auflage: number | null
   beschreibung: string | null
 }
-
-/** Fehlerantwort nach RFC 9457. */
-export interface ProblemDetails {
-  type?: string
-  title?: string
-  status?: number
-  detail?: string
-  errors?: Record<string, string[]>
-}

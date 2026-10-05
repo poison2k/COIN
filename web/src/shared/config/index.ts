@@ -1,0 +1,1 @@
+export { ROUTEN } from './routen'
