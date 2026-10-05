@@ -19,6 +19,9 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
 - Backend: C# / .NET 10, ASP.NET Core Web API, EF Core, PostgreSQL
 - Frontend: React 19 + TypeScript (Vite) in `web/`, Tailwind CSS v4, shadcn/ui (Base UI),
   TanStack Router (code-basiert), Feature-Sliced Design (geprüft mit Steiger), ESLint + Prettier
+- Anmeldung: Keycloak per OIDC (Code Flow + PKCE, öffentlicher Client `coin-web`), API prüft
+  JWT-Bearer gegen `Oidc:Authority`; Frontend mit `oidc-client-ts` + `react-oidc-context`.
+  Rollen führt C.O.I.N. in der eigenen Datenbank (Tabelle `benutzer`), nie aus dem Keycloak.
 - Tests: xUnit (Unit, Integration mit Testcontainers), Vitest (Frontend), Playwright
   (UI-Tests mit gemockter API in `web/ui-tests`, Systemtests mit echter API in `e2e/`)
 
@@ -28,6 +31,7 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
 - `src/Coin.Api` – HTTP-API, Authentifizierung, DTOs
 - `tests/Coin.UnitTests`, `tests/Coin.IntegrationTests`
 - `web/` – React-Frontend, `e2e/` – Systemtests, `docs/` – Dokumentation
+- `infra/keycloak/` – Realm-Datei des lokalen Test-Keycloak (nur Testdaten, nie produktiv)
 - Frontend nach FSD (ADR-0008): `web/src/{app,pages,widgets,features,entities,shared}`, Public API
   je Slice über `index.ts`, Alias `@/`; Importe nur nach unten, keine Querimporte zwischen Slices.
   shadcn-Komponenten liegen in `shared/ui` und sind nachbearbeitet (deutsche Texte, kein Cookie,
@@ -41,16 +45,21 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
   Wurzel-Namespace kollidiert (CS0118). In API und UI heißt sie „Coin“.
 
 ## Aktueller Stand
-Umgesetzt: Coin-Katalog-Pilot (`docs/features/coin-katalog.md`) – Coin anlegen/auflisten,
-Motivbild hochladen/abrufen, ohne Anmeldung (ADR-0004); Frontend-Grundgerüst mit App-Shell
-(Startseite `/`, Coin-Liste `/coins`, Sidebar, Hell/Dunkel). Noch nicht vorhanden: Exemplare,
-Verleihungen, Zertifikate, Authentifizierung/Rollen, Audit-Log.
+Umgesetzt: Coin-Katalog (`docs/features/coin-katalog.md`) – Coin anlegen/auflisten, Motivbild
+hochladen/abrufen; Lesen öffentlich (ADR-0014), Schreiben nur Administrator/Sachbearbeiter.
+Frontend-Grundgerüst mit App-Shell (Startseite `/`, Coin-Liste `/coins`, Sidebar, Hell/Dunkel).
+Anmeldung über Keycloak (ADR-0012–0015); Administrator nur per `Bootstrap:AdminEmails`, andere
+Rollen noch ohne Vergabe. Noch nicht vorhanden: Rollen-/Benutzerverwaltung, Audit-Log, Exemplare,
+Verleihungen, Zertifikate.
 Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup im `README.md`.
 `dotnet build` ohne Warnungen ist Pflicht, `TreatWarningsAsErrors` ist aber (noch) nicht gesetzt.
 
 ## Befehle
-- Lokale DB: `.env` aus `.env.example` anlegen (`COIN_DB_PASSWORD`), `docker compose up -d`,
-  Connection-String als User-Secret `ConnectionStrings:CoinDb` (`--project src/Coin.Api`)
+- Lokale Umgebung: `.env` aus `.env.example` anlegen (`COIN_DB_PASSWORD` und
+  `COIN_KEYCLOAK_ADMIN_PASSWORD` sind Pflicht), `docker compose up -d` (PostgreSQL 5432,
+  Test-Keycloak 8180, Testbenutzer in `infra/keycloak/README.md`); Connection-String als
+  User-Secret `ConnectionStrings:CoinDb` (`--project src/Coin.Api`). Nach Änderungen an der
+  Realm-Datei: `docker compose up -d --force-recreate keycloak`
 - Build: `dotnet build`; EF-Tools: `dotnet tool restore`, dann `dotnet ef ...`
 - Tests Backend: `dotnet test`
   - Ein Projekt: `dotnet test tests/Coin.UnitTests`
@@ -65,8 +74,9 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
   vorher einmalig `npm run install-browser`)
 - Systemtests (in `e2e/`): `npm install`, einmalig `npm run install-browser`, `npx playwright test`
   (einzeln: `npx playwright test <datei> -g "<name>"`); braucht nur Docker und Node ≥ 22.18 –
-  eigener Wegwerf-PostgreSQL-Container pro Lauf, API/Web auf 5182/5183, Dev-DB bleibt unberührt
-  (ADR-0007). Hilfsskript-Tests: `npm run test:skripte`
+  eigener Wegwerf-PostgreSQL- und Keycloak-Container pro Lauf (5184), API/Web auf 5182/5183,
+  Dev-DB bleibt unberührt (ADR-0007, ADR-0015). Hilfsskript-Tests: `npm run test:skripte`
+- Integrationstests nutzen selbst signierte Test-Tokens (`TestIdentitaetsanbieter`), kein Keycloak nötig
 
 ## Konventionen
 - C#: nullable aktiviert, `async` mit CancellationToken, keine Logik in Controllern
@@ -79,6 +89,14 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
 - Verleihungen enthalten Personendaten und gelten als schutzbedürftig. Zugriff nur nach Rolle.
 - Zertifikate werden mit einem privaten Schlüssel signiert, der nie im Repo liegt (Konfiguration/Secret Store).
 - Die öffentliche Zertifikatsprüfung zeigt nur das Nötige und keine Personendaten.
+- Alle Endpunkte sind standardmäßig geschützt (FallbackPolicy). Öffentlich nur ausdrücklich per
+  `[AllowAnonymous]` mit Begründung im ADR; der Endpunkt-Inventartest muss mitgezogen werden.
+  Öffentliche DTOs enthalten keine Personendaten.
+- Token-Prüfparameter (Issuer, Audience, Lebensdauer, Signatur, `azp`) stehen fest im Code und sind
+  nicht per Konfiguration abschaltbar. Rollen-Claims aus Tokens werden nie ausgewertet.
+- Tokens, Authorization-Header, E-Mail-Adressen und Namen werden nie geloggt.
+- Schreibende Endpunkte prüfen den Content-Type per `[Inhaltstyp]` statt `[Consumes]`, damit 401/403
+  vor 415 greifen.
 
 ## Definition of Done
 1. Anforderung in `docs/requirements.md` abgedeckt

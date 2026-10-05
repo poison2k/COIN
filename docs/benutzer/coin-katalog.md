@@ -2,12 +2,19 @@
 
 Im Coin-Katalog erfassen Sie Coins und sehen alle erfassten Coins in einer Liste.
 
+Den Katalog kann jeder ohne Anmeldung ansehen. **Coins erfassen** können nur angemeldete Benutzer
+mit der Rolle Administrator oder Sachbearbeiter. Wie Sie sich anmelden, steht in der
+[Anleitung zur Anmeldung](anmeldung.md).
+
 ## Navigation
 
 Links befindet sich die Seitenleiste mit zwei Einträgen:
 
 - **Startseite**: Begrüßung mit kurzer Einleitung und dem Button **Zur Coin-Liste**.
-- **Coin-Liste**: oben das Formular „Neuen Coin erfassen“, darunter der Katalog.
+- **Coin-Liste**: oben der Abschnitt „Neuen Coin erfassen“, darunter der Katalog. Das Formular
+  erscheint dort nur mit Berechtigung, sonst ein Hinweis (siehe [Anmeldung](anmeldung.md#berechtigungen)).
+
+Rechts in der Kopfzeile stehen **Anmelden** bzw. Ihr Name und **Abmelden**.
 
 Der Eintrag der aktuell geöffneten Seite ist hervorgehoben.
 
@@ -45,6 +52,8 @@ Solange der Katalog lädt, erscheint „Coins werden geladen …“. Gibt es noc
 geladen werden. Bitte später erneut versuchen.“
 
 ## Coin anlegen
+
+Nur angemeldet mit der Rolle Administrator oder Sachbearbeiter.
 
 | Feld | Pflicht | Regel |
 |---|---|---|
@@ -91,6 +100,8 @@ Fehler zu einzelnen Feldern stehen direkt unter dem jeweiligen Feld. Ihre Eingab
 | „Bild ist zu groß (max. 5 MB).“ | Kleineres Bild wählen. |
 | „Die Bilddatei ist leer.“ | Die gewählte Datei hat keinen Inhalt. |
 | „Ein Coin mit diesem Namen und Herausgeber existiert bereits.“ | Dieser Coin ist schon im Katalog. |
+| „Sie sind nicht berechtigt, Coins zu erfassen.“ | Ihrem Konto fehlt die nötige Rolle. Wenden Sie sich an einen Administrator. |
+| „Ihre Anmeldung ist abgelaufen. Sie werden zur Anmeldung weitergeleitet …“ | Melden Sie sich erneut an. Die Eingaben gehen dabei verloren (siehe [Anmeldung](anmeldung.md#sitzung-abgelaufen)). |
 | „Der Coin konnte nicht angelegt werden. Bitte später erneut versuchen.“ | Technisches Problem, z. B. keine Verbindung zum Server. |
 
 ## Bild erneut hochladen

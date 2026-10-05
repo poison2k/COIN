@@ -1,18 +1,86 @@
 # API
 
 Basis-URL lokal: `http://localhost:5172` (siehe [README](../README.md)). JSON in camelCase.
-Keine Authentifizierung im Pilot ([ADR-0004](adr/0004-pilot-ohne-authentifizierung.md)).
-In der Umgebung `Development` liefert `GET /openapi/v1.json` das OpenAPI-Dokument.
+In der Umgebung `Development` liefert `GET /openapi/v1.json` das OpenAPI-Dokument (ohne Anmeldung).
 
-| Methode | Pfad | Zweck |
-|---|---|---|
-| `POST` | `/api/coins` | Coin anlegen |
-| `GET` | `/api/coins` | Alle Coins auflisten |
-| `GET` | `/api/coins/{id}` | Einen Coin abrufen |
-| `PUT` | `/api/coins/{id}/bild` | Motivbild hochladen oder ersetzen |
-| `GET` | `/api/coins/{id}/bild` | Motivbild abrufen |
+| Methode | Pfad | Zweck | Zugang |
+|---|---|---|---|
+| `GET` | `/api/coins` | Alle Coins auflisten | öffentlich |
+| `GET` | `/api/coins/{id}` | Einen Coin abrufen | öffentlich |
+| `GET` | `/api/coins/{id}/bild` | Motivbild abrufen | öffentlich |
+| `POST` | `/api/coins` | Coin anlegen | Rolle Administrator oder Sachbearbeiter |
+| `PUT` | `/api/coins/{id}/bild` | Motivbild hochladen oder ersetzen | Rolle Administrator oder Sachbearbeiter |
+| `GET` | `/api/me` | Angemeldeten Benutzer abrufen | angemeldet, Rolle egal |
 
 `{id}` ist eine GUID. Pfade mit einer `id`, die keine GUID ist, liefern `404`.
+
+## Authentifizierung
+
+Grundlage: [ADR-0012](adr/0012-anmeldung-keycloak-oidc.md), [ADR-0013](adr/0013-benutzer-und-rollen-in-eigener-datenbank.md),
+[ADR-0014](adr/0014-coin-katalog-oeffentlich-lesbar.md).
+
+- Angemeldet wird per Access-Token des Keycloak im Header `Authorization: Bearer <token>`. Andere
+  Wege (Query-Parameter `access_token`, Cookies) werden nicht ausgewertet.
+- Geprüft werden: Signatur RS256 mit Schlüssel aus der JWKS der Authority, `iss` = `Oidc:Authority`
+  (exakt), `aud` = `Oidc:Audience`, `exp`/`nbf` (Toleranz 30 s), Header-`typ` `JWT` oder `at+jwt`,
+  `sub` vorhanden, `azp` = `Oidc:ClientId`.
+- Standardmäßig verlangt jeder Endpunkt eine Anmeldung. Öffentlich sind nur die drei `GET`-Endpunkte
+  des Katalogs (und `/openapi/v1.json` in Development). Ihre Antworten hängen nicht vom Token ab:
+  Auch ein ungültiges oder abgelaufenes Token führt dort zu keinem `401`.
+- Rollen (`Administrator`, `Sachbearbeiter`, `Betrachter`) führt C.O.I.N. in der eigenen Datenbank.
+  Rollen-Claims im Token werden ignoriert. Neue Benutzer haben keine Rolle. Vergeben wird bisher nur
+  `Administrator` über `Bootstrap:AdminEmails` beim ersten Aufruf (nur mit `email_verified=true`).
+- Der Aufruf von `GET /api/me` oder eines schreibenden Endpunkts legt den Benutzer bei Bedarf an
+  bzw. übernimmt geänderte E-Mail und Namen aus dem Token. Öffentliche Aufrufe tun das nicht.
+
+| Status | Wann | Body |
+|---|---|---|
+| `401 Unauthorized` | kein, ungültiges oder abgelaufenes Token auf einem geschützten Endpunkt | ProblemDetails, `title` „Nicht angemeldet“, `detail` „Für diese Aktion ist eine Anmeldung erforderlich.“; Header `WWW-Authenticate: Bearer` ohne Fehlerdetails |
+| `403 Forbidden` | angemeldet, aber ohne Rolle Administrator oder Sachbearbeiter (schreibende Endpunkte) | ProblemDetails, `title` „Kein Zugriff“, `detail` „Ihr Benutzerkonto ist nicht berechtigt, den Coin-Katalog zu ändern.“ |
+
+`401` und `403` werden vor jeder fachlichen Prüfung geliefert, also vor `400`, `404`, `409`, `413`
+und `415`. Bei `401` und `403` wird nichts gespeichert und der Upload-Body nicht gelesen.
+
+Pfade ohne Endpunkt liefern `404`, auch ohne Token.
+
+Beispiel:
+
+```powershell
+curl.exe -H "Authorization: Bearer <access-token>" http://localhost:5172/api/me
+```
+
+### CORS
+
+Zugelassen ist genau ein Origin aus `Frontend:Ursprung` (Development: `http://localhost:5173`),
+Methoden `GET`, `POST`, `PUT`, Header `Authorization` und `Content-Type`, ohne
+`Access-Control-Allow-Credentials`. Andere Origins erhalten keinen `Access-Control-Allow-Origin`.
+Ist `Frontend:Ursprung` nicht gesetzt, sendet die API keine CORS-Header.
+
+## GET /api/me
+
+Liefert den angemeldeten Benutzer aus der eigenen Datenbank. Verlangt nur eine Anmeldung, keine Rolle.
+Antwort-Header `Cache-Control: no-store`.
+
+```json
+{
+  "id": "0199b3c4-5d6e-7f80-9a1b-2c3d4e5f6a7b",
+  "name": "Test Administrator",
+  "email": "admin@test.local",
+  "rolle": "Administrator"
+}
+```
+
+| Feld | Typ | Bedeutung |
+|---|---|---|
+| `id` | GUID | interne Benutzer-Id (nicht `sub` aus dem Token) |
+| `name` | string | Anzeigename aus `name`, sonst `preferred_username`, sonst `email`, sonst „Unbekannt“; höchstens 200 Zeichen |
+| `email` | string oder `null` | aus dem Claim `email`; `null`, wenn er fehlt oder länger als 320 Zeichen ist |
+| `rolle` | string | `"Administrator"`, `"Sachbearbeiter"`, `"Betrachter"` oder `"keine"` |
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | angemeldet | Benutzer |
+| `401 Unauthorized` | ohne gültiges Token | ProblemDetails „Nicht angemeldet“ |
 
 ## Datenformat Coin
 
@@ -40,6 +108,9 @@ In der Umgebung `Development` liefert `GET /openapi/v1.json` das OpenAPI-Dokumen
 
 Der Parameter `v` ändert sich, wenn sich der Bildinhalt ändert, und dient nur dem Cache-Busting;
 der Server wertet ihn nicht aus. Antworten enthalten nie Bilddaten.
+
+Die Coin-Antwort enthält genau diese sieben Felder und keine Personendaten (z. B. keinen Ersteller),
+weil sie öffentlich abrufbar ist.
 
 ## Fehlerformat
 
@@ -83,7 +154,7 @@ Meldungen der Feldregeln:
 
 ## POST /api/coins
 
-Legt einen Coin an. `Content-Type: application/json`.
+Legt einen Coin an. Nur für die Rollen Administrator und Sachbearbeiter. `Content-Type: application/json`.
 
 ```json
 {
@@ -107,17 +178,21 @@ Regeln:
 |---|---|---|
 | `201 Created` | angelegt | Coin (`bildUrl: null`), Header `Location: /api/coins/{id}` |
 | `400 Bad Request` | Regel verletzt, ungültiges JSON, falscher Typ | ValidationProblemDetails |
+| `401 Unauthorized` | ohne gültiges Token | ProblemDetails „Nicht angemeldet“ |
+| `403 Forbidden` | Rolle Betrachter oder keine Rolle | ProblemDetails „Kein Zugriff“ |
 | `409 Conflict` | Duplikat | ProblemDetails, `title` „Coin existiert bereits“, `detail` „Ein Coin mit diesem Namen und Herausgeber existiert bereits.“ |
 | `415 Unsupported Media Type` | Content-Type nicht `application/json` | ProblemDetails |
 
-Bei `400` und `409` wird nichts gespeichert.
+Bei `400`, `401`, `403`, `409` und `415` wird nichts gespeichert.
 
 ## GET /api/coins
 
-Liefert `200` mit einem Array aller Coins, sortiert nach `name` aufsteigend ohne Beachtung von
-Groß-/Kleinschreibung. Ohne Coins: `[]`. Keine Paginierung.
+Öffentlich. Liefert `200` mit einem Array aller Coins, sortiert nach `name` aufsteigend ohne
+Beachtung von Groß-/Kleinschreibung. Ohne Coins: `[]`. Keine Paginierung.
 
 ## GET /api/coins/{id}
+
+Öffentlich.
 
 | Status | Wann | Body |
 |---|---|---|
@@ -126,12 +201,13 @@ Groß-/Kleinschreibung. Ohne Coins: `[]`. Keine Paginierung.
 
 ## PUT /api/coins/{id}/bild
 
-Lädt das Motivbild hoch oder ersetzt ein vorhandenes. `Content-Type: multipart/form-data` mit genau
+Lädt das Motivbild hoch oder ersetzt ein vorhandenes. Nur für die Rollen Administrator und
+Sachbearbeiter. `Content-Type: multipart/form-data` mit genau
 einer Datei im Feld `datei`. Andere Formularfelder werden ignoriert. Dateiname und deklarierter
 Content-Type der Datei werden weder ausgewertet noch gespeichert.
 
 ```powershell
-curl.exe -X PUT -F "datei=@motiv.png" http://localhost:5172/api/coins/<id>/bild
+curl.exe -X PUT -H "Authorization: Bearer <access-token>" -F "datei=@motiv.png" http://localhost:5172/api/coins/<id>/bild
 ```
 
 Bildregeln:
@@ -145,6 +221,8 @@ Bildregeln:
 |---|---|---|
 | `200 OK` | gespeichert oder ersetzt | Coin mit gesetzter `bildUrl` |
 | `400 Bad Request` | Feld `datei` fehlt, mehr als eine Datei, leere Datei, mehr als 16 Formularabschnitte, Formular abgeschnitten oder fehlerhaft (z. B. ohne Boundary) | ValidationProblemDetails, Schlüssel `datei` |
+| `401 Unauthorized` | ohne gültiges Token | ProblemDetails „Nicht angemeldet“ |
+| `403 Forbidden` | Rolle Betrachter oder keine Rolle | ProblemDetails „Kein Zugriff“ |
 | `404 Not Found` | Coin unbekannt | ProblemDetails, `title` „Coin nicht gefunden“ |
 | `413 Payload Too Large` | Datei größer als 5 MiB oder gelesener Request größer als 6 MiB (auch per `Content-Length` angekündigt oder bei chunked Upload) | ProblemDetails, `title` „Bild zu groß“, `detail` „Das Bild darf höchstens 5 MB groß sein.“ |
 | `415 Unsupported Media Type` | Request nicht `multipart/form-data` | ProblemDetails |
@@ -159,8 +237,9 @@ Verbindungsabbruch sehen. Hintergrund: [ADR-0006](adr/0006-bild-upload-als-eigen
 
 ## GET /api/coins/{id}/bild
 
-Liefert die unveränderten Bytes des Motivbilds mit dem erkannten Content-Type
-(`image/jpeg`, `image/png` oder `image/webp`). Der Query-Parameter `v` wird ignoriert.
+Öffentlich. Liefert die unveränderten Bytes des Motivbilds mit dem erkannten Content-Type
+(`image/jpeg`, `image/png` oder `image/webp`). Der Query-Parameter `v` wird ignoriert. Das Frontend
+lädt das Bild per `<img src>` ohne Token.
 
 Antwort-Header bei `200`:
 
