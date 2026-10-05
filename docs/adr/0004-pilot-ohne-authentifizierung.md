@@ -1,6 +1,6 @@
 # ADR-0004: Pilot ohne Authentifizierung
 
-Status: Angenommen (vom Auftraggeber bestätigt am 2026-10-05) · Datum: 2026-10-05 · Feature: coin-katalog
+Status: Abgelöst durch [ADR-0012](0012-anmeldung-keycloak-oidc.md) (Feature anmeldung-keycloak) · ursprünglich angenommen (vom Auftraggeber bestätigt am 2026-10-05) · Datum: 2026-10-05 · Feature: coin-katalog
 
 ## Kontext
 Die Authentifizierungsmethode (lokale Konten, Active Directory, SSO) ist in `docs/requirements.md` offen. Der Pilot „Coin anlegen und anzeigen“ verarbeitet nur Katalogdaten und Motivbilder ohne Personenbezug.

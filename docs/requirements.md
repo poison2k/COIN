@@ -6,7 +6,7 @@ Status: Entwurf. Offene Punkte sind mit [?] markiert und müssen vom Auftraggebe
 - **Administrator**: verwaltet Coins, Exemplare, Verleihungen, Benutzer
 - **Sachbearbeiter**: legt Verleihungen an, stellt Zertifikate aus [?]
 - **Betrachter**: sieht Katalog (und ggf. Verleihungen) [?]
-- **Öffentlichkeit**: prüft ein Zertifikat per Link/QR-Code, ohne Anmeldung
+- **Öffentlichkeit**: prüft ein Zertifikat per Link/QR-Code, ohne Anmeldung; sieht den Coin-Katalog lesend, ohne Anmeldung
 
 ## Funktionen (Stichpunkte)
 1. Coin-Katalog: anlegen, bearbeiten, ansehen, Liste mit Suche und Filter
@@ -24,9 +24,9 @@ Coin, Exemplar (Seriennummer), Verleihung (Person, Datum, Anlass), Zertifikat (N
 - Betrieb: noch offen [?] (lokal, Intranet, Cloud)
 
 ## Offene Fragen
-- [?] Wer authentifiziert sich wie (lokale Konten, Active Directory, SSO)?
+- Entschieden (2026-10-05, ADR-0012): Wer authentifiziert sich wie? Anmeldung mit E-Mail und Passwort über Keycloak (OIDC), der in Produktion an das AD angebunden ist. Rollen werden in C.O.I.N. selbst geführt (ADR-0013).
 - [?] Werden Empfänger als Freitext oder als Personenstammdaten geführt?
-- [?] Darf die Öffentlichkeit den Coin-Katalog sehen oder nur Zertifikate prüfen?
+- Entschieden (2026-10-05, ADR-0014): Darf die Öffentlichkeit den Coin-Katalog sehen? Ja. Lesen (Liste, Detail, Motivbild) geht ohne Anmeldung. Schreiben dürfen nur Administrator und Sachbearbeiter. Öffentliche Antworten enthalten keine Personendaten.
 - [?] Welche Schutzstufe haben die Daten, und wo darf die Anwendung betrieben werden?
 - [?] Sprache der Oberfläche (nur Deutsch oder auch Englisch)?
 
