@@ -12,6 +12,6 @@ Arbeite die Pipeline strikt in dieser Reihenfolge ab und nutze jeweils den genan
 4. **developer**: Implementieren, bis Build und alle Tests grün sind.
 5. **qa-reviewer**: Review. Bei Findings "kritisch" oder "wichtig" zurück zu Schritt 4 (höchstens 3 Durchläufe, danach mir berichten).
 6. **docs**: Dokumentation aktualisieren.
-7. Alles committen (sinnvolle Commit-Nachrichten). Nicht pushen.
+7. Alles committen (sinnvolle Commit-Nachrichten). Nicht pushen. Jeder Commit läuft durch den Pre-Commit-Hook (`web/.husky/pre-commit`: lint + test) – den Hook nie mit `--no-verify` umgehen.
 
 Gib am Ende eine kurze Zusammenfassung: Was wurde gebaut, Teststand, offene Punkte.
