@@ -480,3 +480,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Lokale MCP-Konfiguration der IDE (Port, maschinenspezifisch)
+.mcp.json
