@@ -64,8 +64,13 @@ Ein deaktivierter Benutzer kann in C.O.I.N. nichts mehr tun, was eine Anmeldung 
 
 Die Spalte **Status** zeigt „Aktiv“ oder „Deaktiviert“.
 
-Änderungen an Rolle und Status gelten sofort bei der nächsten Aktion des Benutzers. Seine Ansicht
-(z. B. Menüeinträge) passt sich an, sobald er die Seite neu lädt oder sich neu anmeldet.
+Während eine Änderung gespeichert wird, steht in der Rückfrage „Änderung wird gespeichert …“. Die
+Rückfrage lässt sich dann nicht schließen, und weitere Klicks lösen keine zweite Änderung aus.
+
+Änderungen an Rolle und Status gelten sofort bei der nächsten Aktion des Benutzers. Ein Benutzer,
+der auf „Kein Zugriff“ steht (deaktiviert oder ohne Rolle), kommt nach Ihrer Änderung über **Erneut
+prüfen** oder beim Zurückkehren ins Browserfenster weiter. Hat der Benutzer schon eine Rolle, passt
+sich seine Ansicht (z. B. Menüeinträge) erst an, wenn er die Seite neu lädt oder sich neu anmeldet.
 
 ## Schutzregeln
 

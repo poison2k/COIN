@@ -43,8 +43,9 @@ Was Sie nach der Anmeldung dürfen, hängt von der Rolle Ihres Kontos in C.O.I.N
 | Konto deaktiviert | ja | nein | nein |
 
 Neue Konten haben zunächst keine Rolle. Die Rolle vergibt ein Administrator in der
-[Benutzerverwaltung](benutzerverwaltung.md). Eine neue Rolle sehen Sie nach dem Neuladen der Seite
-(Taste F5) oder nach der nächsten Anmeldung.
+[Benutzerverwaltung](benutzerverwaltung.md). Haben Sie noch keine Rolle, geht es über **Erneut
+prüfen** weiter (siehe unten). Ändert ein Administrator eine Rolle, die Sie schon haben, sehen Sie
+das erst nach dem Neuladen der Seite (Taste F5) oder nach der nächsten Anmeldung.
 
 Im Abschnitt „Neuen Coin erfassen“ auf der Coin-Liste sehen Sie je nach Situation:
 
@@ -58,7 +59,8 @@ Hat Ihr Konto noch keine Rolle, landen Sie nach der Anmeldung auf der Seite **Ke
 „Sie sind als … angemeldet, Ihrem Konto ist aber noch keine Rolle zugewiesen. Den Coin-Katalog
 können Sie weiterhin ansehen. Für weitere Funktionen wenden Sie sich bitte an einen Administrator.“
 
-Von dort geht es mit **Zum Coin-Katalog** zur Coin-Liste oder mit **Abmelden** hinaus.
+Von dort geht es mit **Zum Coin-Katalog** zur Coin-Liste, mit **Erneut prüfen** (siehe unten)
+oder mit **Abmelden** hinaus.
 
 ## Konto deaktiviert
 
@@ -67,9 +69,25 @@ Konto während der Arbeit deaktiviert worden, erscheint die Seite **Kein Zugriff
 „Ihr Benutzerkonto ist deaktiviert. Den Coin-Katalog können Sie weiterhin ansehen. Wenden Sie sich
 bei Fragen an einen Administrator.“ Rechts oben steht dann nur **Abmelden**, ohne Ihren Namen.
 
-Den Coin-Katalog können Sie weiter ansehen, alle anderen Funktionen sind gesperrt. Wird Ihr Konto
-wieder aktiviert, laden Sie die Seite neu (Taste F5) oder melden Sie sich erneut an. Erst dann
-verschwindet die Seite **Kein Zugriff**.
+Den Coin-Katalog können Sie weiter ansehen, alle anderen Funktionen sind gesperrt.
+
+## Erneut prüfen
+
+Hat ein Administrator Ihnen inzwischen eine Rolle gegeben oder Ihr Konto wieder aktiviert, klicken
+Sie auf der Seite **Kein Zugriff** auf **Erneut prüfen**. Während der Prüfung steht auf dem Button
+„Wird geprüft …“.
+
+- Haben Sie jetzt Zugriff, kommen Sie zur Startseite. Name und Menüeinträge erscheinen wieder.
+- Hat sich nichts geändert, bleibt die Seite und es erscheint „Ihr Benutzerkonto ist weiterhin
+  deaktiviert.“ bzw. „Ihrem Benutzerkonto ist weiterhin keine Rolle zugewiesen.“
+- Hat sich der Grund geändert (z. B. Ihr Konto ohne Rolle wurde deaktiviert, oder es wurde
+  reaktiviert, hat aber keine Rolle), zeigt die Seite den neuen Text.
+- Ist der Server nicht erreichbar, erscheint „Die Prüfung ist fehlgeschlagen. Bitte später erneut
+  versuchen.“
+
+Solange Ihr Konto deaktiviert ist oder keine Rolle hat, prüft C.O.I.N. das auch von selbst, wenn
+Sie in das Browserfenster zurückkehren (höchstens alle 30 Sekunden, ohne Meldung). Neu laden
+(Taste F5) oder erneut anmelden geht ebenfalls.
 
 ## Abmelden
 

@@ -215,16 +215,17 @@ Ein Deaktivieren entzieht keine Rolle; nach dem Reaktivieren gilt die bisherige 
 |---|---|---|
 | `200 OK` | geändert, oder der Wert war schon gesetzt (dann ohne Schreiben und ohne Audit-Eintrag) | Benutzereintrag |
 | `400 Bad Request` | `rolle` fehlt oder unbekannt: `errors.rolle` „Bitte eine gültige Rolle wählen.“; `aktiv` fehlt oder `null`: `errors.aktiv` „Bitte angeben, ob der Benutzer aktiv ist.“; falscher JSON-Typ: „Ungültiger Wert für dieses Feld.“; kein gültiges JSON: `errors.anfrage` | ValidationProblemDetails |
-| `401` / `403` | wie oben (`users.manage`); `403 keine_berechtigung` auch, wenn der Akteur sein Recht zwischen Prüfung und Ausführung verloren hat | ProblemDetails |
-| `404 Not Found` | Benutzer unbekannt | ProblemDetails, `title` „Benutzer nicht gefunden“ |
+| `401` / `403` | wie oben (`users.manage`); `403 keine_berechtigung` auch, wenn der Akteur sein Recht zwischen Prüfung und Ausführung verloren hat, dann auch bei unbekannter Id und bei unverändertem Wert (ohne Zieldaten im Body) | ProblemDetails |
+| `404 Not Found` | Benutzer unbekannt (nur für berechtigte Akteure) | ProblemDetails, `title` „Benutzer nicht gefunden“ |
 | `409 Conflict` | eigenes Konto: Rolle Administrator entziehen oder sich selbst deaktivieren | ProblemDetails, `title` „Änderung nicht möglich“, `code` `eigenes_konto`, `detail` „Sie können sich nicht selbst die Administratorrolle entziehen oder Ihr eigenes Konto deaktivieren.“ |
 | `409 Conflict` | letzter aktiver Administrator würde herabgestuft oder deaktiviert | ProblemDetails, `title` „Änderung nicht möglich“, `code` `letzter_administrator`, `detail` „Der letzte aktive Administrator kann weder herabgestuft noch deaktiviert werden.“ |
 | `415 Unsupported Media Type` | Content-Type nicht `application/json` | ProblemDetails |
 
-Prüfreihenfolge nach `401`/`403`/`415`/`400`: Benutzer unbekannt (`404`) → Wert unverändert (`200`)
-→ Akteur nicht mehr berechtigt (`403`) → eigenes Konto (`409`) → letzter Administrator (`409`).
-Alle Änderungen laufen nacheinander unter einer Datenbanksperre; Akteur, Ziel und die Zahl aktiver
-Administratoren werden erst darin gelesen. `letzter_administrator` ist über die API praktisch nicht
+Prüfreihenfolge nach `401`/`403`/`415`/`400`: Akteur nicht (mehr) berechtigt (`403`) → Benutzer
+unbekannt (`404`) → Wert unverändert (`200`) → eigenes Konto (`409`) → letzter Administrator (`409`).
+Ein Akteur ohne `users.manage` erhält also immer `403`, nie `404`, und erfährt nicht, ob eine Id
+existiert. Alle Änderungen laufen nacheinander unter einer Datenbanksperre; Akteur, Ziel und die Zahl
+aktiver Administratoren werden erst darin gelesen. `letzter_administrator` ist über die API praktisch nicht
 erreichbar, weil der Akteur selbst aktiver Administrator sein muss und die Selbstprüfung vorher
 greift; die Regel sichert in der Tiefe ab (ADR-0018).
 
@@ -459,3 +460,24 @@ Antwort-Header bei `200`:
 ## Allgemein
 
 Unerwartete Serverfehler liefern `500` als ProblemDetails ohne interne Details.
+
+## Protokollierung
+
+Jeder Request erzeugt genau einen Log-Eintrag ohne Personendaten
+([ADR-0019](adr/0019-request-protokoll-ohne-personendaten.md)), Kategorie
+`Coin.Api.Http.AnfrageProtokoll`, Level `Information`, EventId `4601` (`AnfrageBeendet`):
+
+```text
+HTTP PUT /api/benutzer/{id}/rolle antwortete 200 in 12 ms
+```
+
+| Feld | Inhalt |
+|---|---|
+| `Methode` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, sonst `ANDERE` |
+| `Route` | Routen-Template mit führendem `/`, Parameter nur als Platzhalter (ohne Constraints und Defaults), nie Query oder Parameterwerte; ohne Endpunkt (`404`, `405`, Fehler vor dem Routing) `(keine Route)` |
+| `Status` | gesendeter Status; bei Ausnahme nach Antwortbeginn der begonnene Status, bei Client-Abbruch vor Antwortbeginn `499`, sonst `500` |
+| `DauerMs` | Dauer bis Ende der Antwort, ganze Millisekunden |
+
+Erfasst werden alle Endpunkte, auch die öffentlichen. Zur Korrelation tragen Einträge `TraceId` und
+`SpanId`. Query-String, roher Pfad, Header, Body, Tokens, Benutzer-Id, Namen, E-Mails und
+IP-Adressen werden nie protokolliert.

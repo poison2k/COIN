@@ -1,6 +1,6 @@
 # Feature: Rollen- und Benutzerverwaltung
 
-Status: umgesetzt (vom qa-reviewer freigegeben) · Entwurf Rev. 2 · Abweichungen und Grenzen: Abschnitt 11 · Branch: `feature/rollen-benutzerverwaltung` (basiert auf `feature/anmeldung-keycloak`) · ADRs: [0016](../adr/0016-berechtigungen-im-code-und-deaktivierte-benutzer.md) (Berechtigungen, Deaktivierung), [0017](../adr/0017-audit-log-fuer-rollen-und-status.md) (Audit-Log), [0018](../adr/0018-schutzregel-letzter-administrator-mit-sperre.md) (Schutzregel, Nebenläufigkeit)
+Status: Rev. 3 umgesetzt (vom qa-reviewer freigegeben, Nacharbeiten in Abschnitt 12) · Abweichungen und Grenzen: Abschnitt 11 · Branch: `feature/rollen-benutzerverwaltung` (basiert auf `feature/anmeldung-keycloak`) · ADRs: [0016](../adr/0016-berechtigungen-im-code-und-deaktivierte-benutzer.md) (Berechtigungen, Deaktivierung), [0017](../adr/0017-audit-log-fuer-rollen-und-status.md) (Audit-Log), [0018](../adr/0018-schutzregel-letzter-administrator-mit-sperre.md) (Schutzregel, Nebenläufigkeit), [0019](../adr/0019-request-protokoll-ohne-personendaten.md) (Request-Protokoll)
 
 ## 1. Ziel
 Administratoren vergeben in C.O.I.N. die festen Rollen (Administrator, Sachbearbeiter, Betrachter) und deaktivieren oder reaktivieren Benutzer, denn der Keycloak ist nur lesend nutzbar. Rechte sind Berechtigungen im Code und werden serverseitig über Policies durchgesetzt. Jede Rollen- und Statusänderung landet unveränderlich im Audit-Log. Die verbindliche Vorgabe steht im Auftrag zu diesem Branch.
@@ -251,11 +251,13 @@ shared/config/routen.ts           + benutzerverwaltung: '/benutzerverwaltung'
 entities/benutzer/                model: Berechtigung, Benutzer.berechtigungen, hatBerechtigung, BenutzerEintrag, Seite<T>,
                                   ROLLEN_ANZEIGE (Rolle → deutscher Text); api: ladeAngemeldetenBenutzer (403 → deaktiviert),
                                   ladeBenutzerliste({ suche, seite, groesse }); ui: StatusBadge
-                                  index.ts: Typen, hatBerechtigung, ROLLEN_ANZEIGE, ladeAngemeldetenBenutzer, ladeBenutzerliste, StatusBadge
+                                  model/fehlertext.ts: aenderungFehlertext(ergebnis) (Rev. 3, AK-50)
+                                  index.ts: Typen, hatBerechtigung, ROLLEN_ANZEIGE, ladeAngemeldetenBenutzer, ladeBenutzerliste,
+                                  StatusBadge, aenderungFehlertext
 entities/audit/                   model: AuditEintrag; api: ladeAuditLog({ benutzerId?, seite, groesse }); ui: AuditTabelle
                                   index.ts: AuditEintrag, ladeAuditLog, AuditTabelle
 features/rolle-zuweisen/          ui: RolleZuweisen ({ benutzer, deaktiviert, onGeaendert, onFehler }) = Select + AlertDialog;
-                                  api: weiseRolleZu(id, rolle); model: fehlertext(ergebnis)  · index.ts: RolleZuweisen
+                                  api: weiseRolleZu(id, rolle)  · index.ts: RolleZuweisen
 features/benutzer-status-aendern/ ui: StatusAendern ({ benutzer, deaktiviert, onGeaendert, onFehler }) = Button + AlertDialog;
                                   api: setzeStatus(id, aktiv)  · index.ts: StatusAendern
 widgets/benutzer-tabelle/         ui: BenutzerTabelle ({ aktuellerBenutzerId }): Suche, Tabelle, Blättern, Meldungen;
@@ -272,7 +274,7 @@ app/router/schutz.ts              erfordertBerechtigung(b) ersetzt erfordertRoll
 app/router/router.tsx             Route /benutzerverwaltung (in shell) mit Guard; /kein-zugriff erlaubt auch deaktiviert
 app/router/routen-komponenten.tsx BenutzerverwaltungRoute (reicht benutzer.id durch), Rückruf: deaktiviert → /kein-zugriff
 ```
-Importe nur nach unten: Die Widgets nutzen Features und Entities, die Page nutzt zwei Widgets, `app` nutzt die Page. Es gibt keine Querimporte zwischen Features (die Fehlertexte liegen je Feature). Die Seiten bleiben frei von Router-Hooks.
+Importe nur nach unten: Die Widgets nutzen Features und Entities, die Page nutzt zwei Widgets, `app` nutzt die Page. Es gibt keine Querimporte zwischen Features; die gemeinsame Fehlertext-Funktion `aenderungFehlertext` liegt in `entities/benutzer` (Rev. 3, AK-50). Die Seiten bleiben frei von Router-Hooks.
 
 ## 6. Tests
 
@@ -362,18 +364,134 @@ Importe nur nach unten: Die Widgets nutzen Features und Entities, die Page nutzt
 - **Vorschlag `CLAUDE.md`** (nur mit Freigabe): unter Sicherheit „Endpunkte verlangen eine Berechtigung (`docs/berechtigungen.md`), nie eine Rolle; neue Endpunkte in die Endpunkttabelle eintragen“ sowie „Audit-Einträge sind unveränderlich“.
 
 ## 10. Offene Fragen
-Keine. Beide Punkte aus Rev. 1 (F1 deaktivierte Benutzer auf öffentlichen Endpunkten, F2 Aufbewahrung des Audit-Logs) hat der Auftraggeber am 2026-10-05 entschieden (Abschnitt 1).
+Keine. Beide Punkte aus Rev. 1 (F1 deaktivierte Benutzer auf öffentlichen Endpunkten, F2 Aufbewahrung des Audit-Logs) hat der Auftraggeber am 2026-10-05 entschieden (Abschnitt 1). Die Fragen F1 bis F4 aus Rev. 3 hat er am 2026-10-06 entschieden (Abschnitt 12.8).
 
 ## 11. Umsetzung: Abweichungen vom Entwurf und bekannte Grenzen
 - **Schutzregel „letzter Administrator“ (AK-15)** ist über die API nicht erreichbar: Der Akteur muss aktiver Administrator sein (`Rechtematrix.Hat(akteur, users.manage)`), und ist er der einzige, greift vorher die Selbstprüfung (AK-16, `eigenes_konto`). Die Regel ist Absicherung in der Tiefe und nur per Unit-Test (`SchutzregelnTests`) belegt. Im Nebenläufigkeitstest (AK-17) endet der unterlegene Request mit `403 keine_berechtigung` (ADR-0018).
 - **Unbekannte Policy-Namen** scheitern erst beim Request (`500`), nicht beim Start (Abschnitt 7 korrigiert).
-- **Logs (AK-22)**: Die Kategorie `Microsoft.AspNetCore.Hosting.Diagnostics` wird fest erst ab `Warning` geschrieben (`src/Coin.Api/Http/Protokollierung.cs`), weil sie URLs samt `?suche=` loggt. Nebenwirkung: Auch im Betrieb fehlen die Request-Start/Ende-Einträge mit Status und Dauer. Langfristig HttpLogging mit Query-Redaktion erwägen (ADR-0017).
+- **Logs (AK-22, AK-46, AK-47)**: Vier Framework-Kategorien mit Request-Daten haben feste Mindeststufen, die ein Wrapper um die `ILoggerFactory` unabhängig von der Konfiguration erzwingt; die Hosting-Diagnose zusätzlich ohne Scope (ADR-0019 Punkt 5). Methode, Route, Status und Dauer liefert das eigene Request-Protokoll `AnfrageProtokoll`.
 - **403-Texte**: Zusätzlich zu AK-6 gibt es ein `detail` für `coins.read` („… den Coin-Katalog einzusehen.“) und einen allgemeinen Text („Ihr Benutzerkonto ist für diese Aktion nicht berechtigt.“) für Policies ohne eigenen Text. Beide werden heute an keinem Endpunkt ausgelöst.
 - **Datenbank**: Der Index `ix_benutzer_audit_zeitpunkt` liegt aufsteigend auf `(zeitpunkt, id)`; PostgreSQL liest ihn für die absteigende Sortierung rückwärts. Zusätzlich gibt es `ix_benutzer_audit_akteur_id` (FK-Index).
 - **Frontend**:
   - `Seite<T>` liegt in `shared/api` (von `entities/benutzer` re-exportiert), das Blättern als eigene Komponente in `shared/ui/blaettern.tsx` (für beide Tabs).
   - `StatusAendern` ist ein einziger Button für „Deaktivieren“/„Reaktivieren“, damit der Fokus nach dem Wechsel erhalten bleibt; während der Anfrage bleibt er per `focusableWhenDisabled` fokussierbar. Erfolgsmeldung: „{Name} wurde deaktiviert.“ bzw. „{Name} wurde reaktiviert.“
   - Fehlertexte (AK-30) zusätzlich: `403 benutzer_deaktiviert` → „Ihr Benutzerkonto ist deaktiviert.“
-  - shadcn-Nacharbeiten an `alert-dialog.tsx` (eigene Tab-Falle) und `select.tsx` (Pfeiltasten-Umlauf), App-Shell mit eigenem `<header>` neben `<main>`; Details und Grenzen in ADR-0009.
-- **Bekannte Grenze**: Wird ein deaktivierter Benutzer mitten in der Sitzung reaktiviert, bleibt seine App bis zum Neuladen der Seite auf `/kein-zugriff` (`/api/me` wird nur bei `403 benutzer_deaktiviert` neu geladen, nicht periodisch). Ebenso sieht ein Benutzer eine neue Rolle erst nach dem Neuladen; die API wendet sie sofort an.
+  - shadcn-Nacharbeiten an `alert-dialog.tsx` (eigene Tab-Falle, `AlertDialogCancel` reicht `focusableWhenDisabled` durch) und `select.tsx` (Pfeiltasten-Umlauf), App-Shell mit eigenem `<header>` neben `<main>`; Details und Grenzen in ADR-0009.
+- **Bekannte Grenze**: Ein Rollenwechsel bei Benutzern, die bereits eine Rolle haben, wird im Frontend erst nach dem Neuladen sichtbar; die API wendet ihn sofort an (Entscheidung F2 in 12.8).
 - **Nicht nachgezogen** (fehlende Schreibrechte des docs-Agenten): `infra/keycloak/README.md` (Hinweis aus Abschnitt 9) und der Vorschlag für `CLAUDE.md`.
+
+## 12. Nacharbeiten (Rev. 3, umgesetzt)
+
+Auftrag des Auftraggebers vom 2026-10-06: offene Punkte aus Umsetzung und QA-Review lösen. Nicht im Umfang: Löschkonzept für das Audit-Log (bleibt späteres Feature, Entscheidung 2). Die AK-1 bis AK-38 gelten weiter, soweit unten nichts anderes steht.
+
+### 12.1 Schutzregeln: Akteur zuerst (ADR-0018, geändert)
+- **AK-39** Neue Reihenfolge in `Schutzregeln.Pruefen`: **AkteurNichtBerechtigt → NichtGefunden → Unveraendert → EigenesKonto → LetzterAdministrator → Erlaubt.** `AkteurNichtBerechtigt` gilt, wenn `akteur` `null` ist oder `Rechtematrix.Hat(akteur, users.manage)` `false` liefert (Rolle ohne Recht, keine Rolle, deaktiviert). Der Doc-Kommentar in `Schutzregeln.cs` nennt die neue Reihenfolge. Unit-Tests in `SchutzregelnTests`, jeweils mit Akteur Betrachter, ohne Rolle, deaktivierter Administrator und `null`:
+  - Ziel unverändert (gleiche Rolle bzw. gleicher Status) → `AkteurNichtBerechtigt` (bisher `Unveraendert`).
+  - Ziel `null` → `AkteurNichtBerechtigt` (bisher `NichtGefunden`).
+  - Mit berechtigtem Akteur bleiben `NichtGefunden`, `Unveraendert`, `EigenesKonto` und `LetzterAdministrator` wie bisher (bestehende Tests grün).
+- **AK-40** Integrationstest gegen PostgreSQL auf Service-Ebene (`BenutzerverwaltungService` mit echtem Repository, weil die Policy den Fall über HTTP vorher abfängt): Akteur ist Betrachter bzw. deaktivierter Administrator. `RolleZuweisenAsync` mit der aktuellen Rolle des Ziels und `StatusSetzenAsync` mit dem aktuellen Status des Ziels liefern `AkteurNichtBerechtigt`, nicht `Unveraendert`. Es wird nichts geschrieben, kein Audit-Eintrag. Der Controller bildet das wie bisher auf `403 keine_berechtigung` ab; der Body enthält weder Name noch E-Mail des Ziels (Controller-Test oder Integrationstest mit präpariertem Service). AK-17 bleibt unverändert grün.
+
+### 12.2 Reaktivierung und Rollenvergabe während der Sitzung (Frontend)
+Begriffe: Die **Zugriffsklasse** ist aus dem Benutzerzustand abgeleitet: `deaktiviert` (Zustand „deaktiviert“), `ohneRolle` (Zustand „angemeldet“, `rolle = 'keine'`) oder `mitRolle` (Zustand „angemeldet“ mit Rolle). `/kein-zugriff` zeigt für `deaktiviert` den Grund „deaktiviert“ und für `ohneRolle` den Grund „keineRolle“ (bestehende Prop `grund`).
+
+- **AK-41** `/kein-zugriff` zeigt bei beiden Gründen („deaktiviert“ und „keineRolle“) zusätzlich einen Button „Erneut prüfen“ (shadcn `Button`, Variante `outline`) neben „Zum Coin-Katalog“ und „Abmelden“. Er ist per Tastatur erreichbar und hat einen sichtbaren Fokus.
+- **AK-42** „Erneut prüfen“ lädt `GET /api/me` genau einmal neu:
+  - Während der Prüfung bleibt die Seite stehen (kein Zwischenzustand „pruefe“, kein Ausblenden, kein Warten der Guards). Der Button bleibt fokussierbar (`aria-disabled="true"`, kein `disabled`-Attribut), behält den Fokus und zeigt den Text „Wird geprüft …“; weitere Klicks oder Enter lösen keinen zweiten Request aus.
+  - Zugriffsklasse unverändert: Die Seite bleibt, der Fokus bleibt auf dem Button, und `role="status"` meldet
+    - bei „deaktiviert“: „Ihr Benutzerkonto ist weiterhin deaktiviert.“
+    - bei „keineRolle“: „Ihrem Benutzerkonto ist weiterhin keine Rolle zugewiesen.“
+  - Netzwerk- oder Serverfehler: Die Seite bleibt mit dem bisherigen Zustand, `role="alert"` meldet „Die Prüfung ist fehlgeschlagen. Bitte später erneut versuchen.“
+  - `401`: wie bisher (Sitzung verwerfen, Zustand „anonym“).
+  - Wechsel zwischen „keineRolle“ und „deaktiviert“ (z. B. ein Benutzer ohne Rolle wurde inzwischen deaktiviert): Die Seite zeigt den neuen Grund mit dessen Text. Der Fokus bleibt auf „Erneut prüfen“.
+  - Zugriffsklasse wird `mitRolle`: weiter mit AK-43.
+- **AK-43** Wird die Zugriffsklasse `mitRolle` (Reaktivierung eines Benutzers mit Rolle oder Rollenvergabe an einen Benutzer ohne Rolle), führt die App `router.invalidate()` genau einmal aus. Der Guard von `/kein-zugriff` leitet zur Startseite `/` weiter (Entscheidung F3). Kopfzeile und Sidebar zeigen Namen und Einträge gemäß `berechtigungen`. Wird ein deaktivierter Benutzer ohne Rolle reaktiviert, bleibt er auf `/kein-zugriff` und sieht den Text für „keine Rolle“.
+- **AK-44** Fensterfokus: Nur in den Zugriffsklassen `deaktiviert` und `ohneRolle` löst das Zurückkehren in das Fenster (`visibilitychange` auf `visible` oder `focus` des Fensters) eine stille Prüfung wie in AK-42 aus, ohne Status- oder Fehlermeldung. Das gilt unabhängig von der aktuellen Seite; eine Weiterleitung nach `/` gibt es nur, wenn der Benutzer auf `/kein-zugriff` steht (Guard). Regeln:
+  - Höchstens eine Prüfung je 30 Sekunden und nie parallel zu einer laufenden (auch nicht zu „Erneut prüfen“).
+  - In allen anderen Zuständen kein Request bei Fensterfokus: anonym, Fehler und **angemeldet mit Rolle** (Entscheidung F2).
+  - Kein Timer, kein Intervall, keine Polling-Schleife (Vitest mit Fake-Timern: 5 Minuten ohne Ereignis → 0 Aufrufe von `/api/me`).
+  - Die Listener werden beim Wechsel nach `mitRolle` oder anonym und beim Unmount entfernt.
+- **AK-45** Guard-Neulauf nur bei echten Übergängen (QA-Punkt 4d): Maßgeblich ist die Zugriffsklasse des letzten festen Zustands (alles außer „pruefe“). `router.invalidate()` läuft genau dann, wenn sie sich zwischen zwei festen Zuständen ändert, also z. B. `mitRolle` → `deaktiviert`, `deaktiviert` → `mitRolle`, `ohneRolle` → `mitRolle` oder `ohneRolle` → `deaktiviert`. Beim ersten Laden (Start in „pruefe“, danach erste feste Zugriffsklasse) gibt es kein `invalidate`. Der Vergleich `rolle === 'keine'` für die Zugriffsklasse liegt in `app/anmeldung`; die Ausnahmeliste des Grep-Tests aus AK-23 wird um `app/anmeldung` erweitert. Tests (Vitest, `App.anmeldung.test.tsx`):
+  - Erstaufruf von `/benutzerverwaltung` als Deaktivierter: Der `beforeLoad`-Guard läuft genau einmal (Spy auf `schutz()` oder gezählte `/kein-zugriff`-Navigationen), Ergebnis `/kein-zugriff`.
+  - Erstaufruf als Admin und als Benutzer ohne Rolle: kein `invalidate`.
+  - Während der Sitzung `403 benutzer_deaktiviert` auf einen anderen Aufruf (AK-32): genau ein `invalidate`, Ergebnis `/kein-zugriff`. Das erneute Laden von `/api/me` (`neuLaden`) behält dabei den letzten Zustand bis zur Antwort (kein Zwischenzustand „pruefe“, `bereit` bleibt `true`).
+  - Prüfung ohne Änderung der Zugriffsklasse (z. B. weiterhin deaktiviert): kein `invalidate`.
+
+### 12.3 Request-Protokoll ohne Personendaten (ADR-0019, neu; ADR-0017 angepasst)
+- **AK-46** Eine eigene Middleware `AnfrageProtokoll` (`src/Coin.Api/Http/AnfrageProtokoll.cs`, registriert als erste Middleware vor `UseExceptionHandler`) schreibt für **jeden** Request genau einen Log-Eintrag. Das gilt ausdrücklich auch für die öffentlichen Katalog-GETs und den Bild-Endpunkt (Entscheidung F4); es gibt keine Ausnahmeliste im Code.
+  - Kategorie `Coin.Api.Http.AnfrageProtokoll`, Level `Information`, `EventId` 4601 (`AnfrageBeendet`), Nachrichtenvorlage `HTTP {Methode} {Route} antwortete {Status} in {DauerMs} ms`.
+  - `Methode`: eine aus GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, sonst `ANDERE` (keine freien Werte aus dem Request).
+  - `Route`: Routen-Template des getroffenen Endpunkts mit führendem `/` (z. B. `/api/benutzer/{id}/rolle`), gebaut aus `RoutePattern.PathSegments`, ohne Constraints und Defaults (nicht `RawText`), ohne Query und ohne Parameterwerte. Ohne Endpunkt (404, 405, Fehler vor dem Routing): `(keine Route)`, nie der rohe Pfad.
+  - `Status`: der tatsächlich gesendete Statuscode, auch für 401, 403, 404, 415 und 500. Bei Ausnahme nach Antwortbeginn der begonnene Status, bei Client-Abbruch vor Antwortbeginn 499, sonst 500 (Abbrüche vor Antwortbeginn fängt meist schon `UseExceptionHandler` mit 499 ab).
+  - `DauerMs`: Dauer bis Ende der Antwort, gemessen über `TimeProvider` (Timestamp), gerundet auf ganze Millisekunden.
+  - Absenken oder Abschalten nur über die Log-Level-Konfiguration `Logging:LogLevel:Coin.Api.Http.AnfrageProtokoll`. Inhalt und erfasste Endpunkte sind nicht konfigurierbar.
+- **AK-47** Datenschutz (Erweiterung `Anmeldung/LogTests`, AK-22): Bei `GET /api/benutzer?suche=geheim.person@test.local`, `PUT /api/benutzer/{id}/rolle` mit Token und Body und `GET /api/unbekannt/max.mustermann@test.local` enthält kein Log-Eintrag (alle Kategorien, inklusive Scopes und strukturierter Werte) die Zeichenkette `geheim.person`, `max.mustermann`, `?suche`, die Ziel-Id, den Request-Body, den Authorization-Header, das Token, Namen oder E-Mails des Akteurs. Positiv geprüft: je Request genau ein `AnfrageProtokoll`-Eintrag mit erwarteter Methode, Route (`/api/benutzer`, `/api/benutzer/{id}/rolle`, `(keine Route)`) und Status; außerdem anonym `GET /api/coins/{id}/bild` → ein Eintrag mit Route `/api/coins/{id}/bild` und Level `Information`. Methode `FOO` → `ANDERE`. Die Hosting-Diagnose bleibt fest ab `Warning`. Umgesetzt mit Erweiterung von `Protokollierung.cs` (ADR-0019 Punkt 5): Der `ILoggerFactory`-Wrapper `MitFestenStufen` erzwingt feste Mindeststufen unabhängig von Konfigurationsregeln (auch Wildcards und empfängerspezifisch) für `Microsoft.AspNetCore.Hosting.Diagnostics` (`Warning`, zusätzlich keine Scopes, weil der Scope den rohen Pfad trug), `Routing.Matching.DfaMatcher` (`Warning`), `Mvc.Infrastructure.ControllerActionInvoker` (`Debug`) und `Server.Kestrel.BadRequests` (`Warning`); Filterregeln sind die zweite Linie. Die Kategorien werden exakt verglichen, gegen Umbenennung durch .NET-Updates sichern die Leak-Tests in `LogTests` ab; `Aufgeloeste_LoggerFactory_*` schlagen an, wenn die Fabrik (z. B. durch Serilog) ersetzt wird. `TraceId`/`SpanId` (ActivityTracking) ersetzen die frühere RequestId-Korrelation.
+
+### 12.4 Frontend-Nacharbeiten aus dem QA-Review
+- **AK-48** Bestätigungsdialoge während der Anfrage (`StatusAendern` und, gleiches Muster, `RolleZuweisen`):
+  - „Abbrechen“ und der Bestätigen-Button („Deaktivieren“ bzw. „Rolle ändern“) bleiben fokussierbar (`focusableWhenDisabled`, `aria-disabled="true"`, kein `disabled`-Attribut). Der Fokus bleibt auf dem gedrückten Button, er fällt nicht auf `body`.
+  - Der Dialog-Inhalt trägt `aria-busy="true"` und zeigt einen sichtbaren Hinweis in `role="status"`: „Änderung wird gespeichert …“. Die Namen der Buttons bleiben unverändert.
+  - Escape, Klick auf „Abbrechen“ und Klick außerhalb schließen den Dialog während der Anfrage nicht.
+  - Falls `AlertDialogCancel` in `shared/ui/alert-dialog.tsx` `focusableWhenDisabled` nicht durchreicht, wird die Komponente angepasst (Nacharbeit nach ADR-0009, dort vermerken).
+- **AK-49** Schutz gegen Mehrfachsendung, unabhängig vom Render-Zeitpunkt (synchroner Schutz, z. B. `useRef`, nicht nur State): Doppelklick und mehrfaches Enter auf „Deaktivieren“, „Rolle ändern“ und „Reaktivieren“ (ohne Dialog) während `sendet` lösen genau einen PUT aus. Vitest mit zurückgehaltener Antwort (Deferred-Promise): zwei Klicks bzw. zwei Enter in Folge → genau ein Aufruf; während der Anfrage `aria-disabled="true"` und `document.activeElement` ist der Button; nach der Antwort wieder bedienbar.
+- **AK-50** Die Fehlertext-Funktion liegt einmal in `entities/benutzer/model/fehlertext.ts` als `aenderungFehlertext(ergebnis)` (Texte unverändert nach AK-30 plus `benutzer_deaktiviert`) und wird über `entities/benutzer/index.ts` exportiert. `features/rolle-zuweisen/model/fehlertext.ts` und `features/benutzer-status-aendern/model/fehlertext.ts` samt Tests entfallen; der Test zieht nach `entities/benutzer/model/fehlertext.test.ts`. Steiger und `npm run lint` ohne Befund; keine Querimporte zwischen Features.
+
+### 12.5 Abschluss
+- **AK-51** `dotnet build` ohne Warnungen, `dotnet test`, `npm test`, `npm run test:ui`, `npm run lint` und `npx playwright test` grün. Doku nach 12.7 nachgezogen.
+
+### 12.6 Lösungsentwurf und Zuordnung
+**Backend**
+- `Coin.Domain/Benutzer/Schutzregeln.cs`: Akteur-Prüfung an den Anfang; `BenutzerverwaltungService` unverändert (bildet nur ab). Keine API-Vertragsänderung; `docs/api.md` nur Hinweis, dass bei fehlendem Recht `403` vor `404` kommt.
+- `Coin.Api/Http/AnfrageProtokoll.cs`: Middleware mit `ILogger<AnfrageProtokoll>`, `TimeProvider`, `LoggerMessage`-Quellgenerator. Liest den Endpunkt nach `await next()` über `HttpContext.GetEndpoint()`, ersatzweise aus `IExceptionHandlerFeature`. Loggt im `finally` (Status siehe AK-46). Keine Scopes mit Request-Daten. Registrierung in `Program.cs` vor `UseExceptionHandler`.
+- `Coin.Api/Http/Protokollierung.cs`: erweitert um `MitFestenStufen` und ActivityTracking (AK-47, ADR-0019 Punkt 5).
+
+**Frontend (FSD)**
+```
+entities/benutzer/model/fehlertext.ts   aenderungFehlertext(ergebnis) · index.ts: + aenderungFehlertext
+features/rolle-zuweisen/                ui: RolleZuweisen nutzt aenderungFehlertext, Sende-Sperre per Ref, Dialog aria-busy/Status
+features/benutzer-status-aendern/       ui: StatusAendern dito; model/ entfällt
+shared/ui/alert-dialog.tsx              AlertDialogCancel reicht focusableWhenDisabled durch (ADR-0009)
+pages/kein-zugriff/                     KeinZugriffSeite: für beide Gründe Prop
+                                        onErneutPruefen: () => Promise<'unveraendert' | 'fehler' | 'geaendert'>;
+                                        Button „Erneut prüfen“, Status-/Alert-Meldung je Grund (Zustand lokal in der Seite)
+app/anmeldung/use-benutzer.ts           erneutPruefen(): lädt /api/me, behält den letzten Zustand bis zur Antwort
+                                        (auch für neuLaden), meldet dem Aufrufer, ob sich die Zugriffsklasse geändert hat;
+                                        Sperre gegen parallele Prüfung
+app/anmeldung/zugriffsklasse.ts         neu: zugriffsklasse(zustand) → 'deaktiviert' | 'ohneRolle' | 'mitRolle' | null (+ Test)
+app/anmeldung/use-pruefen-bei-fokus.ts  neu: Listener visibilitychange/focus nur bei 'deaktiviert' und 'ohneRolle', 30-s-Sperre
+app/anmeldung/benutzer-kontext.ts       BenutzerKontextWert + erneutPruefen
+app/router/routen-komponenten.tsx       KeinZugriffRoute reicht erneutPruefen für beide Gründe an die Seite
+app/App.tsx                             invalidate nach AK-45 (Wechsel der Zugriffsklasse), nutzt use-pruefen-bei-fokus
+```
+Shadcn: keine neuen Komponenten (`Button`, `AlertDialog` vorhanden). Seiten bleiben frei von Router-Hooks; die Navigation nach Reaktivierung oder Rollenvergabe erledigt der Guard nach `invalidate`. Abschnitt 5.6, Satz „die Fehlertexte liegen je Feature“, ist damit überholt.
+
+**Tests**
+| Ebene | Inhalt |
+|---|---|
+| xUnit Unit | `SchutzregelnTests` (AK-39) |
+| xUnit Integration | Service-Test AK-40, `LogTests` erweitert (AK-46, AK-47) |
+| Vitest | `KeinZugriffSeite` für beide Gründe (AK-41, AK-42: Texte, `aria-disabled`, Fokus, Einmal-Request, Grundwechsel), `zugriffsklasse`, `use-pruefen-bei-fokus` bzw. `App.anmeldung.test.tsx` (AK-43 bis AK-45, Fake-Timer, kein Request bei „angemeldet mit Rolle“), `StatusAendern`/`RolleZuweisen` (AK-48, AK-49), `fehlertext.test.ts` in `entities/benutzer` (AK-50), Grep-Test AK-23 mit erweiterter Ausnahmeliste, Englisch-Prüfung der neuen Texte |
+| UI-Test (`web/ui-tests`, gemockt) | `/kein-zugriff` deaktiviert → Tastatur zu „Erneut prüfen“, Enter; Mock liefert erst 403, dann 200 → Startseite; sichtbarer Fokus am Button. Dasselbe für „keine Rolle“: erst `rolle: 'keine'` (Meldung „weiterhin keine Rolle“), dann `Betrachter` → Startseite. Dialog „Deaktivieren“ mit verzögerter Antwort: Fokus bleibt auf dem Button, „Änderung wird gespeichert …“ sichtbar, zweites Enter ohne zweiten PUT |
+| Systemtest (`e2e/`) | `benutzerverwaltung.spec.ts` erweitert: Admin deaktiviert `betrachter@test.local`; Betrachter (eigener Kontext) landet auf „Kein Zugriff“; Admin reaktiviert; Betrachter klickt „Erneut prüfen“ und sieht die Startseite. Endet mit aktivem Betrachter (wiederholbar). Die Rollenvergabe an „ohne Rolle“ wird nur im UI-Test geprüft, damit `neu@test.local` ohne Rolle bleibt |
+
+### 12.7 Doku-Bedarf (docs-Agent, erledigt)
+- `docs/adr/0018` und `0017` angepasst, `0019` neu und an die Umsetzung angeglichen.
+- `docs/api.md`: Reihenfolge `403` vor `404` bei `PUT /api/benutzer/{id}/…` für Akteure ohne Recht; Abschnitt Protokollierung (Felder des Request-Logs).
+- `README.md` (Betrieb): Request-Log-Kategorie, Felder, alle Requests auf `Information`, Absenken per `Logging:LogLevel`.
+- `docs/benutzer/anmeldung.md`: „Konto deaktiviert“ und „Noch keine Rolle“ um „Erneut prüfen“ und die Prüfung beim Zurückkehren ins Fenster ergänzen.
+- `docs/requirements.md`: Entscheidungen vom 2026-10-06 (12.8) festhalten.
+- Abschnitt 11 dieses Entwurfs: erledigte Grenzen streichen; ADR-0009 um die `AlertDialogCancel`-Nacharbeit ergänzen.
+- `docs/benutzer/benutzerverwaltung.md`: Hinweis „Änderung wird gespeichert …“.
+
+### 12.8 Entscheidungen des Auftraggebers (2026-10-06), Annahmen
+Entscheidungen:
+- **F1 ja:** „Erneut prüfen“ und die Prüfung bei Fensterfokus gelten auch für Benutzer ohne Rolle (AK-41 bis AK-45).
+- **F2 nein:** Kein Neuladen von `/api/me` bei Fensterfokus für angemeldete Benutzer mit Rolle (AK-44). Rollenwechsel bei diesen Benutzern werden weiter erst nach dem Neuladen sichtbar (Abschnitt 11).
+- **F3 Startseite:** Nach Reaktivierung oder Rollenvergabe geht es zur Startseite. Ein früheres Ziel wird nicht gespeichert (AK-43).
+- **F4 ja:** Alle Requests, auch die öffentlichen Katalog-GETs und der Bild-Endpunkt, werden auf `Information` protokolliert. Absenken nur per Log-Level-Konfiguration (AK-46, ADR-0019).
+
+Annahmen:
+- A1: Die Akteur-Prüfung steht auch vor `NichtGefunden`, nicht nur vor `Unveraendert`. So erfährt ein Akteur ohne Recht auch nicht, ob eine Id existiert. Über HTTP ändert sich dadurch nur das sehr kurze TOCTOU-Fenster.
+- A2: AK-48/AK-49 gelten auch für `RolleZuweisen`, weil dort dasselbe Muster und dasselbe Problem vorliegen.
+- A4: 30 Sekunden Mindestabstand für die Prüfung bei Fensterfokus.
+
+Offene Fragen: keine (alle Fragen am 2026-10-06 entschieden, siehe oben).

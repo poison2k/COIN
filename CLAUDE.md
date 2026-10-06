@@ -49,7 +49,7 @@ Umgesetzt: Coin-Katalog (`docs/features/coin-katalog.md`) – Coin anlegen/aufli
 hochladen/abrufen; Lesen öffentlich (ADR-0014), Schreiben nur mit `coins.write`.
 Frontend-Grundgerüst mit App-Shell (Startseite `/`, Coin-Liste `/coins`, Sidebar, Hell/Dunkel).
 Anmeldung über Keycloak (ADR-0012–0015). Rollen- und Benutzerverwaltung
-(`docs/features/rollen-benutzerverwaltung.md`, ADR-0016–0018): Administratoren vergeben Rollen und
+(`docs/features/rollen-benutzerverwaltung.md`, ADR-0016–0019): Administratoren vergeben Rollen und
 deaktivieren/reaktivieren Benutzer unter `/benutzerverwaltung`; Berechtigungen `coins.read`/
 `coins.write`/`users.manage`/`audit.read` aus der festen Rechtematrix im Code
 (`docs/berechtigungen.md`); Audit-Log für Rollen- und Statusänderungen (`benutzer_audit`,
@@ -112,8 +112,11 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
   (geprüft in `web/src/app/abhaengigkeiten.test.ts`).
 - Audit-Einträge sind unveränderlich (nur INSERT/SELECT, DB-Trigger); Änderungen an Rolle oder Status
   nur über `BenutzerverwaltungService` (Sperre plus Audit in derselben Transaktion).
-- Die Logkategorie `Microsoft.AspNetCore.Hosting.Diagnostics` bleibt fest auf Warning (URLs mit Query
-  können Personendaten enthalten); nicht per Konfiguration lockern.
+- Request-Logs schreibt nur `AnfrageProtokoll` (Methode, Routen-Template, Status, Dauer; ADR-0019).
+  Framework-Kategorien mit Request-Daten (Hosting.Diagnostics, Routing-DfaMatcher,
+  ControllerActionInvoker, Kestrel.BadRequests) haben feste Mindeststufen per `ILoggerFactory`-Wrapper
+  in `src/Coin.Api/Http/Protokollierung.cs` – nicht per Konfiguration lockern und die `ILoggerFactory`
+  (z. B. Serilog) nicht ersetzen, ohne diese Begrenzung nachzubauen.
 
 ## Definition of Done
 1. Anforderung in `docs/requirements.md` abgedeckt

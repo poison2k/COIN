@@ -1,6 +1,6 @@
 # ADR-0017: Audit-Log für Rollen und Status, unveränderlich in PostgreSQL
 
-Status: Angenommen (umgesetzt; Aufbewahrung vom Auftraggeber am 2026-10-05 entschieden) · Datum: 2026-10-05 · Feature: rollen-benutzerverwaltung
+Status: Angenommen (umgesetzt; Aufbewahrung vom Auftraggeber am 2026-10-05 entschieden; Request-Protokoll am 2026-10-06 ergänzt durch ADR-0019) · Datum: 2026-10-05 · Feature: rollen-benutzerverwaltung
 
 ## Kontext
 `docs/requirements.md` verlangt nachvollziehbare Änderungen (Audit-Log). Laut Vorgabe wird jede Änderung an Rollen und Status festgehalten: wer, wann, welcher Benutzer, alter und neuer Wert. Audit-Einträge sind unveränderlich, und nur Administratoren lesen sie. Die Einträge enthalten Personenbezug, weil sie auf Benutzer verweisen.
@@ -17,7 +17,8 @@ Status: Angenommen (umgesetzt; Aufbewahrung vom Auftraggeber am 2026-10-05 entsc
    - In der DB: Der Trigger `trg_benutzer_audit_unveraenderlich` (`BEFORE UPDATE OR DELETE … FOR EACH ROW`) bricht mit einer Exception ab.
    - `TRUNCATE` wird bewusst nicht blockiert. Es braucht Tabelleneigentümer-Rechte und ist eine Betriebs- und Testoperation (Integrationstests leeren die DB mit `TRUNCATE … CASCADE`).
 5. **Lesen** nur mit Berechtigung `audit.read` (ADR-0016), mit `Cache-Control: no-store`. Inhalte des Audits werden nicht geloggt.
-   - Logs enthalten auch sonst keine Namen und E-Mails. Weil die Hosting-Diagnose (`Microsoft.AspNetCore.Hosting.Diagnostics`) jede Request-URL samt Query-String loggt (z. B. `GET /api/benutzer?suche=<Name oder E-Mail>`), wird diese Kategorie für alle Log-Empfänger fest erst ab `Warning` geschrieben (`src/Coin.Api/Http/Protokollierung.cs`, als letzte Filterregel je Empfänger, also nicht per Konfiguration überschreibbar).
+   - Logs enthalten auch sonst keine Namen und E-Mails. Weil die Hosting-Diagnose (`Microsoft.AspNetCore.Hosting.Diagnostics`) jede Request-URL samt Query-String loggt (z. B. `GET /api/benutzer?suche=<Name oder E-Mail>`), wird diese Kategorie fest erst ab `Warning` und ohne Scope geschrieben (`src/Coin.Api/Http/Protokollierung.cs`). Seit Rev. 3 erzwingt das ein Wrapper um die `ILoggerFactory` unabhängig von jeder Konfiguration, zusammen mit drei weiteren Framework-Kategorien, die Request-Daten loggen (Liste und Begründung in ADR-0019 Punkt 5); Filterregeln je Empfänger sind die zweite Linie.
+   - Methode, Route, Status und Dauer je Request protokolliert stattdessen die eigene Middleware `AnfrageProtokoll` mit fester Feldauswahl ohne Query, Pfadwerte, Header oder Body (ADR-0019).
    - Der Query-Parameter `suche` wird außerdem nicht über MVC-Argument-Logs ausgegeben (`BenutzerListeAnfrage.ToString()` ohne Werte).
 6. **Aufbewahrung** (Entscheidung des Auftraggebers vom 2026-10-05): Audit-Einträge werden vorerst unbegrenzt aufbewahrt. Ein Löschkonzept folgt als eigenes späteres Feature. Es braucht dann einen privilegierten Betriebsweg am Trigger vorbei.
 
@@ -37,4 +38,4 @@ Status: Angenommen (umgesetzt; Aufbewahrung vom Auftraggeber am 2026-10-05 entsc
 - Wer Eigentümerrechte an der DB hat, kann den Trigger entfernen. Das ist nur bei Betrieb mit getrennten DB-Rollen auszuschließen und als Betriebsthema vermerkt.
 - Die Tabelle wächst unbegrenzt, bis das Löschkonzept umgesetzt ist. Bei zwei seltenen Änderungsarten ist das unkritisch.
 - Spätere Audit-Arten (z. B. Verleihungen) bekommen eigene Werte für `art` per Migration oder eine eigene Tabelle.
-- Durch den Logfilter fehlen auch im Betrieb die Request-Start/Ende-Einträge der Hosting-Diagnose mit Status und Dauer. Langfristig ist `HttpLogging` mit gezielter Redaktion des Query-Strings zu erwägen, um diese Information zurückzugewinnen.
+- Durch den Logfilter fehlen die Request-Start/Ende-Einträge der Hosting-Diagnose. Methode, Route, Status und Dauer liefert stattdessen das Request-Protokoll nach ADR-0019; `HttpLogging` wurde dafür geprüft und verworfen (Begründung dort).

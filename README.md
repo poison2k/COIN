@@ -145,10 +145,21 @@ angewendet. In Development ist das OpenAPI-Dokument unter `/openapi/v1.json` abr
 
   Der Eingriff umgeht die Schutzregeln und erzeugt keinen Audit-Eintrag. Er ist außerhalb der App
   zu dokumentieren.
-- **Logs**: Die Kategorie `Microsoft.AspNetCore.Hosting.Diagnostics` wird unabhängig von der
-  Konfiguration erst ab `Warning` geschrieben (`src/Coin.Api/Http/Protokollierung.cs`), weil sie
-  URLs samt Query (`?suche=` mit Namen oder E-Mails) protokolliert. Dadurch fehlen auch die
-  Request-Start/Ende-Einträge mit Status und Dauer (ADR-0017).
+- **Request-Protokoll** (ADR-0019): Jeder Request, auch öffentliche Katalog- und Bildabrufe, ergibt
+  genau einen Eintrag der Kategorie `Coin.Api.Http.AnfrageProtokoll` auf `Information`, EventId
+  `4601`, mit den Feldern `Methode`, `Route` (Routen-Template, nie roher Pfad oder Query; ohne
+  Endpunkt `(keine Route)`), `Status` (`499` bei Client-Abbruch vor Antwortbeginn) und `DauerMs`.
+  Korreliert wird über `TraceId` und `SpanId` im Scope. Absenken oder Abschalten nur über das
+  Log-Level `Logging:LogLevel:Coin.Api.Http.AnfrageProtokoll` (z. B. `Warning`); Felder und erfasste
+  Endpunkte sind nicht konfigurierbar. Details in [docs/api.md](docs/api.md#protokollierung).
+- **Framework-Logs mit Request-Daten**: `src/Coin.Api/Http/Protokollierung.cs` erzwingt feste
+  Mindeststufen, die keine Konfiguration (auch keine Wildcard- oder empfängerspezifische Regel)
+  aufhebt: `Microsoft.AspNetCore.Hosting.Diagnostics` ab `Warning` (ohne Scope),
+  `Microsoft.AspNetCore.Routing.Matching.DfaMatcher` ab `Warning`,
+  `Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker` ab `Debug`,
+  `Microsoft.AspNetCore.Server.Kestrel.BadRequests` ab `Warning`. Wer die `ILoggerFactory` ersetzt
+  (z. B. durch Serilog), hebelt das aus; die Tests `Aufgeloeste_LoggerFactory_*` in `LogTests`
+  schlagen dann an.
 
 Neue Migration anlegen:
 
@@ -201,8 +212,13 @@ Unbekannte Pfade zeigen „Seite nicht gefunden.“ Die Guards `erfordertAnmeldu
 ohne Sitzung die Anmeldung, leitet ohne Rolle oder deaktiviert nach `/kein-zugriff` und mit Rolle,
 aber ohne Berechtigung, nach `/`. Sichtbarkeit (Sidebar-Einträge, Formulare) richtet sich nur nach
 `berechtigungen` aus `/api/me`, nie nach dem Rollennamen; ein Test in `abhaengigkeiten.test.ts`
-verbietet Rollenvergleiche außerhalb von `features/rolle-zuweisen`, `pages/kein-zugriff` und
-`app/router`.
+verbietet Rollenvergleiche außerhalb von `features/rolle-zuweisen`, `pages/kein-zugriff`,
+`app/router` und `app/anmeldung` (Zugriffsklasse).
+
+Auf `/kein-zugriff` lädt „Erneut prüfen“ `/api/me` neu; deaktiviert oder ohne Rolle prüft die App
+außerdem still beim Zurückkehren ins Fenster (höchstens alle 30 s, kein Polling). Ändert sich die
+Zugriffsklasse (`deaktiviert`, `ohneRolle`, `mitRolle`), laufen die Guards einmal neu
+(`router.invalidate()`); wer eine Rolle hat, landet so auf `/`.
 
 ### Anmeldung lokal ausprobieren
 
@@ -215,7 +231,8 @@ verbietet Rollenvergleiche außerhalb von `features/rolle-zuweisen`, `pages/kein
    App zunächst keine Rolle und landet nach der Anmeldung auf „Kein Zugriff“.
 5. Als `admin@test.local` in der Sidebar **Benutzerverwaltung** öffnen. Dort erscheinen alle
    Benutzer, die sich schon einmal angemeldet haben; Rolle wählen und bestätigen. Die Änderung wirkt
-   beim nächsten API-Aufruf, im Frontend nach dem Neuladen der Seite.
+   beim nächsten API-Aufruf. Ein Benutzer auf „Kein Zugriff“ kommt per „Erneut prüfen“ weiter; bei
+   Benutzern, die schon eine Rolle haben, zeigt das Frontend den Wechsel erst nach dem Neuladen.
 
 Rollen und Status stehen in der Tabelle `benutzer`, das Audit-Log in `benutzer_audit` der
 Entwicklungs-DB.
@@ -347,7 +364,8 @@ Ablauf pro Lauf (ADR-0007, ADR-0015):
   `VITE_OIDC_AUTHORITY` → 5184).
 - Schreibende Tests melden sich über das echte Keycloak-Formular als `admin@test.local` an.
   `benutzerverwaltung.spec.ts` vergibt `betrachter@test.local` die Rolle Betrachter und prüft
-  Audit-Log und Sichtbarkeit; `neu@test.local` behält keine Rolle.
+  Audit-Log und Sichtbarkeit, deaktiviert und reaktiviert ihn dann und prüft „Erneut prüfen“;
+  `neu@test.local` behält keine Rolle.
 - Laufende Server werden nie wiederverwendet. Ist Port 5182, 5183 oder 5184 belegt, bricht der Lauf ab.
 - `global-setup.ts` prüft vor dem ersten Test, dass die Datenbank leer ist (`GET /api/coins` liefert
   `[]`), sonst bricht der Lauf ab.
