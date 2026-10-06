@@ -33,10 +33,11 @@ describe('Abhängigkeiten für die Anmeldung', () => {
 
 // Feature rollen-benutzerverwaltung, AK-23: Rechte kommen nur aus `berechtigungen` (/api/me). Kein Produktivcode
 // vergleicht Rollennamen, um Rechte abzuleiten. Erlaubt nur dort, wo die Rolle angezeigt bzw. ausgewählt wird oder
-// der Router „ohne Rolle“ von „ohne Berechtigung“ unterscheidet.
+// der Router „ohne Rolle“ von „ohne Berechtigung“ unterscheidet. Rev. 3, AK-45: zusätzlich app/anmeldung (Zugriffsklasse
+// „ohneRolle“ aus `rolle === 'keine'` in app/anmeldung/zugriffsklasse.ts).
 
 const quellen = import.meta.glob<string>('/src/**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true })
-const ERLAUBT = ['/src/features/rolle-zuweisen/', '/src/pages/kein-zugriff/', '/src/app/router/']
+const ERLAUBT = ['/src/features/rolle-zuweisen/', '/src/pages/kein-zugriff/', '/src/app/router/', '/src/app/anmeldung/']
 /** `rolle ===`, `rolle !==` bzw. `=== x.rolle` (auch mit Optional Chaining). */
 const ROLLENVERGLEICH = /\brolle\s*[!=]==|[!=]==\s*[\w$?.]*\brolle\b/
 
@@ -45,7 +46,7 @@ describe('Keine Rechte aus Rollennamen (AK-23)', () => {
     expect(Object.keys(quellen).length).toBeGreaterThan(20)
   })
 
-  it('enthält außerhalb von rolle-zuweisen, kein-zugriff und app/router keinen Vergleich mit rolle', () => {
+  it('enthält außerhalb von rolle-zuweisen, kein-zugriff, app/router und app/anmeldung keinen Vergleich mit rolle', () => {
     const treffer = Object.entries(quellen)
       .filter(([pfad]) => !/\.test\.tsx?$/.test(pfad))
       .filter(([pfad]) => !ERLAUBT.some((praefix) => pfad.startsWith(praefix)))
@@ -67,5 +68,21 @@ describe('Keine Rechte aus Rollennamen (AK-23)', () => {
       .map(([pfad]) => pfad)
 
     expect(treffer).toEqual([])
+  })
+})
+
+// Rev. 3, AK-50: Die Fehlertexte für Rollen- und Statusänderungen liegen einmal in entities/benutzer.
+
+describe('Fehlertexte der Benutzerverwaltung (AK-50)', () => {
+  it('liegen in entities/benutzer/model/fehlertext.ts', () => {
+    expect(Object.keys(quellen)).toContain('/src/entities/benutzer/model/fehlertext.ts')
+  })
+
+  it('liegen nicht mehr je Feature in rolle-zuweisen und benutzer-status-aendern', () => {
+    expect(
+      Object.keys(quellen).filter((pfad) =>
+        /^\/src\/features\/(rolle-zuweisen|benutzer-status-aendern)\/model\/fehlertext/.test(pfad),
+      ),
+    ).toEqual([])
   })
 })

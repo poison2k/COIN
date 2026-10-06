@@ -248,6 +248,82 @@ public class SchutzregelNebenlaeufigkeitTests(PostgresFixture fixture) : Integra
         Assert.Equal(auditVorher, await AuditDb.AnzahlAsync());
     }
 
+    // ---------- AK-40: Akteur-Prüfung vor Unveraendert und NichtGefunden ----------
+
+    /// <summary>
+    /// Hält die Advisory-Sperre der Anwendung, startet die Anfrage, entzieht dem Akteur während des Wartens die
+    /// Adminrolle (Betrachter) und gibt die Sperre frei.
+    /// </summary>
+    private async Task<HttpResponseMessage> MitEntzugWaehrendDerSperreAsync(TestKonto akteur, string schluessel, Func<Task<HttpResponseMessage>> anfrage)
+    {
+        await using var halter = OhnePool();
+        await halter.OpenAsync();
+        await AusfuehrenAsync(halter, $"SELECT pg_advisory_lock({schluessel})");
+        var aenderung = anfrage();
+        string? wartet;
+        try
+        {
+            wartet = await WartenAufAsync(aenderung, async () => await WartetAufAdvisoryAsync(halter) ? "ja" : null);
+            await BenutzerDb.RolleSetzenAsync(akteur.Subject, "Betrachter");
+        }
+        finally
+        {
+            await AusfuehrenAsync(halter, $"SELECT pg_advisory_unlock({schluessel})");
+        }
+
+        var antwort = await aenderung;
+        Assert.Equal("ja", wartet);
+        return antwort;
+    }
+
+    [Fact]
+    public async Task Rollenaenderung_ohne_Wirkung_nach_Rechteentzug_liefert_403_ohne_Zieldaten()
+    {
+        await AdminIdAsync();
+        var x = await ZweiterAdminAsync("Test Akteur V");
+        var ziel = await KontoAsync("Sachbearbeiter", name: "Test Ziel Vau", email: "ziel.vau@coin-test.invalid");
+        var schluessel = await SperrSchluesselErmittelnAsync((await KontoAsync(null)).Id);
+        var auditVorher = await AuditDb.AnzahlAsync();
+
+        using var antwort = await MitEntzugWaehrendDerSperreAsync(x, schluessel, () => PutRolleAsync(x.Client, ziel.Id, "Sachbearbeiter"));
+
+        await AssertKeinZugriffAsync(antwort, "keine_berechtigung");
+        var body = await antwort.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Test Ziel Vau", body);
+        Assert.DoesNotContain("ziel.vau@coin-test.invalid", body);
+        Assert.Equal(auditVorher, await AuditDb.AnzahlAsync());
+    }
+
+    [Fact]
+    public async Task Statusaenderung_ohne_Wirkung_nach_Rechteentzug_liefert_403_ohne_Zieldaten()
+    {
+        await AdminIdAsync();
+        var x = await ZweiterAdminAsync("Test Akteur U");
+        var ziel = await KontoAsync("Betrachter", name: "Test Ziel Uh", email: "ziel.uh@coin-test.invalid");
+        var schluessel = await SperrSchluesselErmittelnAsync((await KontoAsync(null)).Id);
+        var auditVorher = await AuditDb.AnzahlAsync();
+
+        using var antwort = await MitEntzugWaehrendDerSperreAsync(x, schluessel, () => PutStatusAsync(x.Client, ziel.Id, true));
+
+        await AssertKeinZugriffAsync(antwort, "keine_berechtigung");
+        var body = await antwort.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Test Ziel Uh", body);
+        Assert.DoesNotContain("ziel.uh@coin-test.invalid", body);
+        Assert.Equal(auditVorher, await AuditDb.AnzahlAsync());
+    }
+
+    [Fact]
+    public async Task Aenderung_an_unbekannter_Id_nach_Rechteentzug_liefert_403_statt_404()
+    {
+        await AdminIdAsync();
+        var x = await ZweiterAdminAsync("Test Akteur T");
+        var schluessel = await SperrSchluesselErmittelnAsync((await KontoAsync(null)).Id);
+
+        using var antwort = await MitEntzugWaehrendDerSperreAsync(x, schluessel, () => PutRolleAsync(x.Client, Guid.NewGuid(), "Betrachter"));
+
+        await AssertKeinZugriffAsync(antwort, "keine_berechtigung");
+    }
+
     // ---------- Hilfen ----------
 
     /// <summary>

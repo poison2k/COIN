@@ -9,3 +9,4 @@ export {
 } from './model/types'
 export { ladeAngemeldetenBenutzer, ladeBenutzerliste, type BenutzerlisteAnfrage } from './api/benutzer'
 export { StatusBadge, type StatusBadgeProps } from './ui/StatusBadge'
+export { aenderungFehlertext } from './model/fehlertext'

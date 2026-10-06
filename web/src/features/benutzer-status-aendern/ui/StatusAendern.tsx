@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import type { BenutzerEintrag } from '@/entities/benutzer'
+import { aenderungFehlertext, type BenutzerEintrag } from '@/entities/benutzer'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,7 +12,6 @@ import {
 } from '@/shared/ui/alert-dialog'
 import { Button } from '@/shared/ui/button'
 import { setzeStatus } from '../api/status-aendern'
-import { fehlertext } from '../model/fehlertext'
 
 export interface StatusAendernProps {
   benutzer: BenutzerEintrag
@@ -28,17 +27,24 @@ export interface StatusAendernProps {
 export function StatusAendern({ benutzer, deaktiviert, beschreibungId, onGeaendert, onFehler }: StatusAendernProps) {
   const [dialogOffen, setDialogOffen] = useState(false)
   const [sendet, setSendet] = useState(false)
+  // Synchroner Schutz gegen Mehrfachsendung (AK-49): Zwei Klicks vor dem nächsten Rendern sehen den State noch nicht.
+  const sendetGerade = useRef(false)
   const ausloeser = useRef<HTMLButtonElement>(null)
   const abbrechen = useRef<HTMLButtonElement>(null)
 
   async function aendern(aktiv: boolean) {
-    if (sendet) return
+    if (sendetGerade.current) return
+    sendetGerade.current = true
     setSendet(true)
-    const ergebnis = await setzeStatus(benutzer.id, aktiv)
-    setSendet(false)
-    setDialogOffen(false)
-    if (ergebnis.art === 'ok') onGeaendert(ergebnis.daten)
-    else onFehler(fehlertext(ergebnis))
+    try {
+      const ergebnis = await setzeStatus(benutzer.id, aktiv)
+      setDialogOffen(false)
+      if (ergebnis.art === 'ok') onGeaendert(ergebnis.daten)
+      else onFehler(aenderungFehlertext(ergebnis))
+    } finally {
+      sendetGerade.current = false
+      setSendet(false)
+    }
   }
 
   // Ein einziger Button für beide Zustände: Das DOM-Element bleibt nach dem Statuswechsel erhalten und behält den
@@ -58,7 +64,7 @@ export function StatusAendern({ benutzer, deaktiviert, beschreibungId, onGeaende
         focusableWhenDisabled={!deaktiviert}
         className="aria-disabled:opacity-50"
         onClick={() => {
-          if (sendet) return
+          if (sendetGerade.current) return
           if (reaktivieren) void aendern(true)
           else setDialogOffen(true)
         }}
@@ -68,10 +74,11 @@ export function StatusAendern({ benutzer, deaktiviert, beschreibungId, onGeaende
       <AlertDialog
         open={dialogOffen}
         onOpenChange={(offen) => {
-          if (!sendet) setDialogOffen(offen)
+          // Escape, „Abbrechen“ und Klick außerhalb schließen während der Anfrage nicht (AK-48).
+          if (!sendetGerade.current) setDialogOffen(offen)
         }}
       >
-        <AlertDialogContent initialFocus={abbrechen} finalFocus={ausloeser}>
+        <AlertDialogContent initialFocus={abbrechen} finalFocus={ausloeser} aria-busy={sendet}>
           <AlertDialogHeader>
             <AlertDialogTitle>Benutzer deaktivieren?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -79,7 +86,10 @@ export function StatusAendern({ benutzer, deaktiviert, beschreibungId, onGeaende
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel ref={abbrechen} disabled={sendet}>
+            <p role="status" className="text-sm text-muted-foreground empty:sr-only sm:mr-auto sm:self-center">
+              {sendet ? 'Änderung wird gespeichert …' : ''}
+            </p>
+            <AlertDialogCancel ref={abbrechen} disabled={sendet} focusableWhenDisabled>
               Abbrechen
             </AlertDialogCancel>
             <AlertDialogAction
@@ -87,6 +97,7 @@ export function StatusAendern({ benutzer, deaktiviert, beschreibungId, onGeaende
               variant="destructive"
               onClick={() => void aendern(false)}
               disabled={sendet}
+              focusableWhenDisabled
             >
               Deaktivieren
             </AlertDialogAction>

@@ -1,7 +1,7 @@
 import { createMemoryHistory } from '@tanstack/react-router'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   AUTHORIZATION_ENDPOINT,
   END_SESSION_ENDPOINT,
@@ -14,11 +14,12 @@ import {
   type TestBenutzer,
 } from '../../test/anmeldung'
 import { erstelleFakeApi, offeneAntwort, problemAntwort, type FakeApi } from '../../test/fakeApi'
-import { formularFelder, fuelleAus } from '../../test/hilfen'
+import { formularFelder, fuelleAus, meldungMit } from '../../test/hilfen'
 import App from './App'
-import { erstelleRouter } from './router/router'
+import { erstelleRouter, type AppRouter } from './router/router'
 
 // Feature anmeldung-keycloak, AK-23 bis AK-34: Anmeldung im Zusammenspiel von App, Router, Kopfzeile und Seiten.
+// Erweitert durch rollen-benutzerverwaltung Rev. 3, AK-41 bis AK-45 (Abschnitt am Dateiende).
 // Echter UserManager (In-Memory-Speicher), Weiterleitungen werden nur aufgezeichnet (test/anmeldung.tsx).
 
 const TEXTE = {
@@ -40,11 +41,13 @@ interface Optionen {
   /** null = Anmeldung nicht konfiguriert. */
   ohneKonfiguration?: boolean
   vorbereiten?: (anmeldung: TestAnmeldung) => void
+  /** Wird vor dem Rendern mit dem Router aufgerufen (z. B. um Guards zu zählen, Rev. 3 AK-45). */
+  routerVorbereiten?: (router: AppRouter) => void
 }
 
 function zeigeApp(
   pfad: string,
-  { als = 'admin', zustand = 'angemeldet', ohneKonfiguration = false, vorbereiten }: Optionen = {},
+  { als = 'admin', zustand = 'angemeldet', ohneKonfiguration = false, vorbereiten, routerVorbereiten }: Optionen = {},
 ) {
   api = erstelleFakeApi([], { me: zustand === 'anonym' ? null : ME[als] })
   vi.stubGlobal('fetch', api.fetch)
@@ -52,8 +55,9 @@ function zeigeApp(
   vorbereiten?.(anmeldung)
   const user = userEvent.setup()
   const router = erstelleRouter(createMemoryHistory({ initialEntries: [pfad] }))
-  render(<App router={router} userManager={ohneKonfiguration ? null : anmeldung.userManager} />)
-  return { user, router, anmeldung }
+  routerVorbereiten?.(router)
+  const ergebnis = render(<App router={router} userManager={ohneKonfiguration ? null : anmeldung.userManager} />)
+  return { user, router, anmeldung, unmount: ergebnis.unmount }
 }
 
 /** Kopfzeile der App-Shell (header-Element über dem Seiteninhalt); synchron, z. B. innerhalb von waitFor. */
@@ -737,5 +741,806 @@ describe('deutsche Texte und Struktur', () => {
     await within(await kopfzeileGerendert()).findByRole('alert')
 
     expect(alleTexte()).not.toMatch(ENGLISCH)
+  })
+})
+
+// ======================================================================================================
+// Feature rollen-benutzerverwaltung Rev. 3, AK-41 bis AK-45: „Erneut prüfen“, Prüfung bei Fensterfokus und
+// Guard-Neulauf nur bei echten Übergängen der Zugriffsklasse (deaktiviert, ohneRolle, mitRolle).
+// ======================================================================================================
+
+const REV3 = {
+  deaktiviert: 'Ihr Benutzerkonto ist deaktiviert.',
+  keineRolle: 'Ihrem Konto ist aber noch keine Rolle zugewiesen',
+  weiterhinDeaktiviert: 'Ihr Benutzerkonto ist weiterhin deaktiviert.',
+  weiterhinKeineRolle: 'Ihrem Benutzerkonto ist weiterhin keine Rolle zugewiesen.',
+  pruefungFehlgeschlagen: 'Die Prüfung ist fehlgeschlagen. Bitte später erneut versuchen.',
+} as const
+
+type Ausgang = 'deaktiviert' | 'keineRolle'
+
+/** Startet die App auf `pfad` als Deaktivierter (403 benutzer_deaktiviert) bzw. als Benutzer ohne Rolle. */
+function zeigeAppAls(ausgang: Ausgang, pfad = '/kein-zugriff', routerVorbereiten?: (router: AppRouter) => void) {
+  return zeigeApp(pfad, {
+    als: ausgang === 'keineRolle' ? 'keine' : 'admin',
+    vorbereiten: ausgang === 'deaktiviert' ? () => api.setzeMe('deaktiviert') : undefined,
+    routerVorbereiten,
+  })
+}
+
+async function keinZugriffGeladen(ausgang: Ausgang): Promise<void> {
+  await screen.findByRole('heading', { level: 1, name: 'Kein Zugriff' })
+  await waitFor(() =>
+    expect(document.body.textContent?.replace(/\s+/g, ' ')).toContain(
+      ausgang === 'deaktiviert' ? REV3.deaktiviert : REV3.keineRolle,
+    ),
+  )
+}
+
+function erneutPruefenButton(): HTMLElement {
+  return within(screen.getByRole('main')).getByRole('button', { name: /^(Erneut prüfen|Wird geprüft …)$/ })
+}
+
+/**
+ * Keine Meldung „weiterhin …“ (AK-42), weder als status/alert noch sonst im Text. Der feste Seitentext enthält das
+ * Wort „weiterhin“ (AK-32: „Den Coin-Katalog können Sie weiterhin ansehen.“), deshalb wird nach den Meldungssätzen gesucht.
+ */
+function keineWeiterhinMeldung(): void {
+  expect(meldungMit(REV3.weiterhinDeaktiviert)).toBeUndefined()
+  expect(meldungMit(REV3.weiterhinKeineRolle)).toBeUndefined()
+  expect(seitenText()).not.toContain(REV3.weiterhinDeaktiviert)
+  expect(seitenText()).not.toContain(REV3.weiterhinKeineRolle)
+}
+
+function seitenText(): string {
+  return document.body.textContent?.replace(/\s+/g, ' ') ?? ''
+}
+
+/** Simuliert die Rückkehr in das Fenster über das focus-Ereignis des Fensters. */
+function fensterFokus(): void {
+  act(() => {
+    window.dispatchEvent(new Event('focus'))
+  })
+}
+
+/** Simuliert die Rückkehr in das Fenster über visibilitychange auf „visible“. */
+function wiederSichtbar(): void {
+  act(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+}
+
+/** Lässt die (gefälschte) Uhr vorlaufen; Timer laufen nur, wenn sie ebenfalls gefälscht sind. */
+function zeitVergeht(ms: number): void {
+  act(() => {
+    vi.advanceTimersByTime(ms)
+  })
+}
+
+/** Zählt die Aufrufe des beforeLoad-Guards einer Route (TanStack liest `options.beforeLoad` bei jedem Laden). */
+function zaehleGuard(router: AppRouter, pfad: '/kein-zugriff' | '/benutzerverwaltung') {
+  const optionen = router.routesByPath[pfad].options as { beforeLoad?: (...args: unknown[]) => unknown }
+  const original = optionen.beforeLoad
+  const spy = vi.fn((...args: unknown[]) => original?.(...args))
+  optionen.beforeLoad = spy
+  return spy
+}
+
+function jsonAntwort(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+}
+
+function deaktiviertAntwort(): Response {
+  return problemAntwort(403, { title: 'Kein Zugriff', code: 'benutzer_deaktiviert' })
+}
+
+afterEach(() => {
+  vi.useRealTimers()
+  Reflect.deleteProperty(document, 'visibilityState')
+  Reflect.deleteProperty(document, 'hidden')
+})
+
+// ---------- AK-41 ----------
+
+describe.each(['deaktiviert', 'keineRolle'] as const)('/kein-zugriff (%s): Button „Erneut prüfen“', (ausgang) => {
+  it('zeigt im Seiteninhalt „Erneut prüfen“ neben „Zum Coin-Katalog“ und „Abmelden“', async () => {
+    zeigeAppAls(ausgang)
+    await keinZugriffGeladen(ausgang)
+
+    const main = screen.getByRole('main')
+    expect(within(main).getByRole('button', { name: 'Erneut prüfen' })).toBeInTheDocument()
+    expect(within(main).getByRole('link', { name: 'Zum Coin-Katalog' })).toBeInTheDocument()
+    expect(within(main).getByRole('button', { name: 'Abmelden' })).toBeInTheDocument()
+  })
+
+  it('ist per Tastatur erreichbar', async () => {
+    const { user } = zeigeAppAls(ausgang)
+    await keinZugriffGeladen(ausgang)
+    const button = within(screen.getByRole('main')).getByRole('button', { name: 'Erneut prüfen' })
+
+    for (let i = 0; i < 40 && document.activeElement !== button; i++) await user.tab()
+
+    expect(button).toHaveFocus()
+  })
+})
+
+// ---------- AK-42 ----------
+
+describe.each(['deaktiviert', 'keineRolle'] as const)('„Erneut prüfen“ (%s)', (ausgang) => {
+  const weiterhin = ausgang === 'deaktiviert' ? REV3.weiterhinDeaktiviert : REV3.weiterhinKeineRolle
+
+  it('lädt /api/me genau einmal neu', async () => {
+    const { user } = zeigeAppAls(ausgang)
+    await keinZugriffGeladen(ausgang)
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(meldungMit(weiterhin)).toBeDefined())
+    expect(meAufrufe()).toBe(2)
+  })
+
+  it('lässt die Seite während der Prüfung stehen und zeigt „Wird geprüft …“', async () => {
+    const { user } = zeigeAppAls(ausgang)
+    await keinZugriffGeladen(ausgang)
+    const offen = offeneAntwort()
+    api.einmal('GET', /^\/api\/me$/, () => offen.promise)
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(erneutPruefenButton()).toHaveTextContent('Wird geprüft …'))
+    expect(screen.getByRole('heading', { level: 1, name: 'Kein Zugriff' })).toBeInTheDocument()
+    expect(seitenText()).toContain(ausgang === 'deaktiviert' ? REV3.deaktiviert : REV3.keineRolle)
+    offen.aufloesen(ausgang === 'deaktiviert' ? deaktiviertAntwort() : jsonAntwort(200, ME.keine))
+  })
+
+  it('behält während der Prüfung die Kopfzeile (kein Zwischenzustand „pruefe“)', async () => {
+    const { user } = zeigeAppAls(ausgang)
+    await keinZugriffGeladen(ausgang)
+    const offen = offeneAntwort()
+    api.einmal('GET', /^\/api\/me$/, () => offen.promise)
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(erneutPruefenButton()).toHaveTextContent('Wird geprüft …'))
+    expect(within(kopfzeile()).getByRole('button', { name: 'Abmelden' })).toBeInTheDocument()
+    if (ausgang === 'keineRolle') expect(kopfzeile()).toHaveTextContent('Test Neu')
+    offen.aufloesen(ausgang === 'deaktiviert' ? deaktiviertAntwort() : jsonAntwort(200, ME.keine))
+  })
+
+  it('hält den Button während der Prüfung fokussierbar (aria-disabled, kein disabled) und fokussiert', async () => {
+    const { user } = zeigeAppAls(ausgang)
+    await keinZugriffGeladen(ausgang)
+    const offen = offeneAntwort()
+    api.einmal('GET', /^\/api\/me$/, () => offen.promise)
+    const button = erneutPruefenButton()
+
+    await user.click(button)
+
+    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'))
+    expect(button).not.toHaveAttribute('disabled')
+    expect(button).toHaveFocus()
+    offen.aufloesen(ausgang === 'deaktiviert' ? deaktiviertAntwort() : jsonAntwort(200, ME.keine))
+  })
+
+  it('sendet bei weiteren Klicks und Enter während der Prüfung keinen zweiten Request', async () => {
+    const { user } = zeigeAppAls(ausgang)
+    await keinZugriffGeladen(ausgang)
+    const offen = offeneAntwort()
+    api.einmal('GET', /^\/api\/me$/, () => offen.promise)
+    const button = erneutPruefenButton()
+
+    await user.click(button)
+    await user.click(button)
+    await user.keyboard('{Enter}')
+
+    expect(meAufrufe()).toBe(2)
+    offen.aufloesen(ausgang === 'deaktiviert' ? deaktiviertAntwort() : jsonAntwort(200, ME.keine))
+  })
+
+  it('meldet bei unveränderter Zugriffsklasse „weiterhin …“ als Status', async () => {
+    const { user } = zeigeAppAls(ausgang)
+    await keinZugriffGeladen(ausgang)
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(weiterhin))
+  })
+
+  it('bleibt bei unveränderter Zugriffsklasse auf /kein-zugriff mit dem Fokus auf dem Button', async () => {
+    const { user, router } = zeigeAppAls(ausgang)
+    await keinZugriffGeladen(ausgang)
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(meldungMit(weiterhin)).toBeDefined())
+    expect(router.state.location.pathname).toBe('/kein-zugriff')
+    expect(erneutPruefenButton()).toHaveFocus()
+  })
+
+  it('meldet einen Serverfehler als Alarm und lässt die Seite stehen', async () => {
+    const { user, router } = zeigeAppAls(ausgang)
+    await keinZugriffGeladen(ausgang)
+    api.einmal('GET', /^\/api\/me$/, problemAntwort(500))
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(REV3.pruefungFehlgeschlagen))
+    expect(router.state.location.pathname).toBe('/kein-zugriff')
+    expect(seitenText()).toContain(ausgang === 'deaktiviert' ? REV3.deaktiviert : REV3.keineRolle)
+  })
+
+  it('meldet einen Netzwerkfehler als Alarm', async () => {
+    const { user } = zeigeAppAls(ausgang)
+    await keinZugriffGeladen(ausgang)
+    api.netzwerkfehler('GET', /^\/api\/me$/)
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(meldungMit(REV3.pruefungFehlgeschlagen)).toBeDefined())
+  })
+
+  it('behält bei einem Fehler den bisherigen Zustand (keine Prüf-Fehlermeldung der Kopfzeile)', async () => {
+    const { user } = zeigeAppAls(ausgang)
+    await keinZugriffGeladen(ausgang)
+    api.einmal('GET', /^\/api\/me$/, problemAntwort(503))
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(meldungMit(REV3.pruefungFehlgeschlagen)).toBeDefined())
+    expect(kopfzeile()).not.toHaveTextContent(TEXTE.pruefungFehlgeschlagen)
+    expect(within(kopfzeile()).getByRole('button', { name: 'Abmelden' })).toBeInTheDocument()
+  })
+
+  it('verwirft bei 401 die Sitzung wie bisher', async () => {
+    const { user, anmeldung } = zeigeAppAls(ausgang)
+    await keinZugriffGeladen(ausgang)
+    api.einmal('GET', /^\/api\/me$/, problemAntwort(401, { title: 'Nicht angemeldet' }))
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(anmeldung.hatUser()).toBe(false))
+  })
+})
+
+describe('„Erneut prüfen“: Wechsel des Grunds', () => {
+  it('zeigt nach Deaktivierung eines Benutzers ohne Rolle den Deaktiviert-Text', async () => {
+    const { user, router } = zeigeAppAls('keineRolle')
+    await keinZugriffGeladen('keineRolle')
+    api.setzeMe('deaktiviert')
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(seitenText()).toContain(REV3.deaktiviert))
+    expect(seitenText()).not.toContain(REV3.keineRolle)
+    expect(router.state.location.pathname).toBe('/kein-zugriff')
+  })
+
+  it('behält nach dem Wechsel „keine Rolle“ → „deaktiviert“ den Fokus auf „Erneut prüfen“', async () => {
+    const { user } = zeigeAppAls('keineRolle')
+    await keinZugriffGeladen('keineRolle')
+    api.setzeMe('deaktiviert')
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(seitenText()).toContain(REV3.deaktiviert))
+    await waitFor(() => expect(erneutPruefenButton()).toHaveTextContent('Erneut prüfen'))
+    expect(erneutPruefenButton()).toHaveFocus()
+  })
+
+  it('zeigt nach dem Wechsel keine Meldung „weiterhin …“', async () => {
+    const { user } = zeigeAppAls('keineRolle')
+    await keinZugriffGeladen('keineRolle')
+    api.setzeMe('deaktiviert')
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(seitenText()).toContain(REV3.deaktiviert))
+    await waitFor(() => expect(erneutPruefenButton()).toHaveTextContent('Erneut prüfen'))
+    keineWeiterhinMeldung()
+  })
+
+  it('lässt einen reaktivierten Benutzer ohne Rolle auf /kein-zugriff mit dem Text für „keine Rolle“ (AK-43)', async () => {
+    const { user, router } = zeigeAppAls('deaktiviert')
+    await keinZugriffGeladen('deaktiviert')
+    api.setzeMe(ME.keine)
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(seitenText()).toContain(TEXTE.keinZugriffText))
+    expect(router.state.location.pathname).toBe('/kein-zugriff')
+  })
+})
+
+// ---------- AK-43 ----------
+
+describe('Reaktivierung bzw. Rollenvergabe während der Sitzung', () => {
+  it('führt einen reaktivierten Benutzer mit Rolle nach „Erneut prüfen“ zur Startseite', async () => {
+    const { user, router } = zeigeAppAls('deaktiviert')
+    await keinZugriffGeladen('deaktiviert')
+    api.setzeMe(ME.betrachter)
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })).toBeInTheDocument()
+  })
+
+  it('zeigt nach der Reaktivierung den Namen in der Kopfzeile', async () => {
+    const { user } = zeigeAppAls('deaktiviert')
+    await keinZugriffGeladen('deaktiviert')
+    api.setzeMe(ME.betrachter)
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() =>
+      expect(kopfzeile().textContent?.replace(/\s+/g, ' ')).toContain('Angemeldet als Test Betrachter'),
+    )
+  })
+
+  it('führt nach einer Rollenvergabe an einen Benutzer ohne Rolle zur Startseite', async () => {
+    const { user, router } = zeigeAppAls('keineRolle')
+    await keinZugriffGeladen('keineRolle')
+    api.setzeMe({ ...ME.betrachter, id: ME.keine.id, name: ME.keine.name })
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+  })
+
+  it('zeigt nach der Rollenvergabe die Sidebar-Einträge gemäß berechtigungen', async () => {
+    const { user, router } = zeigeAppAls('keineRolle')
+    await keinZugriffGeladen('keineRolle')
+    expect(screen.queryByRole('link', { name: 'Benutzerverwaltung' })).not.toBeInTheDocument()
+    api.setzeMe({ ...ME.admin, id: ME.keine.id, name: ME.keine.name })
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    expect(await screen.findByRole('link', { name: 'Benutzerverwaltung' })).toBeInTheDocument()
+  })
+
+  it('führt router.invalidate dabei genau einmal aus', async () => {
+    const { user, router } = zeigeAppAls('deaktiviert')
+    await keinZugriffGeladen('deaktiviert')
+    const invalidate = vi.spyOn(router, 'invalidate')
+    api.setzeMe(ME.betrachter)
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    expect(invalidate).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ---------- AK-44 ----------
+
+describe('Prüfung bei Rückkehr in das Fenster', () => {
+  beforeEach(() => {
+    // Nur die Uhr wird gefälscht (für die 30-Sekunden-Sperre); Timer laufen echt, damit waitFor funktioniert.
+    vi.useFakeTimers({ toFake: ['Date', 'performance'], shouldAdvanceTime: true })
+  })
+
+  describe.each(['deaktiviert', 'keineRolle'] as const)('%s', (ausgang) => {
+    it('lädt /api/me beim focus-Ereignis des Fensters genau einmal', async () => {
+      zeigeAppAls(ausgang)
+      await keinZugriffGeladen(ausgang)
+      zeitVergeht(31_000)
+
+      fensterFokus()
+
+      await waitFor(() => expect(meAufrufe()).toBe(2))
+    })
+
+    it('lädt /api/me bei visibilitychange auf „visible“ genau einmal', async () => {
+      zeigeAppAls(ausgang)
+      await keinZugriffGeladen(ausgang)
+      zeitVergeht(31_000)
+
+      wiederSichtbar()
+
+      await waitFor(() => expect(meAufrufe()).toBe(2))
+    })
+
+    it('zeigt bei unveränderter Zugriffsklasse keine Statusmeldung (stille Prüfung)', async () => {
+      zeigeAppAls(ausgang)
+      await keinZugriffGeladen(ausgang)
+      zeitVergeht(31_000)
+
+      fensterFokus()
+
+      await waitFor(() => expect(meAufrufe()).toBe(2))
+      await act(async () => {
+        await Promise.resolve()
+      })
+      keineWeiterhinMeldung()
+    })
+
+    it('zeigt bei einem Fehler keine Fehlermeldung (stille Prüfung)', async () => {
+      zeigeAppAls(ausgang)
+      await keinZugriffGeladen(ausgang)
+      zeitVergeht(31_000)
+      api.einmal('GET', /^\/api\/me$/, problemAntwort(500))
+
+      fensterFokus()
+
+      await waitFor(() => expect(meAufrufe()).toBe(2))
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(seitenText()).not.toContain(REV3.pruefungFehlgeschlagen)
+      expect(seitenText()).not.toContain(TEXTE.pruefungFehlgeschlagen)
+    })
+
+    it('prüft höchstens einmal je 30 Sekunden', async () => {
+      zeigeAppAls(ausgang)
+      await keinZugriffGeladen(ausgang)
+      zeitVergeht(31_000)
+      fensterFokus()
+      await waitFor(() => expect(meAufrufe()).toBe(2))
+
+      zeitVergeht(10_000)
+      fensterFokus()
+      wiederSichtbar()
+      zeitVergeht(19_000)
+      fensterFokus()
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(meAufrufe()).toBe(2)
+    })
+
+    it('prüft nach Ablauf von 30 Sekunden erneut', async () => {
+      zeigeAppAls(ausgang)
+      await keinZugriffGeladen(ausgang)
+      zeitVergeht(31_000)
+      fensterFokus()
+      await waitFor(() => expect(meAufrufe()).toBe(2))
+
+      zeitVergeht(31_000)
+      fensterFokus()
+
+      await waitFor(() => expect(meAufrufe()).toBe(3))
+    })
+
+    it('prüft bei Fensterfokus direkt nach „Erneut prüfen“ nicht erneut (30-Sekunden-Sperre)', async () => {
+      const { user } = zeigeAppAls(ausgang)
+      await keinZugriffGeladen(ausgang)
+      zeitVergeht(31_000)
+      await user.click(erneutPruefenButton())
+      await waitFor(() => expect(meAufrufe()).toBe(2))
+      await waitFor(() => expect(erneutPruefenButton()).toHaveTextContent('Erneut prüfen'))
+
+      fensterFokus()
+      wiederSichtbar()
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(meAufrufe()).toBe(2)
+    })
+
+    it('prüft bei Fensterfokus 30 Sekunden nach „Erneut prüfen“ wieder', async () => {
+      const { user } = zeigeAppAls(ausgang)
+      await keinZugriffGeladen(ausgang)
+      zeitVergeht(31_000)
+      await user.click(erneutPruefenButton())
+      await waitFor(() => expect(meAufrufe()).toBe(2))
+      await waitFor(() => expect(erneutPruefenButton()).toHaveTextContent('Erneut prüfen'))
+      zeitVergeht(31_000)
+
+      fensterFokus()
+
+      await waitFor(() => expect(meAufrufe()).toBe(3))
+    })
+
+    it('prüft nicht parallel zu einer laufenden Prüfung über „Erneut prüfen“', async () => {
+      const { user } = zeigeAppAls(ausgang)
+      await keinZugriffGeladen(ausgang)
+      zeitVergeht(31_000)
+      const offen = offeneAntwort()
+      api.einmal('GET', /^\/api\/me$/, () => offen.promise)
+      await user.click(erneutPruefenButton())
+      await waitFor(() => expect(meAufrufe()).toBe(2))
+
+      fensterFokus()
+      wiederSichtbar()
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(meAufrufe()).toBe(2)
+      offen.aufloesen(ausgang === 'deaktiviert' ? deaktiviertAntwort() : jsonAntwort(200, ME.keine))
+    })
+
+    it('prüft nicht parallel zu einer laufenden Prüfung bei Fensterfokus', async () => {
+      zeigeAppAls(ausgang)
+      await keinZugriffGeladen(ausgang)
+      zeitVergeht(31_000)
+      const offen = offeneAntwort()
+      api.einmal('GET', /^\/api\/me$/, () => offen.promise)
+      fensterFokus()
+      await waitFor(() => expect(meAufrufe()).toBe(2))
+      zeitVergeht(31_000)
+
+      fensterFokus()
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(meAufrufe()).toBe(2)
+      offen.aufloesen(ausgang === 'deaktiviert' ? deaktiviertAntwort() : jsonAntwort(200, ME.keine))
+    })
+
+    it('entfernt die Listener beim Unmount', async () => {
+      const { unmount } = zeigeAppAls(ausgang)
+      await keinZugriffGeladen(ausgang)
+      unmount()
+      zeitVergeht(31_000)
+
+      fensterFokus()
+      wiederSichtbar()
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(meAufrufe()).toBe(1)
+    })
+  })
+
+  it('leitet einen Deaktivierten auf /kein-zugriff nach Reaktivierung per Fensterfokus zur Startseite', async () => {
+    const { router } = zeigeAppAls('deaktiviert')
+    await keinZugriffGeladen('deaktiviert')
+    zeitVergeht(31_000)
+    api.setzeMe(ME.betrachter)
+
+    fensterFokus()
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+  })
+
+  it('prüft auch auf anderen Seiten, z. B. als Deaktivierter auf /coins', async () => {
+    zeigeAppAls('deaktiviert', '/coins')
+    await waitFor(() => expect(within(kopfzeile()).getByRole('button', { name: 'Abmelden' })).toBeInTheDocument())
+    zeitVergeht(31_000)
+
+    fensterFokus()
+
+    await waitFor(() => expect(meAufrufe()).toBe(2))
+  })
+
+  it('bleibt nach Reaktivierung per Fensterfokus auf /coins und zeigt den Namen', async () => {
+    const { router } = zeigeAppAls('deaktiviert', '/coins')
+    await waitFor(() => expect(within(kopfzeile()).getByRole('button', { name: 'Abmelden' })).toBeInTheDocument())
+    zeitVergeht(31_000)
+    api.setzeMe(ME.betrachter)
+
+    fensterFokus()
+
+    await waitFor(() => expect(kopfzeile()).toHaveTextContent('Test Betrachter'))
+    expect(router.state.location.pathname).toBe('/coins')
+  })
+
+  it('entfernt die Listener nach dem Wechsel zu „mit Rolle“', async () => {
+    const { router } = zeigeAppAls('deaktiviert')
+    await keinZugriffGeladen('deaktiviert')
+    zeitVergeht(31_000)
+    api.setzeMe(ME.betrachter)
+    fensterFokus()
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+
+    zeitVergeht(31_000)
+    fensterFokus()
+    wiederSichtbar()
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(meAufrufe()).toBe(2)
+  })
+
+  it.each(['admin', 'betrachter'] as const)(
+    'lädt /api/me für angemeldete Benutzer mit Rolle (%s) nicht',
+    async (als) => {
+      zeigeApp('/', { als })
+      await waitFor(() => expect(kopfzeile()).toHaveTextContent(ME[als].name))
+      zeitVergeht(31_000)
+
+      fensterFokus()
+      wiederSichtbar()
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(meAufrufe()).toBe(1)
+    },
+  )
+
+  it('lädt /api/me anonym nicht', async () => {
+    zeigeApp('/', { zustand: 'anonym' })
+    await within(await kopfzeileGerendert()).findByRole('button', { name: 'Anmelden' })
+    zeitVergeht(31_000)
+
+    fensterFokus()
+    wiederSichtbar()
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(meAufrufe()).toBe(0)
+  })
+
+  it('lädt /api/me im Zustand „Fehler“ nicht', async () => {
+    zeigeApp('/', { vorbereiten: () => api.einmal('GET', /^\/api\/me$/, problemAntwort(500)) })
+    await within(await kopfzeileGerendert()).findByRole('alert')
+    zeitVergeht(31_000)
+
+    fensterFokus()
+    wiederSichtbar()
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(meAufrufe()).toBe(1)
+  })
+})
+
+describe('kein Polling (AK-44)', () => {
+  it.each(['deaktiviert', 'keineRolle'] as const)(
+    'ruft /api/me als %s in 5 Minuten ohne Ereignis nicht auf',
+    async (ausgang) => {
+      // Alle Timer gefälscht (auch setInterval/setTimeout), damit eine Polling-Schleife auffiele; die Zeit läuft
+      // zusätzlich echt weiter, damit findBy/waitFor funktionieren.
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      zeigeAppAls(ausgang)
+      await keinZugriffGeladen(ausgang)
+      expect(meAufrufe()).toBe(1)
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5 * 60_000)
+      })
+
+      expect(meAufrufe()).toBe(1)
+    },
+  )
+})
+
+// ---------- AK-45 ----------
+
+describe('Guard-Neulauf nur bei echten Übergängen der Zugriffsklasse', () => {
+  it('leitet beim Erstaufruf von /benutzerverwaltung als Deaktivierter nach /kein-zugriff', async () => {
+    const { router } = zeigeAppAls('deaktiviert', '/benutzerverwaltung')
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/kein-zugriff'))
+  })
+
+  it('führt beim Erstaufruf als Deaktivierter den Guard von /benutzerverwaltung genau einmal aus', async () => {
+    let guard: ReturnType<typeof zaehleGuard> | undefined
+    zeigeAppAls('deaktiviert', '/benutzerverwaltung', (router) => {
+      guard = zaehleGuard(router, '/benutzerverwaltung')
+    })
+    await keinZugriffGeladen('deaktiviert')
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(guard).toHaveBeenCalledTimes(1)
+  })
+
+  it('führt beim Erstaufruf als Deaktivierter den Guard von /kein-zugriff genau einmal aus', async () => {
+    let guard: ReturnType<typeof zaehleGuard> | undefined
+    zeigeAppAls('deaktiviert', '/benutzerverwaltung', (router) => {
+      guard = zaehleGuard(router, '/kein-zugriff')
+    })
+    await keinZugriffGeladen('deaktiviert')
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(guard).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['Deaktivierter', 'deaktiviert', '/benutzerverwaltung'],
+    ['Administrator', 'admin', '/'],
+    ['Benutzer ohne Rolle', 'keine', '/kein-zugriff'],
+  ] as const)('ruft beim Erstaufruf als %s kein invalidate auf', async (_name, als, pfad) => {
+    let invalidate: ReturnType<typeof vi.spyOn> | undefined
+    zeigeApp(pfad, {
+      als: als === 'deaktiviert' ? 'admin' : als,
+      vorbereiten: als === 'deaktiviert' ? () => api.setzeMe('deaktiviert') : undefined,
+      routerVorbereiten: (router) => {
+        invalidate = vi.spyOn(router, 'invalidate')
+      },
+    })
+    await waitFor(() => expect(within(kopfzeile()).getByRole('button', { name: 'Abmelden' })).toBeInTheDocument())
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(invalidate).not.toHaveBeenCalled()
+  })
+
+  function deaktiviertWaehrendDerSitzung(
+    offen?: ReturnType<typeof offeneAntwort>,
+    routerVorbereiten?: (router: AppRouter) => void,
+  ) {
+    return zeigeApp('/benutzerverwaltung', {
+      routerVorbereiten,
+      vorbereiten: () =>
+        api.einmal('GET', /^\/api\/benutzer$/, () => {
+          api.setzeMe('deaktiviert')
+          if (offen) api.einmal('GET', /^\/api\/me$/, () => offen.promise)
+          return deaktiviertAntwort()
+        }),
+    })
+  }
+
+  it('führt bei 403 benutzer_deaktiviert während der Sitzung genau ein invalidate aus und landet auf /kein-zugriff', async () => {
+    // Spy vor dem Rendern: Die Kette 403 → /api/me → invalidate kann sonst schon durchgelaufen sein. Der Erstaufruf
+    // als Administrator löst laut AK-45 kein invalidate aus, gezählt wird also nur der Übergang.
+    let invalidate: ReturnType<typeof vi.spyOn> | undefined
+    const { router } = deaktiviertWaehrendDerSitzung(undefined, (r) => {
+      invalidate = vi.spyOn(r, 'invalidate')
+    })
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/kein-zugriff'))
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(invalidate).toHaveBeenCalledTimes(1)
+  })
+
+  it('behält beim Neuladen nach 403 benutzer_deaktiviert den letzten Zustand bis zur Antwort', async () => {
+    const offen = offeneAntwort()
+    deaktiviertWaehrendDerSitzung(offen)
+
+    await waitFor(() => expect(meAufrufe()).toBe(2))
+
+    // Kein Zwischenzustand „pruefe“: Die Kopfzeile zeigt weiter Namen und „Abmelden“.
+    expect(kopfzeile().textContent?.replace(/\s+/g, ' ')).toContain('Angemeldet als Test Administrator')
+    expect(within(kopfzeile()).getByRole('button', { name: 'Abmelden' })).toBeInTheDocument()
+    offen.aufloesen(deaktiviertAntwort())
+  })
+
+  it('ruft bei „Erneut prüfen“ ohne Änderung der Zugriffsklasse kein invalidate auf', async () => {
+    const { user, router } = zeigeAppAls('deaktiviert')
+    await keinZugriffGeladen('deaktiviert')
+    const invalidate = vi.spyOn(router, 'invalidate')
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(meldungMit(REV3.weiterhinDeaktiviert)).toBeDefined())
+    expect(invalidate).not.toHaveBeenCalled()
+  })
+
+  it('führt beim Wechsel „ohne Rolle“ → „deaktiviert“ genau ein invalidate aus', async () => {
+    const { user, router } = zeigeAppAls('keineRolle')
+    await keinZugriffGeladen('keineRolle')
+    const invalidate = vi.spyOn(router, 'invalidate')
+    api.setzeMe('deaktiviert')
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(seitenText()).toContain(REV3.deaktiviert))
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(invalidate).toHaveBeenCalledTimes(1)
+  })
+
+  it('führt beim Wechsel „ohne Rolle“ → „mit Rolle“ genau ein invalidate aus', async () => {
+    const { user, router } = zeigeAppAls('keineRolle')
+    await keinZugriffGeladen('keineRolle')
+    const invalidate = vi.spyOn(router, 'invalidate')
+    api.setzeMe({ ...ME.betrachter, id: ME.keine.id, name: ME.keine.name })
+
+    await user.click(erneutPruefenButton())
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    expect(invalidate).toHaveBeenCalledTimes(1)
   })
 })

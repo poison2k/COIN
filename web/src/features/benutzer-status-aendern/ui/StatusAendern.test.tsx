@@ -1,11 +1,19 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BenutzerEintrag } from '@/entities/benutzer'
-import { erstelleFakeApi, konfliktAntwort, testBenutzerEintrag, type FakeApi } from '../../../../test/fakeApi'
+import {
+  erstelleFakeApi,
+  konfliktAntwort,
+  offeneAntwort,
+  problemAntwort,
+  testBenutzerEintrag,
+  type FakeApi,
+} from '../../../../test/fakeApi'
 import { StatusAendern } from '../index'
 
 // Feature rollen-benutzerverwaltung, AK-28, AK-29, AK-35: Deaktivieren mit Dialog, Reaktivieren ohne Dialog.
+// Rev. 3, AK-48 und AK-49: Dialog während der Anfrage und Schutz gegen Mehrfachsendung (Abschnitt am Dateiende).
 
 const ID = '0199a1b2-0000-7000-8000-00000000b001'
 const NAME = 'Test Sachbearbeiterin'
@@ -178,3 +186,250 @@ describe('gesperrt', () => {
     expect(await screen.findByRole('alertdialog', { name: 'Benutzer deaktivieren?' })).toBeInTheDocument()
   })
 })
+
+// ---------- Rev. 3, AK-48 und AK-49: Dialog während der Anfrage, Schutz gegen Mehrfachsendung ----------
+
+const SPEICHERT = 'Änderung wird gespeichert …'
+
+/** Wartet kurz, damit ein (fälschlich) zweiter PUT sicher beim Fake-Server ankäme. */
+async function kurzWarten(): Promise<void> {
+  await act(async () => {
+    await new Promise((aufloesen) => setTimeout(aufloesen, 20))
+  })
+}
+
+/** Öffnet den Dialog, hält die PUT-Antwort zurück und bestätigt per Klick auf „Deaktivieren“. */
+async function deaktivierenMitOffenerAntwort() {
+  const offen = offeneAntwort()
+  api.einmal('PUT', /\/status$/, () => offen.promise)
+  const { user } = zeige()
+  await user.click(screen.getByRole('button', { name: `${NAME} deaktivieren` }))
+  const dialog = await screen.findByRole('alertdialog', { name: 'Benutzer deaktivieren?' })
+  const bestaetigen = within(dialog).getByRole('button', { name: 'Deaktivieren' })
+  await user.click(bestaetigen)
+  await waitFor(() => expect(puts()).toHaveLength(1))
+  return { user, dialog, bestaetigen, offen }
+}
+
+function antwortDeaktiviert(): Response {
+  return new Response(JSON.stringify({ ...api.benutzer[0], aktiv: false }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+describe('Dialog „Benutzer deaktivieren?“ während der Anfrage (AK-48)', () => {
+  it('hält „Deaktivieren“ fokussierbar: aria-disabled="true" ohne disabled-Attribut', async () => {
+    const { bestaetigen, offen } = await deaktivierenMitOffenerAntwort()
+
+    await waitFor(() => expect(bestaetigen).toHaveAttribute('aria-disabled', 'true'))
+    expect(bestaetigen).not.toHaveAttribute('disabled')
+    offen.aufloesen(antwortDeaktiviert())
+  })
+
+  it('hält „Abbrechen“ fokussierbar: aria-disabled="true" ohne disabled-Attribut', async () => {
+    const { dialog, offen } = await deaktivierenMitOffenerAntwort()
+    const abbrechen = within(dialog).getByRole('button', { name: 'Abbrechen' })
+
+    await waitFor(() => expect(abbrechen).toHaveAttribute('aria-disabled', 'true'))
+    expect(abbrechen).not.toHaveAttribute('disabled')
+    offen.aufloesen(antwortDeaktiviert())
+  })
+
+  it('behält den Fokus auf dem gedrückten Button „Deaktivieren“', async () => {
+    const { bestaetigen, offen } = await deaktivierenMitOffenerAntwort()
+
+    await waitFor(() => expect(bestaetigen).toHaveAttribute('aria-disabled', 'true'))
+    expect(document.activeElement).toBe(bestaetigen)
+    offen.aufloesen(antwortDeaktiviert())
+  })
+
+  it('setzt aria-busy="true" am Dialog', async () => {
+    const { dialog, offen } = await deaktivierenMitOffenerAntwort()
+
+    await waitFor(() => expect(dialog).toHaveAttribute('aria-busy', 'true'))
+    offen.aufloesen(antwortDeaktiviert())
+  })
+
+  it('zeigt im Dialog den Status „Änderung wird gespeichert …“', async () => {
+    const { dialog, offen } = await deaktivierenMitOffenerAntwort()
+
+    await waitFor(() => expect(within(dialog).getByRole('status')).toHaveTextContent(SPEICHERT))
+    offen.aufloesen(antwortDeaktiviert())
+  })
+
+  it('behält die Namen der Buttons „Deaktivieren“ und „Abbrechen“', async () => {
+    const { dialog, offen } = await deaktivierenMitOffenerAntwort()
+
+    await waitFor(() => expect(within(dialog).getByRole('status')).toHaveTextContent(SPEICHERT))
+    expect(within(dialog).getByRole('button', { name: 'Deaktivieren' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Abbrechen' })).toBeInTheDocument()
+    offen.aufloesen(antwortDeaktiviert())
+  })
+
+  it('schließt sich per Escape während der Anfrage nicht', async () => {
+    const { user, offen } = await deaktivierenMitOffenerAntwort()
+
+    await user.keyboard('{Escape}')
+    await kurzWarten()
+
+    expect(screen.getByRole('alertdialog', { name: 'Benutzer deaktivieren?' })).toBeInTheDocument()
+    offen.aufloesen(antwortDeaktiviert())
+  })
+
+  it('schließt sich per Klick auf „Abbrechen“ während der Anfrage nicht', async () => {
+    const { user, dialog, offen } = await deaktivierenMitOffenerAntwort()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Abbrechen' }))
+    await kurzWarten()
+
+    expect(screen.getByRole('alertdialog', { name: 'Benutzer deaktivieren?' })).toBeInTheDocument()
+    offen.aufloesen(antwortDeaktiviert())
+  })
+
+  it('schließt sich per Klick außerhalb während der Anfrage nicht', async () => {
+    const { user, offen } = await deaktivierenMitOffenerAntwort()
+
+    await user.click(document.body)
+    await kurzWarten()
+
+    expect(screen.getByRole('alertdialog', { name: 'Benutzer deaktivieren?' })).toBeInTheDocument()
+    offen.aufloesen(antwortDeaktiviert())
+  })
+
+  it('schließt sich nach der Antwort', async () => {
+    const { offen } = await deaktivierenMitOffenerAntwort()
+
+    offen.aufloesen(antwortDeaktiviert())
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+  })
+})
+
+describe('Schutz gegen Mehrfachsendung (AK-49)', () => {
+  it('sendet bei zwei Klicks auf „Deaktivieren“ ohne Zwischenrendern genau einen PUT', async () => {
+    const offen = offeneAntwort()
+    api.einmal('PUT', /\/status$/, () => offen.promise)
+    const { user } = zeige()
+    await user.click(screen.getByRole('button', { name: `${NAME} deaktivieren` }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Benutzer deaktivieren?' })
+    const bestaetigen = within(dialog).getByRole('button', { name: 'Deaktivieren' })
+
+    // Beide Klicks im selben act: React rendert dazwischen nicht neu, nur ein synchroner Schutz (Ref) greift.
+    act(() => {
+      bestaetigen.click()
+      bestaetigen.click()
+    })
+    await kurzWarten()
+
+    expect(puts()).toHaveLength(1)
+    offen.aufloesen(antwortDeaktiviert())
+  })
+
+  it('sendet bei Doppelklick auf „Deaktivieren“ genau einen PUT', async () => {
+    const offen = offeneAntwort()
+    api.einmal('PUT', /\/status$/, () => offen.promise)
+    const { user } = zeige()
+    await user.click(screen.getByRole('button', { name: `${NAME} deaktivieren` }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Benutzer deaktivieren?' })
+
+    await user.dblClick(within(dialog).getByRole('button', { name: 'Deaktivieren' }))
+    await kurzWarten()
+
+    expect(puts()).toHaveLength(1)
+    offen.aufloesen(antwortDeaktiviert())
+  })
+
+  it('sendet bei zweimal Enter auf „Deaktivieren“ genau einen PUT', async () => {
+    const offen = offeneAntwort()
+    api.einmal('PUT', /\/status$/, () => offen.promise)
+    const { user } = zeige()
+    await user.click(screen.getByRole('button', { name: `${NAME} deaktivieren` }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Benutzer deaktivieren?' })
+    within(dialog).getByRole('button', { name: 'Deaktivieren' }).focus()
+
+    await user.keyboard('{Enter}{Enter}')
+    await kurzWarten()
+
+    expect(puts()).toHaveLength(1)
+    offen.aufloesen(antwortDeaktiviert())
+  })
+
+  it('sendet bei zwei Klicks auf „Reaktivieren“ ohne Zwischenrendern genau einen PUT', async () => {
+    const offen = offeneAntwort()
+    api.einmal('PUT', /\/status$/, () => offen.promise)
+    zeige(false)
+    const button = screen.getByRole('button', { name: `${NAME} reaktivieren` })
+
+    act(() => {
+      button.click()
+      button.click()
+    })
+    await kurzWarten()
+
+    expect(puts()).toHaveLength(1)
+    offen.aufloesen(jsonAntwortAktiv())
+  })
+
+  it('sendet bei Doppelklick auf „Reaktivieren“ genau einen PUT', async () => {
+    const offen = offeneAntwort()
+    api.einmal('PUT', /\/status$/, () => offen.promise)
+    const { user } = zeige(false)
+
+    await user.dblClick(screen.getByRole('button', { name: `${NAME} reaktivieren` }))
+    await kurzWarten()
+
+    expect(puts()).toHaveLength(1)
+    offen.aufloesen(jsonAntwortAktiv())
+  })
+
+  it('sendet bei zweimal Enter auf „Reaktivieren“ genau einen PUT', async () => {
+    const offen = offeneAntwort()
+    api.einmal('PUT', /\/status$/, () => offen.promise)
+    const { user } = zeige(false)
+    screen.getByRole('button', { name: `${NAME} reaktivieren` }).focus()
+
+    await user.keyboard('{Enter}{Enter}')
+    await kurzWarten()
+
+    expect(puts()).toHaveLength(1)
+    offen.aufloesen(jsonAntwortAktiv())
+  })
+
+  it('hält „Reaktivieren“ während der Anfrage mit aria-disabled="true" fokussiert', async () => {
+    const offen = offeneAntwort()
+    api.einmal('PUT', /\/status$/, () => offen.promise)
+    const { user } = zeige(false)
+    const button = screen.getByRole('button', { name: `${NAME} reaktivieren` })
+
+    await user.click(button)
+
+    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'))
+    expect(button).not.toHaveAttribute('disabled')
+    expect(document.activeElement).toBe(button)
+    offen.aufloesen(jsonAntwortAktiv())
+  })
+
+  it('ist nach der Antwort wieder bedienbar', async () => {
+    const offen = offeneAntwort()
+    api.einmal('PUT', /\/status$/, () => offen.promise)
+    const { user } = zeige(false)
+    const button = screen.getByRole('button', { name: `${NAME} reaktivieren` })
+    await user.click(button)
+    await waitFor(() => expect(puts()).toHaveLength(1))
+
+    offen.aufloesen(problemAntwort(500))
+
+    await waitFor(() => expect(onFehler).toHaveBeenCalledTimes(1))
+    expect(button).not.toHaveAttribute('aria-disabled', 'true')
+    await user.click(button)
+    await waitFor(() => expect(puts()).toHaveLength(2))
+  })
+})
+
+function jsonAntwortAktiv(): Response {
+  return new Response(JSON.stringify({ ...api.benutzer[0], aktiv: true }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}

@@ -126,6 +126,34 @@ public class BenutzerverwaltungServiceTests
         Assert.Empty(_repository.Gespeichert);
     }
 
+    [Theory]
+    [InlineData(Rolle.Betrachter, true)]
+    [InlineData(null, true)]
+    [InlineData(Rolle.Administrator, false)]
+    public async Task Unberechtigter_Akteur_mit_gleicher_Rolle_liefert_AkteurNichtBerechtigt_statt_Unveraendert(Rolle? rolle, bool aktiv)
+    {
+        // AK-39/ADR-0018 (geändert 2026-10-06): Die Akteur-Prüfung kommt vor Unveraendert, keine Zieldaten.
+        var akteur = Anlegen(rolle, aktiv);
+        Admin();
+        var ziel = Anlegen(Rolle.Sachbearbeiter);
+
+        var ergebnis = await Service().RolleZuweisenAsync(akteur.Id, ziel.Id, Rolle.Sachbearbeiter, CancellationToken.None);
+
+        Assert.IsType<AenderungErgebnis.AkteurNichtBerechtigt>(ergebnis);
+        Assert.Empty(_repository.Gespeichert);
+    }
+
+    [Fact]
+    public async Task Unberechtigter_Akteur_mit_unbekanntem_Ziel_liefert_AkteurNichtBerechtigt_statt_NichtGefunden()
+    {
+        var akteur = Anlegen(Rolle.Betrachter);
+        Admin();
+
+        var ergebnis = await Service().StatusSetzenAsync(akteur.Id, Guid.NewGuid(), false, CancellationToken.None);
+
+        Assert.IsType<AenderungErgebnis.AkteurNichtBerechtigt>(ergebnis);
+    }
+
     [Fact]
     public async Task Unbekannter_Akteur_liefert_AkteurNichtBerechtigt()
     {

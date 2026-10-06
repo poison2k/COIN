@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ROLLEN_ANZEIGE, type BenutzerEintrag, type Rolle } from '@/entities/benutzer'
+import { aenderungFehlertext, ROLLEN_ANZEIGE, type BenutzerEintrag, type Rolle } from '@/entities/benutzer'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,7 +12,6 @@ import {
 } from '@/shared/ui/alert-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
 import { weiseRolleZu } from '../api/rolle-zuweisen'
-import { fehlertext } from '../model/fehlertext'
 
 const ROLLEN: readonly Rolle[] = ['Administrator', 'Sachbearbeiter', 'Betrachter', 'keine']
 const EINTRAEGE = ROLLEN.map((rolle) => ({ value: rolle, label: ROLLEN_ANZEIGE[rolle] }))
@@ -34,6 +33,8 @@ export interface RolleZuweisenProps {
 export function RolleZuweisen({ benutzer, deaktiviert, beschreibungId, onGeaendert, onFehler }: RolleZuweisenProps) {
   const [neu, setNeu] = useState<Rolle | null>(null)
   const [sendet, setSendet] = useState(false)
+  // Synchroner Schutz gegen Mehrfachsendung (AK-49): Zwei Klicks vor dem nächsten Rendern sehen den State noch nicht.
+  const sendetGerade = useRef(false)
   const ausloeser = useRef<HTMLButtonElement>(null)
   const abbrechen = useRef<HTMLButtonElement>(null)
 
@@ -42,17 +43,23 @@ export function RolleZuweisen({ benutzer, deaktiviert, beschreibungId, onGeaende
   }
 
   function offenGeaendert(offen: boolean) {
-    if (!offen && !sendet) setNeu(null)
+    // Escape, „Abbrechen“ und Klick außerhalb schließen während der Anfrage nicht (AK-48).
+    if (!offen && !sendetGerade.current) setNeu(null)
   }
 
   async function bestaetigen() {
-    if (!neu || sendet) return
+    if (!neu || sendetGerade.current) return
+    sendetGerade.current = true
     setSendet(true)
-    const ergebnis = await weiseRolleZu(benutzer.id, neu)
-    setSendet(false)
-    setNeu(null)
-    if (ergebnis.art === 'ok') onGeaendert(ergebnis.daten)
-    else onFehler(fehlertext(ergebnis))
+    try {
+      const ergebnis = await weiseRolleZu(benutzer.id, neu)
+      setNeu(null)
+      if (ergebnis.art === 'ok') onGeaendert(ergebnis.daten)
+      else onFehler(aenderungFehlertext(ergebnis))
+    } finally {
+      sendetGerade.current = false
+      setSendet(false)
+    }
   }
 
   return (
@@ -76,7 +83,7 @@ export function RolleZuweisen({ benutzer, deaktiviert, beschreibungId, onGeaende
       </Select>
 
       <AlertDialog open={neu !== null} onOpenChange={offenGeaendert}>
-        <AlertDialogContent initialFocus={abbrechen} finalFocus={ausloeser}>
+        <AlertDialogContent initialFocus={abbrechen} finalFocus={ausloeser} aria-busy={sendet}>
           <AlertDialogHeader>
             <AlertDialogTitle>Rolle ändern?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -84,10 +91,13 @@ export function RolleZuweisen({ benutzer, deaktiviert, beschreibungId, onGeaende
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel ref={abbrechen} disabled={sendet}>
+            <p role="status" className="text-sm text-muted-foreground empty:sr-only sm:mr-auto sm:self-center">
+              {sendet ? 'Änderung wird gespeichert …' : ''}
+            </p>
+            <AlertDialogCancel ref={abbrechen} disabled={sendet} focusableWhenDisabled>
               Abbrechen
             </AlertDialogCancel>
-            <AlertDialogAction type="button" onClick={bestaetigen} disabled={sendet}>
+            <AlertDialogAction type="button" onClick={() => void bestaetigen()} disabled={sendet} focusableWhenDisabled>
               Rolle ändern
             </AlertDialogAction>
           </AlertDialogFooter>

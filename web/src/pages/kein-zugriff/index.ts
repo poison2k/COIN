@@ -1,1 +1,1 @@
-export { KeinZugriffSeite, type KeinZugriffSeiteProps } from './ui/KeinZugriffSeite'
+export { KeinZugriffSeite, type ErneutPruefenErgebnis, type KeinZugriffSeiteProps } from './ui/KeinZugriffSeite'

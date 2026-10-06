@@ -7,6 +7,8 @@ import { AnmeldungProvider, erstelleUserManager, useAnmeldung } from '@/shared/l
 import { ThemeProvider } from '@/shared/lib/theme'
 import { BenutzerKontext, type BenutzerKontextWert } from './anmeldung/benutzer-kontext'
 import { useBenutzer } from './anmeldung/use-benutzer'
+import { usePruefenBeiFokus } from './anmeldung/use-pruefen-bei-fokus'
+import { zugriffsklasse, type Zugriffsklasse } from './anmeldung/zugriffsklasse'
 import { erstelleRouter, type AppRouter, type RouterKontext } from './router/router'
 import type { SchutzKontext } from './router/schutz'
 
@@ -44,8 +46,8 @@ export default function App({ router, userManager }: AppProps) {
  */
 function AppMitAnmeldung({ router }: { router: AppRouter }) {
   const anmeldung = useAnmeldung()
-  const { bereit, neuLaden, ...benutzerWert } = useBenutzer(anmeldung)
-  const { zustand, benutzer, erfassen } = benutzerWert
+  const { bereit, neuLaden, zuletztGeprueft, ...benutzerWert } = useBenutzer(anmeldung)
+  const { zustand, benutzer, erfassen, erneutPruefen } = benutzerWert
   const { status, anmelden, sitzungVerwerfen } = anmeldung
 
   // 401 auf einen schreibenden Aufruf: Sitzung verwerfen und mit Rückkehr auf den aktuellen Pfad anmelden (AK-27).
@@ -86,13 +88,22 @@ function AppMitAnmeldung({ router }: { router: AppRouter }) {
     }
   }, [schutzKontext, bereit])
 
-  // Wechsel in den Zustand „deaktiviert“ während der Sitzung: Guards neu ausführen, damit geschützte Seiten nach
-  // /kein-zugriff umleiten (AK-32). Läuft nach dem Effekt oben, der den aktuellen Kontext bereitstellt.
-  const warDeaktiviert = useRef(deaktiviert)
+  // Wechsel der Zugriffsklasse zwischen zwei festen Zuständen (alles außer „pruefe“), z. B. Deaktivierung, Reaktivierung
+  // oder erste Rolle: Guards genau einmal neu ausführen (AK-32, Rev. 3 AK-43/AK-45). Nie beim ersten Laden. Läuft nach
+  // dem Effekt oben, der den aktuellen Kontext bereitstellt.
+  const klasse = zugriffsklasse(zustand)
+  const fest = zustand.art !== 'pruefe'
+  const letzteFesteKlasse = useRef<{ klasse: Zugriffsklasse | null } | null>(null)
   useEffect(() => {
-    if (deaktiviert && !warDeaktiviert.current) void router.invalidate()
-    warDeaktiviert.current = deaktiviert
-  }, [deaktiviert, router])
+    if (!fest) return
+    const vorher = letzteFesteKlasse.current
+    letzteFesteKlasse.current = { klasse }
+    if (vorher !== null && vorher.klasse !== null && klasse !== null && vorher.klasse !== klasse)
+      void router.invalidate()
+  }, [fest, klasse, router])
+
+  // Deaktiviert oder ohne Rolle: bei Rückkehr in das Fenster still neu prüfen (Rev. 3, AK-44).
+  usePruefenBeiFokus(klasse === 'deaktiviert' || klasse === 'ohneRolle', erneutPruefen, zuletztGeprueft)
 
   const [routerKontext] = useState<RouterKontext>(() => ({
     schutz: () =>
@@ -103,8 +114,8 @@ function AppMitAnmeldung({ router }: { router: AppRouter }) {
   }))
 
   const kontextWert = useMemo<BenutzerKontextWert>(
-    () => ({ zustand, benutzer, erfassen }),
-    [zustand, benutzer, erfassen],
+    () => ({ zustand, benutzer, erfassen, erneutPruefen }),
+    [zustand, benutzer, erfassen, erneutPruefen],
   )
 
   return (

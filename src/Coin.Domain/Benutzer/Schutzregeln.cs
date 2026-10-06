@@ -27,13 +27,20 @@ public enum Schutzpruefung
 
 /// <summary>
 /// Schutzregeln der Benutzerverwaltung als reine Funktion (ADR-0018 Punkt 1, AK-15, AK-16, AK-18). Reihenfolge:
-/// NichtGefunden → Unveraendert → AkteurNichtBerechtigt → EigenesKonto → LetzterAdministrator → Erlaubt.
+/// AkteurNichtBerechtigt → NichtGefunden → Unveraendert → EigenesKonto → LetzterAdministrator → Erlaubt.
 /// </summary>
 public static class Schutzregeln
 {
     public static Schutzpruefung Pruefen(Benutzer? akteur, Benutzer? ziel, Aenderung aenderung, int anzahlAktiverAdmins)
     {
         ArgumentNullException.ThrowIfNull(aenderung);
+
+        // Akteur zuerst (ADR-0018, geändert 2026-10-06): Ein nicht (mehr) berechtigter Akteur erfährt weder Zieldaten
+        // noch, ob die Ziel-Id existiert.
+        if (akteur is null || !Rechtematrix.Hat(akteur, Berechtigungen.UsersManage))
+        {
+            return Schutzpruefung.AkteurNichtBerechtigt;
+        }
 
         if (ziel is null)
         {
@@ -43,11 +50,6 @@ public static class Schutzregeln
         if (IstUnveraendert(ziel, aenderung))
         {
             return Schutzpruefung.Unveraendert;
-        }
-
-        if (akteur is null || !Rechtematrix.Hat(akteur, Berechtigungen.UsersManage))
-        {
-            return Schutzpruefung.AkteurNichtBerechtigt;
         }
 
         var nimmtAdminrecht = NimmtAdminrecht(ziel, aenderung);

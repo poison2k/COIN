@@ -151,17 +151,28 @@ function AlertDialogAction({ className, ...props }: React.ComponentProps<typeof 
   return <Button data-slot="alert-dialog-action" className={cn(className)} {...props} />
 }
 
+/**
+ * Anpassung (ADR-0009, rollen-benutzerverwaltung AK-48): `focusableWhenDisabled` wird an den Button durchgereicht.
+ * `Close` selbst kennt die Option nicht und würde das `disabled`-Attribut setzen; dann fiele der Fokus auf `body`.
+ * Der gesperrte Button verwirft den Klick, bevor `Close` den Dialog schließt.
+ */
 function AlertDialogCancel({
   className,
   variant = 'outline',
   size = 'default',
+  disabled,
+  focusableWhenDisabled,
   ...props
-}: AlertDialogPrimitive.Close.Props & Pick<React.ComponentProps<typeof Button>, 'variant' | 'size'>) {
+}: AlertDialogPrimitive.Close.Props &
+  Pick<React.ComponentProps<typeof Button>, 'variant' | 'size' | 'focusableWhenDisabled'>) {
   return (
     <AlertDialogPrimitive.Close
       data-slot="alert-dialog-cancel"
       className={cn(className)}
-      render={<Button variant={variant} size={size} />}
+      disabled={focusableWhenDisabled ? false : disabled}
+      render={
+        <Button variant={variant} size={size} disabled={disabled} focusableWhenDisabled={focusableWhenDisabled} />
+      }
       {...props}
     />
   )

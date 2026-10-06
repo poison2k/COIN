@@ -37,10 +37,14 @@ export function CoinListeRoute() {
   return <CoinListeSeite erfassen={erfassen} />
 }
 
+/** /kein-zugriff für beide Gründe mit „Erneut prüfen“ (Rev. 3, AK-41/AK-42). Dieselbe Seite, damit der Fokus beim
+ * Wechsel des Grunds erhalten bleibt. */
 export function KeinZugriffRoute() {
-  const { zustand, benutzer } = useBenutzerKontext()
-  if (zustand.art === 'deaktiviert') return <KeinZugriffSeite grund="deaktiviert" />
-  return benutzer?.rolle === 'keine' ? <KeinZugriffSeite grund="keineRolle" benutzer={benutzer} /> : null
+  const { zustand, benutzer, erneutPruefen } = useBenutzerKontext()
+  if (zustand.art === 'deaktiviert') return <KeinZugriffSeite grund="deaktiviert" onErneutPruefen={erneutPruefen} />
+  return benutzer?.rolle === 'keine' ? (
+    <KeinZugriffSeite grund="keineRolle" benutzer={benutzer} onErneutPruefen={erneutPruefen} />
+  ) : null
 }
 
 /** Benutzerverwaltung mit der eigenen Id aus /api/me (AK-29). Ohne users.manage (z. B. nach Deaktivierung) leer. */

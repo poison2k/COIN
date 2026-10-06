@@ -4,9 +4,9 @@ using DomainBenutzer = Coin.Domain.Benutzer.Benutzer;
 namespace Coin.UnitTests.Benutzer;
 
 /// <summary>
-/// Feature rollen-benutzerverwaltung, AK-15, AK-16, AK-18 und ADR-0018 Punkt 1: reine Prüfung
+/// Feature rollen-benutzerverwaltung, AK-15, AK-16, AK-18, AK-39 und ADR-0018 Punkt 1 (geändert 2026-10-06): reine Prüfung
 /// <c>Schutzregeln.Pruefen(akteur, ziel, aenderung, anzahlAktiverAdmins)</c> in dieser Reihenfolge:
-/// NichtGefunden → Unveraendert → AkteurNichtBerechtigt → EigenesKonto → LetzterAdministrator → Erlaubt.
+/// AkteurNichtBerechtigt → NichtGefunden → Unveraendert → EigenesKonto → LetzterAdministrator → Erlaubt.
 /// </summary>
 public class SchutzregelnTests
 {
@@ -21,7 +21,74 @@ public class SchutzregelnTests
 
     private static Aenderung Status(bool aktiv) => new Aenderung.StatusSetzen(aktiv);
 
-    // ---------- 1. NichtGefunden ----------
+    /// <summary>Akteure ohne <c>users.manage</c> (AK-39): Betrachter, ohne Rolle, deaktivierter Administrator, fehlend.</summary>
+    public static TheoryData<string> UnberechtigteAkteure => ["Betrachter", "ohne Rolle", "deaktivierter Administrator", "null"];
+
+    private static DomainBenutzer? UnberechtigterAkteur(string art) => art switch
+    {
+        "Betrachter" => Person(Rolle.Betrachter),
+        "ohne Rolle" => Person(null),
+        "deaktivierter Administrator" => Person(Rolle.Administrator, aktiv: false),
+        "null" => null,
+        _ => throw new ArgumentOutOfRangeException(nameof(art)),
+    };
+
+    // ---------- 1. AkteurNichtBerechtigt kommt zuerst (AK-39) ----------
+
+    [Theory]
+    [MemberData(nameof(UnberechtigteAkteure))]
+    public void Unberechtigter_Akteur_mit_fehlendem_Ziel_ergibt_AkteurNichtBerechtigt_statt_NichtGefunden(string akteur)
+    {
+        Assert.Equal(
+            Schutzpruefung.AkteurNichtBerechtigt,
+            Schutzregeln.Pruefen(UnberechtigterAkteur(akteur), null, RolleAuf(Rolle.Betrachter), 2));
+    }
+
+    [Theory]
+    [MemberData(nameof(UnberechtigteAkteure))]
+    public void Unberechtigter_Akteur_mit_fehlendem_Ziel_bei_Statusaenderung_ergibt_AkteurNichtBerechtigt(string akteur)
+    {
+        Assert.Equal(
+            Schutzpruefung.AkteurNichtBerechtigt,
+            Schutzregeln.Pruefen(UnberechtigterAkteur(akteur), null, Status(false), 2));
+    }
+
+    [Theory]
+    [MemberData(nameof(UnberechtigteAkteure))]
+    public void Unberechtigter_Akteur_mit_unveraenderter_Rolle_ergibt_AkteurNichtBerechtigt_statt_Unveraendert(string akteur)
+    {
+        Assert.Equal(
+            Schutzpruefung.AkteurNichtBerechtigt,
+            Schutzregeln.Pruefen(UnberechtigterAkteur(akteur), Person(Rolle.Sachbearbeiter), RolleAuf(Rolle.Sachbearbeiter), 2));
+    }
+
+    [Theory]
+    [MemberData(nameof(UnberechtigteAkteure))]
+    public void Unberechtigter_Akteur_mit_unveraendertem_Status_ergibt_AkteurNichtBerechtigt_statt_Unveraendert(string akteur)
+    {
+        Assert.Equal(
+            Schutzpruefung.AkteurNichtBerechtigt,
+            Schutzregeln.Pruefen(UnberechtigterAkteur(akteur), Person(Rolle.Betrachter), Status(true), 2));
+    }
+
+    [Theory]
+    [MemberData(nameof(UnberechtigteAkteure))]
+    public void Unberechtigter_Akteur_mit_unveraendertem_inaktivem_Status_ergibt_AkteurNichtBerechtigt(string akteur)
+    {
+        Assert.Equal(
+            Schutzpruefung.AkteurNichtBerechtigt,
+            Schutzregeln.Pruefen(UnberechtigterAkteur(akteur), Person(Rolle.Betrachter, aktiv: false), Status(false), 2));
+    }
+
+    [Fact]
+    public void Unberechtigter_Akteur_der_die_eigene_Rolle_unveraendert_setzt_ergibt_AkteurNichtBerechtigt()
+    {
+        var betrachter = Person(Rolle.Betrachter);
+
+        Assert.Equal(Schutzpruefung.AkteurNichtBerechtigt, Schutzregeln.Pruefen(betrachter, betrachter, RolleAuf(Rolle.Betrachter), 1));
+    }
+
+    // ---------- 2. NichtGefunden (nur mit berechtigtem Akteur) ----------
 
     [Fact]
     public void Ziel_fehlt_ergibt_NichtGefunden()
@@ -30,12 +97,12 @@ public class SchutzregelnTests
     }
 
     [Fact]
-    public void NichtGefunden_geht_einem_unberechtigten_Akteur_vor()
+    public void Ziel_fehlt_bei_Statusaenderung_ergibt_NichtGefunden()
     {
-        Assert.Equal(Schutzpruefung.NichtGefunden, Schutzregeln.Pruefen(Person(Rolle.Betrachter), null, Status(false), 2));
+        Assert.Equal(Schutzpruefung.NichtGefunden, Schutzregeln.Pruefen(AktiverAdmin, null, Status(false), 2));
     }
 
-    // ---------- 2. Unveraendert ----------
+    // ---------- 3. Unveraendert ----------
 
     [Theory]
     [InlineData(Rolle.Administrator)]
@@ -67,7 +134,7 @@ public class SchutzregelnTests
         Assert.Equal(Schutzpruefung.Unveraendert, Schutzregeln.Pruefen(AktiverAdmin, AktiverAdmin, Status(true), 1));
     }
 
-    // ---------- 3. AkteurNichtBerechtigt ----------
+    // ---------- AkteurNichtBerechtigt bei echter Änderung ----------
 
     [Fact]
     public void Fehlender_Akteur_ergibt_AkteurNichtBerechtigt()

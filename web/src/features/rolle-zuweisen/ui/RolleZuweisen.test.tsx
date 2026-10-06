@@ -1,11 +1,18 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BenutzerEintrag } from '@/entities/benutzer'
-import { erstelleFakeApi, konfliktAntwort, testBenutzerEintrag, type FakeApi } from '../../../../test/fakeApi'
+import {
+  erstelleFakeApi,
+  konfliktAntwort,
+  offeneAntwort,
+  testBenutzerEintrag,
+  type FakeApi,
+} from '../../../../test/fakeApi'
 import { RolleZuweisen } from '../index'
 
 // Feature rollen-benutzerverwaltung, AK-27, AK-29, AK-35: Select je Zeile + Bestätigungsdialog (alertdialog).
+// Rev. 3, AK-48 und AK-49: Dialog während der Anfrage und Schutz gegen Mehrfachsendung (Abschnitt am Dateiende).
 
 const ID = '0199a1b2-0000-7000-8000-00000000b001'
 const NAME = 'Test Neu'
@@ -299,5 +306,171 @@ describe('Bestätigen', () => {
 
     await waitFor(() => expect(onFehler).toHaveBeenCalled())
     expect(auswahl()).toHaveTextContent('Administrator')
+  })
+})
+
+// ---------- Rev. 3, AK-48 und AK-49 (Annahme A2): Dialog während der Anfrage, Schutz gegen Mehrfachsendung ----------
+
+const SPEICHERT = 'Änderung wird gespeichert …'
+
+/** Wartet kurz, damit ein (fälschlich) zweiter PUT sicher beim Fake-Server ankäme. */
+async function kurzWarten(): Promise<void> {
+  await act(async () => {
+    await new Promise((aufloesen) => setTimeout(aufloesen, 20))
+  })
+}
+
+function antwortBetrachter(): Response {
+  return new Response(JSON.stringify({ ...api.benutzer[0], rolle: 'Betrachter' }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+/** Wählt „Betrachter“, hält die PUT-Antwort zurück und bestätigt per Klick auf „Rolle ändern“. */
+async function bestaetigenMitOffenerAntwort() {
+  const offen = offeneAntwort()
+  api.einmal('PUT', /\/rolle$/, () => offen.promise)
+  const { user } = zeige()
+  await waehle(user, 'Betrachter')
+  const dialog = await screen.findByRole('alertdialog', { name: 'Rolle ändern?' })
+  const bestaetigen = within(dialog).getByRole('button', { name: 'Rolle ändern' })
+  await user.click(bestaetigen)
+  await waitFor(() => expect(puts()).toHaveLength(1))
+  return { user, dialog, bestaetigen, offen }
+}
+
+describe('Dialog „Rolle ändern?“ während der Anfrage (AK-48)', () => {
+  it('hält „Rolle ändern“ fokussierbar: aria-disabled="true" ohne disabled-Attribut', async () => {
+    const { bestaetigen, offen } = await bestaetigenMitOffenerAntwort()
+
+    await waitFor(() => expect(bestaetigen).toHaveAttribute('aria-disabled', 'true'))
+    expect(bestaetigen).not.toHaveAttribute('disabled')
+    offen.aufloesen(antwortBetrachter())
+  })
+
+  it('hält „Abbrechen“ fokussierbar: aria-disabled="true" ohne disabled-Attribut', async () => {
+    const { dialog, offen } = await bestaetigenMitOffenerAntwort()
+    const abbrechen = within(dialog).getByRole('button', { name: 'Abbrechen' })
+
+    await waitFor(() => expect(abbrechen).toHaveAttribute('aria-disabled', 'true'))
+    expect(abbrechen).not.toHaveAttribute('disabled')
+    offen.aufloesen(antwortBetrachter())
+  })
+
+  it('behält den Fokus auf dem gedrückten Button „Rolle ändern“', async () => {
+    const { bestaetigen, offen } = await bestaetigenMitOffenerAntwort()
+
+    await waitFor(() => expect(bestaetigen).toHaveAttribute('aria-disabled', 'true'))
+    expect(document.activeElement).toBe(bestaetigen)
+    offen.aufloesen(antwortBetrachter())
+  })
+
+  it('setzt aria-busy="true" am Dialog', async () => {
+    const { dialog, offen } = await bestaetigenMitOffenerAntwort()
+
+    await waitFor(() => expect(dialog).toHaveAttribute('aria-busy', 'true'))
+    offen.aufloesen(antwortBetrachter())
+  })
+
+  it('zeigt im Dialog den Status „Änderung wird gespeichert …“ und behält die Button-Namen', async () => {
+    const { dialog, offen } = await bestaetigenMitOffenerAntwort()
+
+    await waitFor(() => expect(within(dialog).getByRole('status')).toHaveTextContent(SPEICHERT))
+    expect(within(dialog).getByRole('button', { name: 'Rolle ändern' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Abbrechen' })).toBeInTheDocument()
+    offen.aufloesen(antwortBetrachter())
+  })
+
+  it('schließt sich per Escape während der Anfrage nicht', async () => {
+    const { user, offen } = await bestaetigenMitOffenerAntwort()
+
+    await user.keyboard('{Escape}')
+    await kurzWarten()
+
+    expect(screen.getByRole('alertdialog', { name: 'Rolle ändern?' })).toBeInTheDocument()
+    offen.aufloesen(antwortBetrachter())
+  })
+
+  it('schließt sich per Klick auf „Abbrechen“ während der Anfrage nicht', async () => {
+    const { user, dialog, offen } = await bestaetigenMitOffenerAntwort()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Abbrechen' }))
+    await kurzWarten()
+
+    expect(screen.getByRole('alertdialog', { name: 'Rolle ändern?' })).toBeInTheDocument()
+    offen.aufloesen(antwortBetrachter())
+  })
+
+  it('schließt sich per Klick außerhalb während der Anfrage nicht', async () => {
+    const { user, offen } = await bestaetigenMitOffenerAntwort()
+
+    await user.click(document.body)
+    await kurzWarten()
+
+    expect(screen.getByRole('alertdialog', { name: 'Rolle ändern?' })).toBeInTheDocument()
+    offen.aufloesen(antwortBetrachter())
+  })
+})
+
+describe('Schutz gegen Mehrfachsendung (AK-49)', () => {
+  it('sendet bei zwei Klicks auf „Rolle ändern“ ohne Zwischenrendern genau einen PUT', async () => {
+    const offen = offeneAntwort()
+    api.einmal('PUT', /\/rolle$/, () => offen.promise)
+    const { user } = zeige()
+    await waehle(user, 'Betrachter')
+    const dialog = await screen.findByRole('alertdialog', { name: 'Rolle ändern?' })
+    const bestaetigen = within(dialog).getByRole('button', { name: 'Rolle ändern' })
+
+    // Beide Klicks im selben act: React rendert dazwischen nicht neu, nur ein synchroner Schutz (Ref) greift.
+    act(() => {
+      bestaetigen.click()
+      bestaetigen.click()
+    })
+    await kurzWarten()
+
+    expect(puts()).toHaveLength(1)
+    offen.aufloesen(antwortBetrachter())
+  })
+
+  it('sendet bei Doppelklick auf „Rolle ändern“ genau einen PUT', async () => {
+    const offen = offeneAntwort()
+    api.einmal('PUT', /\/rolle$/, () => offen.promise)
+    const { user } = zeige()
+    await waehle(user, 'Betrachter')
+    const dialog = await screen.findByRole('alertdialog', { name: 'Rolle ändern?' })
+
+    await user.dblClick(within(dialog).getByRole('button', { name: 'Rolle ändern' }))
+    await kurzWarten()
+
+    expect(puts()).toHaveLength(1)
+    offen.aufloesen(antwortBetrachter())
+  })
+
+  it('sendet bei zweimal Enter auf „Rolle ändern“ genau einen PUT', async () => {
+    const offen = offeneAntwort()
+    api.einmal('PUT', /\/rolle$/, () => offen.promise)
+    const { user } = zeige()
+    await waehle(user, 'Betrachter')
+    const dialog = await screen.findByRole('alertdialog', { name: 'Rolle ändern?' })
+    within(dialog).getByRole('button', { name: 'Rolle ändern' }).focus()
+
+    await user.keyboard('{Enter}{Enter}')
+    await kurzWarten()
+
+    expect(puts()).toHaveLength(1)
+    offen.aufloesen(antwortBetrachter())
+  })
+
+  it('ist nach einer fehlgeschlagenen Antwort wieder bedienbar', async () => {
+    const { user, offen } = await bestaetigenMitOffenerAntwort()
+
+    offen.aufloesen(konfliktAntwort('letzter_administrator'))
+    await waitFor(() => expect(onFehler).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    await waehle(user, 'Sachbearbeiter')
+    await user.click(await screen.findByRole('button', { name: 'Rolle ändern' }))
+
+    await waitFor(() => expect(puts()).toHaveLength(2))
   })
 })

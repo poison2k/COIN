@@ -47,6 +47,9 @@ _ = app.Services.GetRequiredService<OidcOptionen>();
 var frontendUrsprung = FrontendUrsprung.Lesen(app.Configuration);
 InfrastrukturRegistrierung.ConnectionString(app.Configuration);
 
+// Request-Protokoll ohne Personendaten als erste Middleware, damit auch 401/403/404/500 erfasst werden (ADR-0019).
+app.UseMiddleware<AnfrageProtokoll>();
+
 // Unerwartete Fehler und Statuscodes ohne Body als ProblemDetails, ohne interne Details (AK-19).
 app.UseExceptionHandler();
 app.UseStatusCodePages();

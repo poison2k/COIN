@@ -90,6 +90,8 @@ let puts: Array<{ pfad: string; body: unknown }> = []
 let listenAbrufe: URLSearchParams[] = []
 /** Einmalige Überschreibung der nächsten PUT-Antwort (z. B. 409). */
 let naechstePutAntwort: { status: number; body: object } | null = null
+/** Hält PUT-Antworten zurück, bis das Promise erfüllt ist (Rev. 3, AK-48/AK-49: Zustand „während der Anfrage“). */
+let putSperre: Promise<void> | null = null
 
 function istApi(url: URL): boolean {
   return url.pathname === '/api' || url.pathname.startsWith('/api/')
@@ -179,6 +181,7 @@ async function mockeBenutzerApi(page: Page): Promise<void> {
       const pfad = new URL(request.url()).pathname
       const body = request.postDataJSON() as { rolle?: Rolle; aktiv?: boolean }
       puts.push({ pfad, body })
+      if (putSperre) await putSperre
       if (naechstePutAntwort) {
         const antwort = naechstePutAntwort
         naechstePutAntwort = null
@@ -260,6 +263,7 @@ test.beforeEach(async ({ page }) => {
   puts = []
   listenAbrufe = []
   naechstePutAntwort = null
+  putSperre = null
   benutzer = [
     eintrag({ id: ADMIN.id, name: ADMIN.name, email: ADMIN.email, rolle: 'Administrator' }),
     eintrag({ id: '0199a1b2-0000-7000-8000-00000000b001', name: 'Anna Probe', email: 'anna@test.local' }),
@@ -553,4 +557,184 @@ test('/api/me mit 403 benutzer_deaktiviert führt auf „Kein Zugriff“ mit Dea
   await expect(page.getByText(TEXTE.deaktiviert)).toBeVisible()
   await expect(page.locator('header').getByRole('button', { name: 'Abmelden' })).toBeVisible()
   await expect(page.locator('header')).not.toContainText('Test Administrator')
+})
+
+// ---------- Rev. 3, AK-41 bis AK-43: „Erneut prüfen“ auf /kein-zugriff ----------
+
+const REV3 = {
+  weiterhinDeaktiviert: 'Ihr Benutzerkonto ist weiterhin deaktiviert.',
+  weiterhinKeineRolle: 'Ihrem Benutzerkonto ist weiterhin keine Rolle zugewiesen.',
+  keineRolle: 'Ihrem Konto ist aber noch keine Rolle zugewiesen',
+  speichert: 'Änderung wird gespeichert …',
+} as const
+
+const NEU: Me = {
+  id: '0199a1b2-0000-7000-8000-00000000a004',
+  name: 'Test Neu',
+  email: 'neu@test.local',
+  rolle: 'keine',
+  berechtigungen: [],
+}
+
+/**
+ * Meldet an wie `meldeAnAls` und liefert einen Umschalter für die Antwort von /api/me (z. B. Reaktivierung durch einen
+ * Administrator in einer anderen Sitzung). Die spätere Route hat Vorrang vor der aus `meldeAnAls`.
+ */
+async function meldeAnVeraenderlich(page: Page, start: Me | 'deaktiviert') {
+  let aktuell: Me | 'deaktiviert' = start
+  await meldeAnAls(page, start)
+  await page.route(
+    (url) => url.pathname === '/api/me',
+    (route) =>
+      aktuell === 'deaktiviert'
+        ? json(
+            route,
+            403,
+            {
+              title: 'Kein Zugriff',
+              status: 403,
+              code: 'benutzer_deaktiviert',
+              detail: 'Ihr Benutzerkonto ist deaktiviert.',
+            },
+            'application/problem+json',
+          )
+        : json(route, 200, aktuell),
+  )
+  return (neu: Me | 'deaktiviert') => {
+    aktuell = neu
+  }
+}
+
+test('/kein-zugriff (deaktiviert): „Erneut prüfen“ per Tastatur, sichtbarer Fokus, nach Reaktivierung zur Startseite', async ({
+  page,
+}) => {
+  const setzeMe = await meldeAnVeraenderlich(page, 'deaktiviert')
+  await page.goto('/kein-zugriff')
+  await expect(page.getByText(TEXTE.deaktiviert)).toBeVisible()
+  const erneutPruefen = page.getByRole('main').getByRole('button', { name: 'Erneut prüfen' })
+  await expect(erneutPruefen).toBeVisible()
+
+  await tabBis(page, erneutPruefen)
+  expect(await hatSichtbarenFokus(erneutPruefen)).toBe(true)
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status').filter({ hasText: REV3.weiterhinDeaktiviert })).toBeVisible()
+  await expect(erneutPruefen).toBeFocused()
+
+  setzeMe(BETRACHTER)
+  await page.keyboard.press('Enter')
+
+  await expect(page).toHaveURL('/')
+  await expect(page.getByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })).toBeVisible()
+  await expect(page.locator('header')).toContainText('Test Betrachter')
+})
+
+test('/kein-zugriff (keine Rolle): „Erneut prüfen“ meldet „weiterhin keine Rolle“, nach Rollenvergabe zur Startseite', async ({
+  page,
+}) => {
+  const setzeMe = await meldeAnVeraenderlich(page, NEU)
+  await page.goto('/kein-zugriff')
+  await expect(page.getByText(REV3.keineRolle)).toBeVisible()
+  const erneutPruefen = page.getByRole('main').getByRole('button', { name: 'Erneut prüfen' })
+  await expect(erneutPruefen).toBeVisible()
+
+  await tabBis(page, erneutPruefen)
+  expect(await hatSichtbarenFokus(erneutPruefen)).toBe(true)
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('status').filter({ hasText: REV3.weiterhinKeineRolle })).toBeVisible()
+  await expect(erneutPruefen).toBeFocused()
+
+  setzeMe({ ...BETRACHTER, id: NEU.id, name: NEU.name, email: NEU.email })
+  await page.keyboard.press('Enter')
+
+  await expect(page).toHaveURL('/')
+  await expect(page.getByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })).toBeVisible()
+})
+
+test('/kein-zugriff mit „Erneut prüfen“ und Meldung enthält keine englischen Texte', async ({ page }) => {
+  await meldeAnVeraenderlich(page, 'deaktiviert')
+  await page.goto('/kein-zugriff')
+  const erneutPruefen = page.getByRole('main').getByRole('button', { name: 'Erneut prüfen' })
+  await expect(erneutPruefen).toBeVisible()
+  expect(await alleTexte(page)).not.toMatch(ENGLISCH)
+
+  await erneutPruefen.click()
+
+  await expect(page.getByRole('status').filter({ hasText: REV3.weiterhinDeaktiviert })).toBeVisible()
+  expect(await alleTexte(page)).not.toMatch(ENGLISCH)
+})
+
+test('/kein-zugriff mit „Erneut prüfen“ ist auf schmalem Bildschirm erreichbar', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 740 })
+  await meldeAnVeraenderlich(page, 'deaktiviert')
+  await page.goto('/kein-zugriff')
+
+  await expect(page.getByRole('main').getByRole('button', { name: 'Erneut prüfen' })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+// ---------- Rev. 3, AK-48, AK-49: Dialog während der Anfrage ----------
+
+test('Dialog „Deaktivieren“ mit verzögerter Antwort: Fokus bleibt, Hinweis sichtbar, zweites Enter sendet nichts', async ({
+  page,
+}) => {
+  let freigeben!: () => void
+  putSperre = new Promise<void>((aufloesen) => {
+    freigeben = aufloesen
+  })
+  await meldeAnAls(page, ADMIN)
+  await page.goto('/benutzerverwaltung')
+  const ausloeser = page.getByRole('button', { name: 'Anna Probe deaktivieren' })
+  await tabBis(page, ausloeser)
+  await page.keyboard.press('Enter')
+  const dialog = page.getByRole('alertdialog', { name: 'Benutzer deaktivieren?' })
+  await expect(dialog.getByRole('button', { name: 'Abbrechen' })).toBeFocused()
+  const bestaetigen = dialog.getByRole('button', { name: 'Deaktivieren' })
+  await tabBis(page, bestaetigen, 4)
+
+  await page.keyboard.press('Enter')
+  await expect.poll(() => puts.length).toBe(1)
+
+  await expect(dialog.getByRole('status').filter({ hasText: REV3.speichert })).toBeVisible()
+  await expect(dialog).toHaveAttribute('aria-busy', 'true')
+  await expect(bestaetigen).toBeFocused()
+  await expect(bestaetigen).toHaveAttribute('aria-disabled', 'true')
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(300)
+  expect(puts).toHaveLength(1)
+  await expect(dialog).toBeVisible()
+
+  freigeben()
+
+  await expect(page.getByRole('alertdialog')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Anna Probe reaktivieren' })).toBeFocused()
+  expect(puts).toHaveLength(1)
+})
+
+test('Dialog „Rolle ändern“ mit verzögerter Antwort: Fokus bleibt, Hinweis sichtbar, Doppelklick sendet einmal', async ({
+  page,
+}) => {
+  let freigeben!: () => void
+  putSperre = new Promise<void>((aufloesen) => {
+    freigeben = aufloesen
+  })
+  await meldeAnAls(page, ADMIN)
+  await page.goto('/benutzerverwaltung')
+  await rollenAuswahl(page, 'Anna Probe').click()
+  await page.getByRole('option', { name: 'Betrachter', exact: true }).click()
+  const dialog = page.getByRole('alertdialog', { name: 'Rolle ändern?' })
+  const bestaetigen = dialog.getByRole('button', { name: 'Rolle ändern' })
+
+  await bestaetigen.dblclick()
+  await expect.poll(() => puts.length).toBe(1)
+
+  await expect(dialog.getByRole('status').filter({ hasText: REV3.speichert })).toBeVisible()
+  await expect(bestaetigen).toBeFocused()
+  await page.waitForTimeout(300)
+  expect(puts).toHaveLength(1)
+
+  freigeben()
+
+  await expect(page.getByRole('alertdialog')).toHaveCount(0)
+  expect(puts).toHaveLength(1)
 })
