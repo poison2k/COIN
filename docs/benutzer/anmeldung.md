@@ -33,14 +33,18 @@ weiter ansehen, das Formular zum Erfassen ist ausgeblendet.
 
 Was Sie nach der Anmeldung dürfen, hängt von der Rolle Ihres Kontos in C.O.I.N. ab:
 
-| Rolle | Katalog ansehen | Coins erfassen |
-|---|---|---|
-| ohne Anmeldung | ja | nein |
-| Administrator, Sachbearbeiter | ja | ja |
-| Betrachter | ja | nein |
-| angemeldet, aber noch ohne Rolle | ja | nein |
+| Rolle | Katalog ansehen | Coins erfassen | Benutzerverwaltung |
+|---|---|---|---|
+| ohne Anmeldung | ja | nein | nein |
+| Administrator | ja | ja | ja |
+| Sachbearbeiter | ja | ja | nein |
+| Betrachter | ja | nein | nein |
+| angemeldet, aber noch ohne Rolle | ja | nein | nein |
+| Konto deaktiviert | ja | nein | nein |
 
-Neue Konten haben zunächst keine Rolle. Eine Oberfläche zur Rollenvergabe gibt es noch nicht.
+Neue Konten haben zunächst keine Rolle. Die Rolle vergibt ein Administrator in der
+[Benutzerverwaltung](benutzerverwaltung.md). Eine neue Rolle sehen Sie nach dem Neuladen der Seite
+(Taste F5) oder nach der nächsten Anmeldung.
 
 Im Abschnitt „Neuen Coin erfassen“ auf der Coin-Liste sehen Sie je nach Situation:
 
@@ -55,6 +59,17 @@ Hat Ihr Konto noch keine Rolle, landen Sie nach der Anmeldung auf der Seite **Ke
 können Sie weiterhin ansehen. Für weitere Funktionen wenden Sie sich bitte an einen Administrator.“
 
 Von dort geht es mit **Zum Coin-Katalog** zur Coin-Liste oder mit **Abmelden** hinaus.
+
+## Konto deaktiviert
+
+Ein Administrator kann Ihr Konto in C.O.I.N. deaktivieren. Melden Sie sich dann an, oder ist Ihr
+Konto während der Arbeit deaktiviert worden, erscheint die Seite **Kein Zugriff** mit dem Text
+„Ihr Benutzerkonto ist deaktiviert. Den Coin-Katalog können Sie weiterhin ansehen. Wenden Sie sich
+bei Fragen an einen Administrator.“ Rechts oben steht dann nur **Abmelden**, ohne Ihren Namen.
+
+Den Coin-Katalog können Sie weiter ansehen, alle anderen Funktionen sind gesperrt. Wird Ihr Konto
+wieder aktiviert, laden Sie die Seite neu (Taste F5) oder melden Sie sich erneut an. Erst dann
+verschwindet die Seite **Kein Zugriff**.
 
 ## Abmelden
 

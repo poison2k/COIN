@@ -1,6 +1,11 @@
 # ADR-0013: Benutzer und Rollen in der eigenen Datenbank, Abgleich pro Request, Bootstrap-Administratoren
 
-Status: Angenommen (Einzelentscheidungen vom Auftraggeber am 2026-10-05 bestätigt, umgesetzt) · Datum: 2026-10-05 · Feature: anmeldung-keycloak
+Status: Angenommen, teilweise abgelöst durch [ADR-0016](0016-berechtigungen-im-code-und-deaktivierte-benutzer.md) (Punkt 2 Auslöser des Abgleichs, Punkt 4 letzter Satz, Punkt 5) · Datum: 2026-10-05 · Feature: anmeldung-keycloak
+
+> Seit dem Feature rollen-benutzerverwaltung gilt: Rollen vergeben Administratoren in der App
+> (`PUT /api/benutzer/{id}/rolle`); Endpunkte verlangen Berechtigungen statt der Policy
+> `KatalogSchreiben`; abgeglichen wird bei jedem Request auf einen geschützten Endpunkt. Tabelle,
+> Abgleich-Technik, Claims und Bootstrap gelten unverändert.
 
 ## Kontext
 Der Keycloak ist in Produktion nur lesend nutzbar, und seine Rollen dürfen nicht verwendet werden. Die Rollen Administrator, Sachbearbeiter und Betrachter (`docs/requirements.md`) führt C.O.I.N. deshalb selbst. Neue Benutzer haben keine Rolle. Der erste Administrator kommt aus `Bootstrap:AdminEmails`. Sachbearbeiter und Betrachter werden erst in einem späteren Feature vergeben (Rollen- und Rechteverwaltung). Die API sieht keine Login-Ereignisse, sondern nur Tokens.
@@ -39,5 +44,5 @@ Der Keycloak ist in Produktion nur lesend nutzbar, und seine Rollen dürfen nich
 ## Folgen
 - Pro schreibendem Request kommt ein Statement auf einen Unique-Index hinzu. Das ist vertretbar.
 - Personendaten (E-Mail, Name) liegen in `benutzer`. Sie werden nicht geloggt, die Testdaten sind synthetisch.
-- Bis zur Rollenverwaltung hat nur der Bootstrap-Administrator eine Rolle. Lokal haben `sachbearbeiter@test.local` und `betrachter@test.local` in der App keine Rolle. Tests vergeben Rollen direkt in der Test-DB.
+- Bis zur Rollenverwaltung hatte nur der Bootstrap-Administrator eine Rolle. Seit ADR-0016 vergeben Administratoren Rollen in der App; Integrationstests setzen Rollen weiterhin direkt in der Test-DB.
 - Die Surrogat-Id ist später der Fremdschlüssel für Audit und Verleihungen. `sub` und Issuer verlassen die API nicht.

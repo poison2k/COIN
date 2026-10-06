@@ -18,7 +18,12 @@ Die Vorgabe nennt `@stack-lib/sidebar` und `@stack-lib/theme`. Beide sind im öf
   - `use-mobile` (`src/shared/lib/hooks`) mit `useSyncExternalStore` statt `setState` im Effect (Lint-Regel `react-hooks`).
   - Eingeklappte Sidebar (Desktop, `offcanvas`) ist `inert`, damit verborgene Links nicht fokussierbar sind (WCAG 2.4.7).
   - Strg/Cmd+B schaltet die Sidebar nicht um, wenn der Fokus in einem Eingabefeld liegt.
+  - `alert-dialog.tsx` (Feature rollen-benutzerverwaltung): eigene Tab-Falle im Popup. Tab am letzten bzw. Umschalt+Tab am ersten fokussierbaren Element springt sofort zum anderen Ende; Base UI fängt den Fokus sonst erst einen Frame später über Fokuswächter außerhalb des Popups ab. Grenze: Der Selektor (`button:not([disabled])`, `[href]`, `input`, `select`, `textarea`, `[tabindex]` ≠ -1) berücksichtigt keine Sichtbarkeit; unsichtbare, aber fokussierbare Elemente im Dialog würden als erstes oder letztes Element gezählt. Die heutigen Dialoge enthalten nur zwei sichtbare Buttons.
+  - `select.tsx`: Pfeiltasten laufen am Listenende um (unten → erste, oben → letzte Option). Base UI hält am Rand an. Reiner Komfort für die Tastaturbedienung.
+  - Buttons, die während einer Anfrage gesperrt sind, nutzen `focusableWhenDisabled` (z. B. `StatusAendern` in `features/benutzer-status-aendern`), damit der Fokus beim Sperren nicht auf `body` fällt.
+  - App-Shell (`widgets/app-shell`): Die Kopfzeile steht als eigenes `<header>` (banner-Landmark) neben `<main>`, statt in `SidebarInset` zu liegen. `<main>` enthält nur den Seiteninhalt.
   - Lint-Sauberkeit und Prettier-Formatierung.
+- Weitere per CLI übernommene Komponenten (Base UI): `select`, `alert-dialog`, `badge`, `tabs`. `shared/ui/blaettern.tsx` ist eine eigene Komponente aus shadcn-Bausteinen (`Button`), keine CLI-Komponente.
 - Zusätzliche Pakete aus der shadcn-Einrichtung: `@fontsource-variable/geist` (Schrift) und `shadcn` als devDependency, weil `src/app/styles/index.css` `shadcn/tailwind.css` importiert.
 - Theme:
   - Klasse `light`/`dark` auf `<html>`,

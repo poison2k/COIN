@@ -32,6 +32,7 @@ Zwei Stellen importieren die Datei:
 
 Keycloak vergibt **keine Rollen**. Die Namen deuten nur an, wofür der Benutzer in Tests gedacht ist.
 Die Rollen verwaltet die Anwendung selbst in ihrer eigenen Datenbank (ADR-0013).
+`admin@test.local` wird beim ersten Aufruf per `Bootstrap:AdminEmails` Administrator. Alle anderen Testbenutzer haben zunächst keine Rolle; ein Administrator vergibt sie in der App unter **Benutzerverwaltung**. Der Systemtest `e2e/tests/benutzerverwaltung.spec.ts` gibt `betrachter@test.local` die Rolle Betrachter; `neu@test.local` bleibt ohne Rolle.
 
 ## Datei ändern
 

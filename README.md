@@ -5,15 +5,20 @@ Webanwendung zur Verwaltung militärischer Gedenk-Coins der Bundeswehr. Umgesetz
 - **Coin-Katalog**: Coins mit Name, Herausgeber, optionaler Auflage, Beschreibung und Motivbild
   anlegen und in einer Liste anzeigen. Lesen ist ohne Anmeldung möglich (ADR-0014).
 - **Anmeldung über Keycloak (OIDC)**: Anmeldung mit E-Mail und Passwort am Keycloak. Benutzer und
-  Rollen führt C.O.I.N. in der eigenen Datenbank (ADR-0012, ADR-0013). Coins erfassen dürfen nur
-  Administratoren und Sachbearbeiter. Vergeben wird bisher nur die Rolle Administrator, und zwar per
-  `Bootstrap:AdminEmails`. Alle anderen Benutzer haben vorerst keine Rolle.
+  Rollen führt C.O.I.N. in der eigenen Datenbank (ADR-0012, ADR-0013). Den ersten Administrator
+  legt `Bootstrap:AdminEmails` fest.
+- **Rollen- und Benutzerverwaltung**: Administratoren vergeben in der App die Rollen Administrator,
+  Sachbearbeiter und Betrachter und deaktivieren oder reaktivieren Benutzer. Endpunkte prüfen
+  Berechtigungen (`coins.write`, `users.manage`, `audit.read`) aus einer festen Rechtematrix im Code
+  ([docs/berechtigungen.md](docs/berechtigungen.md), ADR-0016). Jede Rollen- und Statusänderung steht
+  unveränderlich im Audit-Log (ADR-0017). Der letzte aktive Administrator ist geschützt (ADR-0018).
 
 Exemplare, Verleihungen und Zertifikate folgen später.
 
-- API: [docs/api.md](docs/api.md)
+- API: [docs/api.md](docs/api.md), Berechtigungen: [docs/berechtigungen.md](docs/berechtigungen.md)
 - Anleitung für Anwender: [docs/benutzer/anmeldung.md](docs/benutzer/anmeldung.md),
-  [docs/benutzer/coin-katalog.md](docs/benutzer/coin-katalog.md)
+  [docs/benutzer/coin-katalog.md](docs/benutzer/coin-katalog.md),
+  [docs/benutzer/benutzerverwaltung.md](docs/benutzer/benutzerverwaltung.md)
 - Architekturentscheidungen: [docs/adr/](docs/adr/)
 - Anforderungen: [docs/requirements.md](docs/requirements.md)
 - Test-Keycloak: [infra/keycloak/README.md](infra/keycloak/README.md)
@@ -62,7 +67,8 @@ Test-Keycloak:
 - Realm `coin`, öffentlicher Client `coin-web` (PKCE, ohne Secret), Audience `coin-api`.
 - Testbenutzer (`admin@test.local`, `sachbearbeiter@test.local`, `betrachter@test.local`,
   `neu@test.local`) und ihr Testpasswort stehen in [infra/keycloak/README.md](infra/keycloak/README.md).
-  Keycloak vergibt keine Rollen.
+  Keycloak vergibt keine Rollen; außer `admin@test.local` (Bootstrap) erhalten sie ihre Rolle in der
+  App über die Benutzerverwaltung.
 - Admin-Konsole: `http://localhost:8180/admin`, Benutzer `admin`, Passwort
   `COIN_KEYCLOAK_ADMIN_PASSWORD` aus `.env`. Dieses Konto hat nichts mit `admin@test.local` zu tun.
 - `--import-realm` überspringt einen vorhandenen Realm. Nach Änderungen an der Realm-Datei:
@@ -112,13 +118,37 @@ angewendet. In Development ist das OpenAPI-Dokument unter `/openapi/v1.json` abr
   Code. Einstellungen unter `Authentication:Schemes:Bearer` wirken nicht.
 - Bootstrap: Nur beim **ersten** Aufruf eines Benutzers, nur bei `email_verified=true` und nur wenn
   die E-Mail (ohne Groß-/Kleinschreibung) in der Liste steht. Eine spätere Änderung der Liste
-  vergibt oder entzieht keine Rollen. Rollen aus dem Token werden nie ausgewertet.
+  vergibt oder entzieht keine Rollen. Rollen aus dem Token werden nie ausgewertet. Der Bootstrap
+  schreibt einen Audit-Eintrag `keine → Administrator` mit Akteur „System“.
 - Produktion: Kein Realm aus dem Repository. Konfiguriert wird nur die Adresse des echten Keycloak
   (`https`) sowie Audience und ClientId, z. B. per Umgebungsvariablen `Oidc__Authority`,
   `Oidc__Audience`, `Oidc__ClientId`, `Frontend__Ursprung`, `Bootstrap__AdminEmails__0`. Der
   Betreiber richtet am Keycloak den Client (exakte URIs, PKCE) und den Audience-Mapper ein und
   aktiviert am AD-Provider „Trust Email“, damit Tokens `email_verified=true` tragen. Sonst greift
   der Bootstrap nicht.
+
+### Hinweise für den Betrieb
+
+- **Audit-Log** (Tabelle `benutzer_audit`): Einträge sind unveränderlich. Der Trigger
+  `trg_benutzer_audit_unveraenderlich` bricht jedes `UPDATE` und `DELETE` ab; `TRUNCATE` ist
+  bewusst nicht gesperrt (Tests, Betrieb). Die Einträge werden vorerst unbegrenzt aufbewahrt, ein
+  Löschkonzept folgt als eigenes Feature (ADR-0017).
+- **Notfall „kein aktiver Administrator mehr“**: Über die App ist das ausgeschlossen (ADR-0018).
+  Geht der Zugang trotzdem verloren (z. B. Konto im AD gelöscht), hilft `Bootstrap:AdminEmails`
+  nur bei einem noch nie angemeldeten Konto. Sonst per SQL auf der Datenbank, für ein Konto, das
+  sich schon einmal angemeldet hat:
+
+  ```sql
+  UPDATE benutzer SET rolle = 'Administrator', aktiv = true, aktualisiert_am = now()
+  WHERE lower(email) = lower('<e-mail>');
+  ```
+
+  Der Eingriff umgeht die Schutzregeln und erzeugt keinen Audit-Eintrag. Er ist außerhalb der App
+  zu dokumentieren.
+- **Logs**: Die Kategorie `Microsoft.AspNetCore.Hosting.Diagnostics` wird unabhängig von der
+  Konfiguration erst ab `Warning` geschrieben (`src/Coin.Api/Http/Protokollierung.cs`), weil sie
+  URLs samt Query (`?suche=` mit Namen oder E-Mails) protokolliert. Dadurch fehlen auch die
+  Request-Start/Ende-Einträge mit Status und Dauer (ADR-0017).
 
 Neue Migration anlegen:
 
@@ -160,13 +190,19 @@ Routen:
 | Pfad | Zugang | Inhalt |
 |---|---|---|
 | `/` | öffentlich | Startseite |
-| `/coins` | öffentlich | Katalog; Formular nur für Administrator und Sachbearbeiter |
+| `/coins` | öffentlich | Katalog; Formular nur mit `coins.write` |
+| `/benutzerverwaltung` | `users.manage` | Tabs „Benutzer“ und „Audit-Log“ |
 | `/anmeldung/rueckruf` | öffentlich | Rückkehr vom Keycloak (ohne App-Shell) |
 | `/abgemeldet` | öffentlich | Bestätigung nach dem Abmelden |
-| `/kein-zugriff` | nur angemeldet | Hinweis für Benutzer ohne Rolle; Benutzer mit Rolle werden nach `/` geleitet |
+| `/kein-zugriff` | nur angemeldet | Hinweis für Benutzer ohne Rolle oder mit deaktiviertem Konto; alle anderen werden nach `/` geleitet |
 
 Unbekannte Pfade zeigen „Seite nicht gefunden.“ Die Guards `erfordertAnmeldung` und
-`erfordertRolle` liegen in `src/app/router/schutz.ts`.
+`erfordertBerechtigung(b)` liegen in `src/app/router/schutz.ts`. `erfordertBerechtigung` startet
+ohne Sitzung die Anmeldung, leitet ohne Rolle oder deaktiviert nach `/kein-zugriff` und mit Rolle,
+aber ohne Berechtigung, nach `/`. Sichtbarkeit (Sidebar-Einträge, Formulare) richtet sich nur nach
+`berechtigungen` aus `/api/me`, nie nach dem Rollennamen; ein Test in `abhaengigkeiten.test.ts`
+verbietet Rollenvergleiche außerhalb von `features/rolle-zuweisen`, `pages/kein-zugriff` und
+`app/router`.
 
 ### Anmeldung lokal ausprobieren
 
@@ -176,10 +212,13 @@ Unbekannte Pfade zeigen „Seite nicht gefunden.“ Die Guards `erfordertAnmeldu
    [infra/keycloak/README.md](infra/keycloak/README.md). Per Bootstrap wird dieser Benutzer
    Administrator und sieht das Formular.
 4. `neu@test.local` (ebenso `sachbearbeiter@test.local` und `betrachter@test.local`) hat in der
-   App keine Rolle und landet nach der Anmeldung auf „Kein Zugriff“.
+   App zunächst keine Rolle und landet nach der Anmeldung auf „Kein Zugriff“.
+5. Als `admin@test.local` in der Sidebar **Benutzerverwaltung** öffnen. Dort erscheinen alle
+   Benutzer, die sich schon einmal angemeldet haben; Rolle wählen und bestätigen. Die Änderung wirkt
+   beim nächsten API-Aufruf, im Frontend nach dem Neuladen der Seite.
 
-Rollen stehen in der Tabelle `benutzer` der Entwicklungs-DB. Eine Oberfläche zur Rollenvergabe gibt
-es noch nicht.
+Rollen und Status stehen in der Tabelle `benutzer`, das Audit-Log in `benutzer_audit` der
+Entwicklungs-DB.
 
 ### Struktur (Feature-Sliced Design, ADR-0008)
 
@@ -193,10 +232,15 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
   Anmeldung (`shared/lib/anmeldung`: UserManager, Provider, `useAnmeldung`, `sicheresZiel`),
   `shared/api` den generischen HTTP-Teil (inkl. Bearer-Header), `shared/config` die Routenpfade und
   die OIDC-Konfiguration.
-- Anmeldung im Überblick: `entities/benutzer` (`GET /api/me`, Rolle), `features/anmeldung`
-  (Buttons „Anmelden“/„Abmelden“), `pages/kein-zugriff`, `pages/abgemeldet`,
-  `pages/anmeldung-rueckruf`. `app` lädt `/api/me` einmal pro Anmeldung und reicht Benutzer und
-  Anmeldezustand als Props an Widgets und Seiten weiter.
+- Anmeldung im Überblick: `entities/benutzer` (`GET /api/me`, Benutzerliste, `hatBerechtigung`,
+  `StatusBadge`), `features/anmeldung` (Buttons „Anmelden“/„Abmelden“), `pages/kein-zugriff`,
+  `pages/abgemeldet`, `pages/anmeldung-rueckruf`. `app` lädt `/api/me` einmal pro Anmeldung und
+  reicht Benutzer und Anmeldezustand als Props an Widgets und Seiten weiter. Liefert `/api/me` oder
+  ein anderer Aufruf `403 benutzer_deaktiviert`, wechselt `app` in den Zustand „deaktiviert“.
+- Benutzerverwaltung: `entities/audit` (`AuditTabelle`, `GET /api/audit`), `features/rolle-zuweisen`
+  und `features/benutzer-status-aendern` (je Auswahl bzw. Button mit Bestätigungsdialog),
+  `widgets/benutzer-tabelle`, `widgets/audit-log`, `pages/benutzerverwaltung`. Das Blättern
+  (`shared/ui/blaettern.tsx`) ist eine eigene Komponente, keine shadcn-Komponente.
 - Testhilfen (Fake-API, Setup) liegen außerhalb der Schichten in `web/test/`.
 - Steiger prüft die Regeln (`npm run lint:fsd`, Konfiguration `steiger.config.ts`).
 
@@ -234,7 +278,7 @@ nur, wenn Index und Arbeitsstand übereinstimmen.
 
 | | `web/ui-tests` (`npm run test:ui`) | `e2e/` (`npx playwright test`) |
 |---|---|---|
-| Zweck | App-Shell: Laden, Routing, Seitenleiste, Farbschema, Darstellung der Liste | fachliche Abläufe über alle Schichten |
+| Zweck | App-Shell, Anmeldung, Benutzerverwaltung: Routing, Seitenleiste, Tastaturbedienung, Darstellung | fachliche Abläufe über alle Schichten |
 | API | gemockt per `page.route`; Proxy-Ziel absichtlich unerreichbar; jeder nicht gemockte `/api`-Aufruf lässt den Test scheitern | echte API (Release-Build) mit Wegwerf-PostgreSQL |
 | Anmeldung | Identitätsanbieter gemockt (`VITE_OIDC_AUTHORITY=http://127.0.0.1:9/realms/coin`) | echter Wegwerf-Keycloak |
 | Voraussetzungen | nur Node.js und Chromium | Docker, .NET 10 SDK, Node.js ≥ 22.18 |
@@ -250,8 +294,9 @@ Die Komponenten liegen in `src/shared/ui` (Konfiguration `components.json`) und 
 Erzeugen angepasst (ADR-0009). Nach einem erneuten `npx shadcn add` immer den Diff prüfen:
 Die CLI erzeugt `import { cn } from "cn"` statt `@/shared/lib/cn` und überschreibt Anpassungen,
 u. a. das entfernte Sidebar-Cookie, die deutschen Texte, `inert` an der eingeklappten
-Seitenleiste und die Ausnahme für Strg+B in Eingabefeldern. Danach `npm run format` und
-`npm run lint` ausführen.
+Seitenleiste, die Ausnahme für Strg+B in Eingabefeldern, die Tab-Falle in `alert-dialog.tsx` und
+den Pfeiltasten-Umlauf in `select.tsx` (vollständige Liste in ADR-0009). Danach `npm run format`
+und `npm run lint` ausführen.
 
 ## Build und Tests
 
@@ -301,6 +346,8 @@ Ablauf pro Lauf (ADR-0007, ADR-0015):
 - Das Frontend läuft über Vite auf `http://localhost:5183` (Proxy `/api` → 5182,
   `VITE_OIDC_AUTHORITY` → 5184).
 - Schreibende Tests melden sich über das echte Keycloak-Formular als `admin@test.local` an.
+  `benutzerverwaltung.spec.ts` vergibt `betrachter@test.local` die Rolle Betrachter und prüft
+  Audit-Log und Sichtbarkeit; `neu@test.local` behält keine Rolle.
 - Laufende Server werden nie wiederverwendet. Ist Port 5182, 5183 oder 5184 belegt, bricht der Lauf ab.
 - `global-setup.ts` prüft vor dem ersten Test, dass die Datenbank leer ist (`GET /api/coins` liefert
   `[]`), sonst bricht der Lauf ab.

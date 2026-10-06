@@ -1,4 +1,4 @@
-# ADR-0014: Coin-Katalog öffentlich lesbar, Schreiben nur mit Rolle
+# ADR-0014: Coin-Katalog öffentlich lesbar, Schreiben nur mit Berechtigung
 
 Status: Angenommen (Entscheidung des Auftraggebers vom 2026-10-05, umgesetzt) · Datum: 2026-10-05 · Feature: anmeldung-keycloak · Ergänzt: [ADR-0006](0006-bild-upload-als-eigener-endpunkt.md), [ADR-0012](0012-anmeldung-keycloak-oidc.md)
 
@@ -9,7 +9,7 @@ Mit ADR-0012 sind alle Endpunkte standardmäßig geschützt. In `docs/requiremen
 - `GET /api/coins`, `GET /api/coins/{id}` und `GET /api/coins/{id}/bild` tragen ausdrücklich `[AllowAnonymous]`. Die Regel „standardmäßig geschützt, öffentlich nur ausdrücklich markiert“ bleibt bestehen. Ein Test über alle Endpunkte prüft, dass genau diese drei öffentlich sind.
 - Öffentliche Antworten hängen nicht von Anmeldung oder Token ab, auch ein ungültiges Token führt zu keinem `401`. Deshalb gibt es kein `Vary: Authorization`, und es findet kein Benutzerabgleich statt.
 - Öffentliche DTOs enthalten keine Personendaten. Coin-Daten haben heute keinen Personenbezug. Ersteller-, Bearbeiter- oder Verleihungsangaben kommen künftig nur in geschützte Endpunkte und DTOs.
-- `POST /api/coins` und `PUT /api/coins/{id}/bild` verlangen die Policy `KatalogSchreiben` (Rolle Administrator oder Sachbearbeiter). Betrachter und Benutzer ohne Rolle erhalten `403`, Anonyme `401`.
+- `POST /api/coins` und `PUT /api/coins/{id}/bild` verlangen die Berechtigung `coins.write` (Rollen Administrator und Sachbearbeiter, ADR-0016; ursprünglich Policy `KatalogSchreiben`). Betrachter, Benutzer ohne Rolle und deaktivierte Benutzer erhalten `403`, Anonyme `401`.
 - Das Frontend lädt Motivbilder wieder per `<img src={bildUrl}>`. Der Blob-Abruf entfällt.
 - `Cache-Control` des Bild-Endpunkts bleibt `private, max-age=31536000, immutable`.
   - `public` würde Shared Caches (z. B. Proxys im Intranet) erlauben, Bilder ein Jahr lang zu speichern. Wird der Katalog später wieder eingeschränkt oder ein Motiv als schutzwürdig eingestuft, wäre das nicht mehr steuerbar.
@@ -25,5 +25,6 @@ Mit ADR-0012 sind alle Endpunkte standardmäßig geschützt. In `docs/requiremen
 
 ## Folgen
 - Jeder mit Netzzugriff kann Katalog und Motivbilder lesen. Ob die Anwendung im Intranet oder im Internet läuft, ist weiter offen (`docs/requirements.md`, Betrieb). Diese Frage betrifft auch die Reichweite der Veröffentlichung.
-- Die Rolle Betrachter hat vorerst keine zusätzlichen Rechte gegenüber Anonymen. Sie wird mit geschützten Funktionen wie Verleihungen relevant.
-- Soll der Katalog wieder eingeschränkt werden, ist das nur eine Attributänderung. Dann wird dieses ADR abgelöst.
+- Die Rolle Betrachter hat vorerst keine zusätzlichen Rechte gegenüber Anonymen. Ihre Berechtigung `coins.read` ist definiert, wird aber nicht durchgesetzt, solange der Katalog öffentlich ist (ADR-0016). Sie wird mit geschützten Funktionen wie Verleihungen relevant.
+- Die Öffentlichkeit des Katalogs gilt auch für deaktivierte Benutzer: Mit ihrem Token erhalten sie auf den drei Lese-Endpunkten dieselbe Antwort wie anonyme Besucher (Entscheidung des Auftraggebers vom 2026-10-05, ADR-0016 Punkt 8).
+- Soll der Katalog wieder eingeschränkt werden, ist das nur eine Attributänderung (`[AllowAnonymous]` → Policy `coins.read`). Dann wird dieses ADR abgelöst.

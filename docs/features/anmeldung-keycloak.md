@@ -2,6 +2,8 @@
 
 Status: umgesetzt (vom qa-reviewer freigegeben) · Entwurf Rev. 2 · Branch: `feature/anmeldung-keycloak` (basiert auf `feature/frontend-grundgeruest`) · Löst [ADR-0004](../adr/0004-pilot-ohne-authentifizierung.md) ab
 
+> Erweitert durch [rollen-benutzerverwaltung](rollen-benutzerverwaltung.md): AK-10 (öffentliche GETs auch für deaktivierte Benutzer), AK-19 (Policy `KatalogSchreiben` → Berechtigung `coins.write`, 403 mit `code`), AK-20 (`/api/me` mit `berechtigungen`, 403 bei Deaktivierung), AK-29 (`/kein-zugriff` auch für deaktivierte Benutzer), AK-33 (`erfassen` aus `berechtigungen`). `erfordertRolle` und `darfKatalogSchreiben` gibt es nicht mehr (ersetzt durch `erfordertBerechtigung` und `hatBerechtigung`). Der Benutzerabgleich läuft bei jedem geschützten Request. Die Texte unten beschreiben den Stand dieses Features.
+
 Zugehörige ADRs: [0012](../adr/0012-anmeldung-keycloak-oidc.md) (Keycloak/OIDC, Token-Prüfung, Token-Speicherung), [0013](../adr/0013-benutzer-und-rollen-in-eigener-datenbank.md) (Benutzer, Rollen, Bootstrap, Autorisierung), [0014](../adr/0014-coin-katalog-oeffentlich-lesbar.md) (Katalog öffentlich lesbar), [0015](../adr/0015-systemtests-mit-test-keycloak.md) (Systemtests mit Test-Keycloak, erweitert ADR-0007)
 
 ## 1. Ziel

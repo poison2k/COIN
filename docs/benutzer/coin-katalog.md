@@ -101,6 +101,7 @@ Fehler zu einzelnen Feldern stehen direkt unter dem jeweiligen Feld. Ihre Eingab
 | „Die Bilddatei ist leer.“ | Die gewählte Datei hat keinen Inhalt. |
 | „Ein Coin mit diesem Namen und Herausgeber existiert bereits.“ | Dieser Coin ist schon im Katalog. |
 | „Sie sind nicht berechtigt, Coins zu erfassen.“ | Ihrem Konto fehlt die nötige Rolle. Wenden Sie sich an einen Administrator. |
+| „Ihr Benutzerkonto ist deaktiviert.“ | Ein Administrator hat Ihr Konto deaktiviert (siehe [Anmeldung](anmeldung.md#konto-deaktiviert)). |
 | „Ihre Anmeldung ist abgelaufen. Sie werden zur Anmeldung weitergeleitet …“ | Melden Sie sich erneut an. Die Eingaben gehen dabei verloren (siehe [Anmeldung](anmeldung.md#sitzung-abgelaufen)). |
 | „Der Coin konnte nicht angelegt werden. Bitte später erneut versuchen.“ | Technisches Problem, z. B. keine Verbindung zum Server. |
 

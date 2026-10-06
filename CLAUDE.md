@@ -46,11 +46,16 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
 
 ## Aktueller Stand
 Umgesetzt: Coin-Katalog (`docs/features/coin-katalog.md`) – Coin anlegen/auflisten, Motivbild
-hochladen/abrufen; Lesen öffentlich (ADR-0014), Schreiben nur Administrator/Sachbearbeiter.
+hochladen/abrufen; Lesen öffentlich (ADR-0014), Schreiben nur mit `coins.write`.
 Frontend-Grundgerüst mit App-Shell (Startseite `/`, Coin-Liste `/coins`, Sidebar, Hell/Dunkel).
-Anmeldung über Keycloak (ADR-0012–0015); Administrator nur per `Bootstrap:AdminEmails`, andere
-Rollen noch ohne Vergabe. Noch nicht vorhanden: Rollen-/Benutzerverwaltung, Audit-Log, Exemplare,
-Verleihungen, Zertifikate.
+Anmeldung über Keycloak (ADR-0012–0015). Rollen- und Benutzerverwaltung
+(`docs/features/rollen-benutzerverwaltung.md`, ADR-0016–0018): Administratoren vergeben Rollen und
+deaktivieren/reaktivieren Benutzer unter `/benutzerverwaltung`; Berechtigungen `coins.read`/
+`coins.write`/`users.manage`/`audit.read` aus der festen Rechtematrix im Code
+(`docs/berechtigungen.md`); Audit-Log für Rollen- und Statusänderungen (`benutzer_audit`,
+unveränderlich per Trigger, unbegrenzt aufbewahrt). Der erste Administrator kommt per
+`Bootstrap:AdminEmails`. Noch nicht vorhanden: Exemplare, Verleihungen, Zertifikate, Löschkonzept
+für das Audit-Log.
 Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup im `README.md`.
 `dotnet build` ohne Warnungen ist Pflicht, `TreatWarningsAsErrors` ist aber (noch) nicht gesetzt.
 
@@ -97,6 +102,18 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
 - Tokens, Authorization-Header, E-Mail-Adressen und Namen werden nie geloggt.
 - Schreibende Endpunkte prüfen den Content-Type per `[Inhaltstyp]` statt `[Consumes]`, damit 401/403
   vor 415 greifen.
+- Endpunkte verlangen genau eine Berechtigung (`[Authorize(Policy = Berechtigungen.X)]`), „angemeldet“
+  oder sind ausdrücklich öffentlich – nie eine Rolle (`Roles=` verboten). Neue Endpunkte in die
+  Endpunkttabelle in `docs/berechtigungen.md` eintragen; `EndpunktTabelleTests` (Integration) und
+  `BerechtigungsDokuTests` (Unit) gleichen Doku und Code ab. Marker und Tabellenformat dort nicht ändern.
+- Deaktivierte Benutzer erhalten auf jedem Endpunkt mit Anmeldung `403` (`code=benutzer_deaktiviert`);
+  öffentliche Endpunkte bleiben tokenunabhängig.
+- Das Frontend leitet Sichtbarkeit nur aus `berechtigungen` von `/api/me` ab, nie aus Rollennamen
+  (geprüft in `web/src/app/abhaengigkeiten.test.ts`).
+- Audit-Einträge sind unveränderlich (nur INSERT/SELECT, DB-Trigger); Änderungen an Rolle oder Status
+  nur über `BenutzerverwaltungService` (Sperre plus Audit in derselben Transaktion).
+- Die Logkategorie `Microsoft.AspNetCore.Hosting.Diagnostics` bleibt fest auf Warning (URLs mit Query
+  können Personendaten enthalten); nicht per Konfiguration lockern.
 
 ## Definition of Done
 1. Anforderung in `docs/requirements.md` abgedeckt
