@@ -1,24 +1,43 @@
 import { holeToken } from '@/shared/lib/anmeldung'
 import type { ProblemDetails } from './problem-details'
 
+/** Grund einer 403-Antwort laut `code` (rollen-benutzerverwaltung, AK-6, AK-34). */
+export type KeinZugriffGrund = 'deaktiviert' | 'keineBerechtigung'
+
 /** Typisiertes Ergebnis eines API-Aufrufs. Es werden keine Ausnahmen geworfen. */
 export type ApiErgebnis<T> =
   | { art: 'ok'; daten: T }
   | { art: 'validierung'; fehler: Record<string, string[]> }
   | { art: 'nichtAngemeldet' }
-  | { art: 'keinZugriff' }
-  | { art: 'konflikt' }
+  | { art: 'keinZugriff'; grund: KeinZugriffGrund }
+  | { art: 'konflikt'; code: string | null }
   | { art: 'zuGross' }
   | { art: 'formatUngueltig' }
   | { art: 'nichtGefunden' }
   | { art: 'fehler' }
 
+/** Eine Seite einer Liste aus der API (Benutzerliste, Audit-Log). */
+export interface Seite<T> {
+  eintraege: T[]
+  gesamt: number
+  seite: number
+  groesse: number
+}
+
 /** Wird bei 401 auf einen schreibenden Aufruf ausgelöst (Sitzung abgelaufen, AK-27). */
 let beiNichtAngemeldet: (() => void) | null = null
+
+/** Wird bei 403 mit `code=benutzer_deaktiviert` auf einen beliebigen Aufruf ausgelöst (AK-32). */
+let beiDeaktiviert: (() => void) | null = null
 
 /** Registriert die Reaktion auf 401 bei schreibenden Aufrufen; `null` entfernt sie. */
 export function setzeBeiNichtAngemeldet(callback: (() => void) | null): void {
   beiNichtAngemeldet = callback
+}
+
+/** Registriert die Reaktion auf 403 `benutzer_deaktiviert`; `null` entfernt sie. */
+export function setzeBeiDeaktiviert(callback: (() => void) | null): void {
+  beiDeaktiviert = callback
 }
 
 /** Das Token geht nur an die eigene API: gleiche Origin und Pfad unter /api/ (kein Token-Abfluss an Dritte). */
@@ -41,6 +60,12 @@ export async function leseJson(antwort: Response): Promise<unknown> {
   }
 }
 
+/** `code` einer ProblemDetails-Antwort; `null`, wenn der Body fehlt, kein JSON ist oder keinen Text-`code` hat. */
+async function leseCode(antwort: Response): Promise<string | null> {
+  const problem = (await leseJson(antwort)) as ProblemDetails | null
+  return typeof problem?.code === 'string' ? problem.code : null
+}
+
 export async function bildeAb<T>(antwort: Response, erfolgsStatus: number[]): Promise<ApiErgebnis<T>> {
   if (erfolgsStatus.includes(antwort.status)) {
     const daten = await leseJson(antwort)
@@ -53,12 +78,15 @@ export async function bildeAb<T>(antwort: Response, erfolgsStatus: number[]): Pr
     }
     case 401:
       return { art: 'nichtAngemeldet' }
-    case 403:
-      return { art: 'keinZugriff' }
+    case 403: {
+      // Ausgewertet wird der code, nie der deutsche Text (ADR-0016 Punkt 7).
+      const code = await leseCode(antwort)
+      return { art: 'keinZugriff', grund: code === 'benutzer_deaktiviert' ? 'deaktiviert' : 'keineBerechtigung' }
+    }
     case 404:
       return { art: 'nichtGefunden' }
     case 409:
-      return { art: 'konflikt' }
+      return { art: 'konflikt', code: await leseCode(antwort) }
     case 413:
       return { art: 'zuGross' }
     case 415:
@@ -81,7 +109,9 @@ export async function sende<T>(url: string, init: RequestInit, erfolgsStatus: nu
     const antwort = await fetch(url, { ...init, headers })
     const methode = (init.method ?? 'GET').toUpperCase()
     if (antwort.status === 401 && !LESENDE_METHODEN.has(methode)) beiNichtAngemeldet?.()
-    return await bildeAb<T>(antwort, erfolgsStatus)
+    const ergebnis = await bildeAb<T>(antwort, erfolgsStatus)
+    if (ergebnis.art === 'keinZugriff' && ergebnis.grund === 'deaktiviert') beiDeaktiviert?.()
+    return ergebnis
   } catch {
     // Netzwerkfehler: keine technischen Details nach außen geben.
     return { art: 'fehler' }

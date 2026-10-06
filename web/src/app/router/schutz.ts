@@ -1,13 +1,15 @@
 import { redirect } from '@tanstack/react-router'
-import type { Benutzer, Rolle } from '@/entities/benutzer'
+import { hatBerechtigung, type Benutzer, type Berechtigung } from '@/entities/benutzer'
 import { ROUTEN } from '@/shared/config'
 import type { AnmeldeStatus } from '@/shared/lib/anmeldung'
 
 /** Was die Guards über die Anmeldung wissen müssen (Router-Kontext, AK-28). */
 export interface SchutzKontext {
   anmeldung: { status: AnmeldeStatus; anmelden: (ziel: string) => unknown }
-  /** Benutzer laut /api/me; `null`, solange nicht angemeldet oder nicht geladen. */
+  /** Benutzer laut /api/me; `null`, solange nicht angemeldet, nicht geladen oder deaktiviert. */
   benutzer: Benutzer | null
+  /** /api/me lieferte 403 benutzer_deaktiviert (rollen-benutzerverwaltung, AK-32). */
+  deaktiviert: boolean
 }
 
 /**
@@ -24,14 +26,16 @@ export function erfordertAnmeldung(kontext: SchutzKontext, ziel: string): void {
 }
 
 /**
- * Verlangt eine Anmeldung und eine der Rollen. Ohne Rolle geht es nach /kein-zugriff, mit einer anderen Rolle
- * zur Startseite.
+ * Verlangt eine Anmeldung und eine Berechtigung aus /api/me (AK-25). Deaktiviert oder ohne Rolle geht es nach
+ * /kein-zugriff, mit einer Rolle ohne die Berechtigung zur Startseite. Die Rolle dient nur der Unterscheidung
+ * „ohne Rolle“, das Recht selbst kommt aus `berechtigungen`.
  */
-export function erfordertRolle(rollen: readonly Rolle[]) {
+export function erfordertBerechtigung(berechtigung: Berechtigung) {
   return (kontext: SchutzKontext, ziel: string): void => {
     erfordertAnmeldung(kontext, ziel)
-    const rolle = kontext.benutzer?.rolle
-    if (rolle === 'keine') throw redirect({ to: ROUTEN.keinZugriff, replace: true })
-    if (!rolle || !rollen.includes(rolle)) throw redirect({ to: ROUTEN.start, replace: true })
+    if (kontext.deaktiviert || kontext.benutzer?.rolle === 'keine') {
+      throw redirect({ to: ROUTEN.keinZugriff, replace: true })
+    }
+    if (!hatBerechtigung(kontext.benutzer, berechtigung)) throw redirect({ to: ROUTEN.start, replace: true })
   }
 }

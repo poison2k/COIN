@@ -9,6 +9,8 @@ export type BenutzerZustand =
   | { art: 'nichtKonfiguriert' }
   | { art: 'anonym' }
   | { art: 'angemeldet'; benutzer: Benutzer }
+  /** Angemeldet, aber das Konto ist deaktiviert (403 benutzer_deaktiviert auf /api/me, AK-32). */
+  | { art: 'deaktiviert' }
   | { art: 'fehler'; erneutVersuchen: () => void }
 
 /** Anmeldebereich der Kopfzeile. Während der Prüfung bleibt er leer, die Seite wird trotzdem angezeigt. */
@@ -29,6 +31,9 @@ export function AnmeldeBereich({ zustand }: { zustand: BenutzerZustand }) {
           <AbmeldenButton variant="ghost" />
         </div>
       )
+    case 'deaktiviert':
+      // Kein Name: /api/me liefert für Deaktivierte keine Benutzerdaten (AK-32).
+      return <AbmeldenButton variant="ghost" />
     case 'fehler':
       return (
         <div role="alert" className="flex min-w-0 items-center gap-2 text-sm text-destructive">

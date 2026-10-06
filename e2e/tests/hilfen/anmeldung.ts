@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type Browser, type BrowserContext, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
@@ -38,4 +38,23 @@ export async function meldeAn(page: Page, email: string): Promise<void> {
   await fuelleKeycloakFormular(page, email)
   await expect(page).toHaveURL(/^http:\/\/localhost:5183\//)
   await expect(page.locator('header').getByRole('button', { name: 'Abmelden' })).toBeVisible()
+}
+
+/**
+ * Meldet sich in einem eigenen, neuen Browser-Kontext an (eigene Sitzung, eigener Speicher). Der Aufrufer schließt den
+ * Kontext (`kontext.close()`), am besten in einem finally-Block (Feature rollen-benutzerverwaltung, Abschnitt 6.5).
+ */
+export async function meldeAnInNeuemKontext(
+  browser: Browser,
+  email: string,
+): Promise<{ kontext: BrowserContext; page: Page }> {
+  const kontext = await browser.newContext({ baseURL: 'http://localhost:5183', locale: 'de-DE' })
+  try {
+    const page = await kontext.newPage()
+    await meldeAn(page, email)
+    return { kontext, page }
+  } catch (fehler) {
+    await kontext.close()
+    throw fehler
+  }
 }

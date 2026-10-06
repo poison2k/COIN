@@ -5,4 +5,6 @@ export interface ProblemDetails {
   status?: number
   detail?: string
   errors?: Record<string, string[]>
+  /** Maschinenlesbarer Grund, z. B. `benutzer_deaktiviert`, `letzter_administrator` (rollen-benutzerverwaltung). */
+  code?: string
 }

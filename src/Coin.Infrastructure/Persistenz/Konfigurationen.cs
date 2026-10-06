@@ -62,9 +62,43 @@ internal sealed class BenutzerKonfiguration : IEntityTypeConfiguration<BenutzerD
         builder.Property(b => b.Email).HasMaxLength(BenutzerIdentitaet.MaxEmailLaenge);
         builder.Property(b => b.Anzeigename).HasMaxLength(BenutzerIdentitaet.MaxAnzeigenameLaenge).IsRequired();
         builder.Property(b => b.Rolle).HasMaxLength(MaxRolleLaenge);
+        // Sentinel true: EF lässt den Wert beim Einfügen nur bei true weg (dann greift der DB-Standard true).
+        builder.Property(b => b.Aktiv).HasDefaultValue(true).HasSentinel(true).IsRequired();
         builder.Property(b => b.ErstelltAm).HasColumnType("timestamp with time zone").IsRequired();
         builder.Property(b => b.AktualisiertAm).HasColumnType("timestamp with time zone").IsRequired();
 
         builder.HasIndex(b => new { b.Issuer, b.Subject }).IsUnique().HasDatabaseName("ux_benutzer_issuer_subject");
     }
+}
+
+internal sealed class BenutzerAuditKonfiguration : IEntityTypeConfiguration<BenutzerAuditDatensatz>
+{
+    public const int MaxArtLaenge = 10;
+    public const int MaxWertLaenge = 20;
+
+    public void Configure(EntityTypeBuilder<BenutzerAuditDatensatz> builder)
+    {
+        var rollenwerte = Liste(Enum.GetNames<Rolle>().Append(RolleText.Keine));
+        var statuswerte = Liste([AuditEintrag.Aktiv, AuditEintrag.Deaktiviert]);
+        builder.ToTable("benutzer_audit", t => t.HasCheckConstraint(
+            "ck_benutzer_audit_werte",
+            $"((art = '{AuditArt.Rolle}' AND alt IN ({rollenwerte}) AND neu IN ({rollenwerte})) " +
+            $"OR (art = '{AuditArt.Status}' AND alt IN ({statuswerte}) AND neu IN ({statuswerte}))) " +
+            "AND alt <> neu"));
+
+        builder.HasKey(a => a.Id);
+        builder.Property(a => a.Id).ValueGeneratedNever();
+        builder.Property(a => a.Zeitpunkt).HasColumnType("timestamp with time zone").IsRequired();
+        builder.Property(a => a.Art).HasMaxLength(MaxArtLaenge).IsRequired();
+        builder.Property(a => a.Alt).HasMaxLength(MaxWertLaenge).IsRequired();
+        builder.Property(a => a.Neu).HasMaxLength(MaxWertLaenge).IsRequired();
+
+        builder.HasOne(a => a.Akteur).WithMany().HasForeignKey(a => a.AkteurId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(a => a.Benutzer).WithMany().HasForeignKey(a => a.BenutzerId).OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(a => new { a.Zeitpunkt, a.Id }).IsDescending(true, true).HasDatabaseName("ix_benutzer_audit_zeitpunkt");
+        builder.HasIndex(a => new { a.BenutzerId, a.Zeitpunkt }).IsDescending(false, true).HasDatabaseName("ix_benutzer_audit_benutzer");
+    }
+
+    private static string Liste(IEnumerable<string> werte) => string.Join(", ", werte.Select(w => $"'{w}'"));
 }

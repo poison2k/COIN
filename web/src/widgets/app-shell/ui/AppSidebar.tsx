@@ -1,5 +1,6 @@
 import { Link, useLocation } from '@tanstack/react-router'
-import { HouseIcon, ListIcon, type LucideIcon } from 'lucide-react'
+import { HouseIcon, ListIcon, UsersIcon, type LucideIcon } from 'lucide-react'
+import { hatBerechtigung, type Berechtigung } from '@/entities/benutzer'
 import { ROUTEN } from '@/shared/config'
 import {
   Sidebar,
@@ -12,22 +13,35 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/shared/ui/sidebar'
+import type { BenutzerZustand } from './Kopfzeile'
 
 interface NavEintrag {
   titel: string
   pfad: (typeof ROUTEN)[keyof typeof ROUTEN]
   icon: LucideIcon
+  /** Nur sichtbar mit dieser Berechtigung (rollen-benutzerverwaltung, AK-24); ohne Angabe für alle. */
+  berechtigung?: Berechtigung
 }
 
 const NAVIGATION: readonly NavEintrag[] = [
   { titel: 'Startseite', pfad: ROUTEN.start, icon: HouseIcon },
   { titel: 'Coin-Liste', pfad: ROUTEN.coinListe, icon: ListIcon },
+  { titel: 'Benutzerverwaltung', pfad: ROUTEN.benutzerverwaltung, icon: UsersIcon, berechtigung: 'users.manage' },
 ]
 
-/** Seitenleiste mit Titel und Navigation (AK-14). Navigiert clientseitig über den Router. */
-export function AppSidebar() {
+export interface AppSidebarProps {
+  benutzerZustand: BenutzerZustand
+}
+
+/**
+ * Seitenleiste mit Titel und Navigation (AK-14). Navigiert clientseitig über den Router. Einträge mit Berechtigung
+ * erscheinen nur, wenn /api/me sie liefert; sonst fehlen sie im DOM (AK-24).
+ */
+export function AppSidebar({ benutzerZustand }: AppSidebarProps) {
   const pfad = useLocation({ select: (ort) => ort.pathname })
   const { isMobile, setOpenMobile } = useSidebar()
+  const benutzer = benutzerZustand.art === 'angemeldet' ? benutzerZustand.benutzer : null
+  const eintraege = NAVIGATION.filter((e) => !e.berechtigung || hatBerechtigung(benutzer, e.berechtigung))
 
   return (
     <Sidebar>
@@ -39,7 +53,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <nav aria-label="Hauptnavigation">
               <SidebarMenu>
-                {NAVIGATION.map((eintrag) => (
+                {eintraege.map((eintrag) => (
                   <SidebarMenuItem key={eintrag.pfad}>
                     <SidebarMenuButton
                       isActive={pfad === eintrag.pfad}

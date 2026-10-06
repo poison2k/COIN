@@ -49,7 +49,35 @@ public sealed class BenutzerDatensatz
 
     public string? Rolle { get; set; }
 
+    /// <summary><c>false</c> = deaktiviert (ADR-0016). Nur die Benutzerverwaltung ändert den Status.</summary>
+    public bool Aktiv { get; set; } = true;
+
     public DateTimeOffset ErstelltAm { get; set; }
 
     public DateTimeOffset AktualisiertAm { get; set; }
+}
+
+/// <summary>
+/// Persistenzmodell der Tabelle <c>benutzer_audit</c> (ADR-0017). Geschrieben wird nur per SQL-INSERT, gelesen ohne
+/// Tracking; ein Trigger verhindert UPDATE und DELETE. <see cref="AkteurId"/> <c>null</c> = System (Bootstrap).
+/// </summary>
+public sealed class BenutzerAuditDatensatz
+{
+    public Guid Id { get; set; }
+
+    public DateTimeOffset Zeitpunkt { get; set; }
+
+    public Guid? AkteurId { get; set; }
+
+    public BenutzerDatensatz? Akteur { get; set; }
+
+    public Guid BenutzerId { get; set; }
+
+    public BenutzerDatensatz Benutzer { get; set; } = null!;
+
+    public string Art { get; set; } = string.Empty;
+
+    public string Alt { get; set; } = string.Empty;
+
+    public string Neu { get; set; } = string.Empty;
 }

@@ -17,6 +17,7 @@ interface Me {
   name: string
   email: string | null
   rolle: 'Administrator' | 'Sachbearbeiter' | 'Betrachter' | 'keine'
+  berechtigungen: string[]
 }
 
 const ADMIN: Me = {
@@ -24,12 +25,14 @@ const ADMIN: Me = {
   name: 'Test Administrator',
   email: 'admin@test.local',
   rolle: 'Administrator',
+  berechtigungen: ['audit.read', 'coins.read', 'coins.write', 'users.manage'],
 }
 const NEU: Me = {
   id: '0199a1b2-0000-7000-8000-00000000a004',
   name: 'Test Neu',
   email: 'neu@test.local',
   rolle: 'keine',
+  berechtigungen: [],
 }
 
 /** Nicht gemockte Aufrufe an API oder IdP; jeder Eintrag lässt den Test scheitern. */

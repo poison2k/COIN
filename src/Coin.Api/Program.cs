@@ -1,5 +1,6 @@
 using Coin.Api.Authentifizierung;
 using Coin.Api.Http;
+using Coin.Domain.Benutzer;
 using Coin.Domain.Katalog;
 using Coin.Infrastructure;
 using Coin.Infrastructure.Persistenz;
@@ -19,6 +20,8 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CoinKatalogService>();
+builder.Services.AddScoped<BenutzerverwaltungService>();
+builder.Services.AddUrlsNichtProtokollieren();
 builder.Services.AddInfrastruktur(builder.Configuration);
 
 // Anmeldung (ADR-0012) und Autorisierung (ADR-0013, ADR-0014): standardmäßig geschützt.

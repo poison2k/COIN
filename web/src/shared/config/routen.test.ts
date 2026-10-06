@@ -16,6 +16,10 @@ describe('ROUTEN', () => {
     expect(ROUTEN.keinZugriff).toBe('/kein-zugriff')
   })
 
+  it('enthält /benutzerverwaltung (rollen-benutzerverwaltung, AK-25)', () => {
+    expect(ROUTEN.benutzerverwaltung).toBe('/benutzerverwaltung')
+  })
+
   it('behält / und /coins', () => {
     expect(ROUTEN.start).toBe('/')
     expect(ROUTEN.coinListe).toBe('/coins')

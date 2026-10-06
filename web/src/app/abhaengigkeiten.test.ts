@@ -30,3 +30,42 @@ describe('Abhängigkeiten für die Anmeldung', () => {
     ).toEqual(['oidc-client-ts', 'react-oidc-context'])
   })
 })
+
+// Feature rollen-benutzerverwaltung, AK-23: Rechte kommen nur aus `berechtigungen` (/api/me). Kein Produktivcode
+// vergleicht Rollennamen, um Rechte abzuleiten. Erlaubt nur dort, wo die Rolle angezeigt bzw. ausgewählt wird oder
+// der Router „ohne Rolle“ von „ohne Berechtigung“ unterscheidet.
+
+const quellen = import.meta.glob<string>('/src/**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true })
+const ERLAUBT = ['/src/features/rolle-zuweisen/', '/src/pages/kein-zugriff/', '/src/app/router/']
+/** `rolle ===`, `rolle !==` bzw. `=== x.rolle` (auch mit Optional Chaining). */
+const ROLLENVERGLEICH = /\brolle\s*[!=]==|[!=]==\s*[\w$?.]*\brolle\b/
+
+describe('Keine Rechte aus Rollennamen (AK-23)', () => {
+  it('findet Quelldateien unter src', () => {
+    expect(Object.keys(quellen).length).toBeGreaterThan(20)
+  })
+
+  it('enthält außerhalb von rolle-zuweisen, kein-zugriff und app/router keinen Vergleich mit rolle', () => {
+    const treffer = Object.entries(quellen)
+      .filter(([pfad]) => !/\.test\.tsx?$/.test(pfad))
+      .filter(([pfad]) => !ERLAUBT.some((praefix) => pfad.startsWith(praefix)))
+      .flatMap(([pfad, inhalt]) =>
+        inhalt
+          .split('\n')
+          .map((zeile, i) => ({ zeile, nr: i + 1 }))
+          .filter(({ zeile }) => ROLLENVERGLEICH.test(zeile))
+          .map(({ zeile, nr }) => `${pfad}:${nr}: ${zeile.trim()}`),
+      )
+
+    expect(treffer).toEqual([])
+  })
+
+  it('enthält in Produktivcode keinen Aufruf von darfKatalogSchreiben mehr', () => {
+    const treffer = Object.entries(quellen)
+      .filter(([pfad]) => !/\.test\.tsx?$/.test(pfad))
+      .filter(([, inhalt]) => inhalt.includes('darfKatalogSchreiben'))
+      .map(([pfad]) => pfad)
+
+    expect(treffer).toEqual([])
+  })
+})

@@ -1,6 +1,8 @@
 import { Outlet, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { hatBerechtigung } from '@/entities/benutzer'
 import { RueckrufSeite } from '@/pages/anmeldung-rueckruf'
+import { BenutzerverwaltungSeite } from '@/pages/benutzerverwaltung'
 import { CoinListeSeite } from '@/pages/coin-liste'
 import { KeinZugriffSeite } from '@/pages/kein-zugriff'
 import { ROUTEN } from '@/shared/config'
@@ -36,11 +38,20 @@ export function CoinListeRoute() {
 }
 
 export function KeinZugriffRoute() {
-  const { benutzer } = useBenutzerKontext()
-  return benutzer?.rolle === 'keine' ? <KeinZugriffSeite benutzer={benutzer} /> : null
+  const { zustand, benutzer } = useBenutzerKontext()
+  if (zustand.art === 'deaktiviert') return <KeinZugriffSeite grund="deaktiviert" />
+  return benutzer?.rolle === 'keine' ? <KeinZugriffSeite grund="keineRolle" benutzer={benutzer} /> : null
 }
 
-/** Nach dem Rückruf: ohne Rolle nach /kein-zugriff, sonst zum (geprüften) Ausgangspfad (AK-24). */
+/** Benutzerverwaltung mit der eigenen Id aus /api/me (AK-29). Ohne users.manage (z. B. nach Deaktivierung) leer. */
+export function BenutzerverwaltungRoute() {
+  const { benutzer } = useBenutzerKontext()
+  return benutzer && hatBerechtigung(benutzer, 'users.manage') ? (
+    <BenutzerverwaltungSeite aktuellerBenutzerId={benutzer.id} />
+  ) : null
+}
+
+/** Nach dem Rückruf: ohne Rolle oder deaktiviert nach /kein-zugriff, sonst zum (geprüften) Ausgangspfad (AK-24). */
 export function RueckrufRoute() {
   const anmeldung = useAnmeldung()
   const { zustand } = useBenutzerKontext()
@@ -48,7 +59,7 @@ export function RueckrufRoute() {
   const ziel = sicheresZiel(anmeldung.rueckkehrZiel)
 
   useEffect(() => {
-    if (zustand.art === 'angemeldet' && zustand.benutzer.rolle === 'keine') {
+    if (zustand.art === 'deaktiviert' || (zustand.art === 'angemeldet' && zustand.benutzer.rolle === 'keine')) {
       void navigate({ to: ROUTEN.keinZugriff, replace: true })
     } else if (zustand.art === 'angemeldet' || zustand.art === 'fehler') {
       void navigate({ href: ziel, replace: true })

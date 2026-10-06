@@ -64,4 +64,38 @@ public sealed class BenutzerTabelle(string connectionString)
         var geaendert = await befehl.ExecuteNonQueryAsync();
         Assert.Equal(1, geaendert);
     }
+
+    /// <summary>Setzt <c>aktiv</c> direkt (Testdaten, rollen-benutzerverwaltung Abschnitt 6.2).</summary>
+    public async Task StatusSetzenAsync(string subject, bool aktiv)
+    {
+        await using var verbindung = new NpgsqlConnection(connectionString);
+        await verbindung.OpenAsync();
+        await using var befehl = new NpgsqlCommand("UPDATE benutzer SET aktiv = @aktiv WHERE subject = @sub", verbindung);
+        befehl.Parameters.AddWithValue("aktiv", aktiv);
+        befehl.Parameters.AddWithValue("sub", subject);
+        var geaendert = await befehl.ExecuteNonQueryAsync();
+        Assert.Equal(1, geaendert);
+    }
+
+    /// <summary>Rolle (<c>null</c> = keine) und Status eines Benutzers per Id.</summary>
+    public async Task<(string? Rolle, bool Aktiv, string Xmin)> RolleUndStatusAsync(Guid id)
+    {
+        await using var verbindung = new NpgsqlConnection(connectionString);
+        await verbindung.OpenAsync();
+        await using var befehl = new NpgsqlCommand("SELECT rolle, aktiv, xmin::text FROM benutzer WHERE id = @id", verbindung);
+        befehl.Parameters.AddWithValue("id", id);
+        await using var leser = await befehl.ExecuteReaderAsync();
+        Assert.True(await leser.ReadAsync(), $"Benutzer {id} nicht gefunden.");
+        return (leser.IsDBNull(0) ? null : leser.GetString(0), leser.GetBoolean(1), leser.GetString(2));
+    }
+
+    /// <summary>Anzahl der Benutzer mit Rolle Administrator und <c>aktiv = true</c>.</summary>
+    public async Task<long> AnzahlAktiverAdministratorenAsync()
+    {
+        await using var verbindung = new NpgsqlConnection(connectionString);
+        await verbindung.OpenAsync();
+        await using var befehl = new NpgsqlCommand(
+            "SELECT count(*) FROM benutzer WHERE rolle = 'Administrator' AND aktiv", verbindung);
+        return (long)(await befehl.ExecuteScalarAsync())!;
+    }
 }

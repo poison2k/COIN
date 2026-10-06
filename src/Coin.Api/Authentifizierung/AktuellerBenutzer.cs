@@ -5,7 +5,8 @@ namespace Coin.Api.Authentifizierung;
 
 /// <summary>
 /// Der Benutzer des aktuellen Requests aus der eigenen Datenbank (ADR-0013, Option C). Der Abgleich läuft höchstens
-/// einmal pro Request und nur, wenn er gebraucht wird (Policy KatalogSchreiben, <c>GET /api/me</c>).
+/// einmal pro Request und nur auf Endpunkten, die eine Anmeldung verlangen (ADR-0016). <see cref="Benutzer.Id"/> ist
+/// der Akteur für Änderungen in der Benutzerverwaltung.
 /// </summary>
 public interface IAktuellerBenutzer
 {

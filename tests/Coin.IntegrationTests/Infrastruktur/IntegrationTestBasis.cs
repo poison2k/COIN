@@ -6,6 +6,9 @@ using System.Text.Json;
 
 namespace Coin.IntegrationTests.Infrastruktur;
 
+/// <summary>Ein angelegter Testbenutzer mit eigenem Client (rollen-benutzerverwaltung, Abschnitt 6.2).</summary>
+public sealed record TestKonto(HttpClient Client, Guid Id, string Subject, string Name, string? Email);
+
 /// <summary>
 /// Gemeinsame Basis: leert die Datenbank vor jedem Test und bietet HTTP-Hilfen.
 /// <see cref="Client"/> sendet das Token des Bootstrap-Administrators (schreibende Aufrufe),
@@ -17,6 +20,10 @@ public abstract class IntegrationTestBasis(PostgresFixture fixture) : IAsyncLife
     protected const string CoinsUrl = "/api/coins";
 
     protected const string MeUrl = "/api/me";
+
+    protected const string BenutzerUrl = "/api/benutzer";
+
+    protected const string AuditUrl = "/api/audit";
 
     protected PostgresFixture Fixture { get; } = fixture;
 
@@ -61,26 +68,87 @@ public abstract class IntegrationTestBasis(PostgresFixture fixture) : IAsyncLife
     protected HttpClient ClientMit(TokenDaten daten) => ClientMitToken(Idp.ErzeugeToken(daten));
 
     /// <summary>
-    /// Legt einen Benutzer per /api/me an und setzt seine Rolle direkt in der Test-DB (Sachbearbeiter, Betrachter
-    /// werden erst in einem späteren Feature vergeben, AK-19). <c>null</c> = keine Rolle.
+    /// Legt einen Benutzer per /api/me an und setzt Rolle und Status direkt in der Test-DB (Testdaten).
+    /// <c>null</c> = keine Rolle. <paramref name="aktiv"/> = false deaktiviert ihn nach dem Anlegen.
     /// </summary>
-    protected async Task<HttpClient> ClientMitRolleAsync(string? rolle)
+    protected async Task<HttpClient> ClientMitRolleAsync(string? rolle, bool aktiv = true) =>
+        (await KontoAsync(rolle, aktiv)).Client;
+
+    /// <summary>
+    /// Wie <see cref="ClientMitRolleAsync"/>, liefert zusätzlich Id, Subject, Name und E-Mail (rollen-benutzerverwaltung).
+    /// Name und E-Mail sind synthetisch und ohne Angabe eindeutig.
+    /// </summary>
+    protected async Task<TestKonto> KontoAsync(string? rolle, bool aktiv = true, string? name = null, string? email = null)
     {
+        var kennung = Guid.NewGuid().ToString("N")[..8];
         var daten = new TokenDaten
         {
             Subject = $"sub-{rolle ?? "keine"}-{Guid.NewGuid():N}",
-            Email = $"{(rolle ?? "keine").ToLowerInvariant()}@coin-test.invalid",
-            Name = $"Test {rolle ?? "Ohne Rolle"}",
+            Email = email ?? $"{(rolle ?? "keine").ToLowerInvariant()}.{kennung}@coin-test.invalid",
+            Name = name ?? $"Test {rolle ?? "Ohne Rolle"} {kennung}",
         };
         var client = ClientMit(daten);
         using var me = await client.GetAsync(MeUrl);
         Assert.Equal(HttpStatusCode.OK, me.StatusCode);
+        var id = (await JsonAsync(me)).GetProperty("id").GetGuid();
         if (rolle is not null)
         {
             await BenutzerDb.RolleSetzenAsync(daten.Subject!, rolle);
         }
 
-        return client;
+        if (!aktiv)
+        {
+            await BenutzerDb.StatusSetzenAsync(daten.Subject!, false);
+        }
+
+        return new TestKonto(client, id, daten.Subject!, daten.Name!, daten.Email);
+    }
+
+    /// <summary>Weiterer aktiver Administrator (Rolle direkt in der Test-DB gesetzt).</summary>
+    protected Task<TestKonto> ZweiterAdminAsync(string name = "Test Zweitadministrator") =>
+        KontoAsync("Administrator", name: name);
+
+    /// <summary>Id des Bootstrap-Administrators (legt ihn bei Bedarf per /api/me an).</summary>
+    protected async Task<Guid> AdminIdAsync()
+    {
+        using var me = await Client.GetAsync(MeUrl);
+        Assert.Equal(HttpStatusCode.OK, me.StatusCode);
+        return (await JsonAsync(me)).GetProperty("id").GetGuid();
+    }
+
+    protected AuditTabelle AuditDb => new(Fixture.ConnectionString);
+
+    protected static string RolleUrl(Guid id) => $"{BenutzerUrl}/{id}/rolle";
+
+    protected static string StatusUrl(Guid id) => $"{BenutzerUrl}/{id}/status";
+
+    protected static Task<HttpResponseMessage> PutRolleAsync(HttpClient client, Guid id, string? rolle) =>
+        client.PutAsJsonAsync(RolleUrl(id), new { rolle });
+
+    protected static Task<HttpResponseMessage> PutStatusAsync(HttpClient client, Guid id, bool aktiv) =>
+        client.PutAsJsonAsync(StatusUrl(id), new { aktiv });
+
+    protected static Task<HttpResponseMessage> PutRohAsync(HttpClient client, string url, string json) =>
+        client.PutAsync(url, new StringContent(json, Encoding.UTF8, "application/json"));
+
+    /// <summary>Prüft eine 403-Antwort laut AK-6: ProblemDetails, title „Kein Zugriff“, <c>code</c>.</summary>
+    protected static async Task<JsonElement> AssertKeinZugriffAsync(HttpResponseMessage antwort, string code)
+    {
+        var json = await AssertProblemDetailsAsync(antwort, HttpStatusCode.Forbidden);
+        Assert.Equal("Kein Zugriff", json.GetProperty("title").GetString());
+        Assert.True(json.TryGetProperty("code", out var wert), "403 ohne Feld code.");
+        Assert.Equal(code, wert.GetString());
+        return json;
+    }
+
+    /// <summary>Prüft eine 409-Antwort laut AK-15/AK-16: ProblemDetails, title „Änderung nicht möglich“, <c>code</c>.</summary>
+    protected static async Task<JsonElement> AssertKonfliktAsync(HttpResponseMessage antwort, string code)
+    {
+        var json = await AssertProblemDetailsAsync(antwort, HttpStatusCode.Conflict);
+        Assert.Equal("Änderung nicht möglich", json.GetProperty("title").GetString());
+        Assert.True(json.TryGetProperty("code", out var wert), "409 ohne Feld code.");
+        Assert.Equal(code, wert.GetString());
+        return json;
     }
 
     private HttpClient Merken(HttpClient client)

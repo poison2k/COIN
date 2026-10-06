@@ -23,6 +23,7 @@ public static class InfrastrukturRegistrierung
 
         services.AddScoped<ICoinKatalogRepository, CoinKatalogRepository>();
         services.AddScoped<IBenutzerRepository, BenutzerRepository>();
+        services.AddScoped<IBenutzerverwaltungRepository, BenutzerverwaltungRepository>();
         return services;
     }
 

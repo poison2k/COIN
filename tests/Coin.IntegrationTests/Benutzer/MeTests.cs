@@ -7,7 +7,10 @@ using DomainBenutzer = Coin.Domain.Benutzer.Benutzer;
 
 namespace Coin.IntegrationTests.Benutzer;
 
-/// <summary>Feature anmeldung-keycloak, AK-20: GET /api/me.</summary>
+/// <summary>
+/// Feature anmeldung-keycloak, AK-20: GET /api/me. Erweitert durch rollen-benutzerverwaltung, AK-10:
+/// zusätzlich <c>berechtigungen</c> (ordinal sortiert), deaktiviert 403.
+/// </summary>
 public class MeTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
 {
     private const string GeheimeMeldung = "Interner Benutzerfehler XYZ-0815";
@@ -30,12 +33,90 @@ public class MeTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
     }
 
     [Fact]
-    public async Task Me_liefert_genau_die_Felder_id_name_email_rolle()
+    public async Task Me_liefert_genau_die_Felder_id_name_email_rolle_berechtigungen()
     {
         using var antwort = await Client.GetAsync(MeUrl);
         var json = await JsonAsync(antwort);
 
-        Assert.Equal(["email", "id", "name", "rolle"], json.EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(["berechtigungen", "email", "id", "name", "rolle"], json.EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal));
+    }
+
+    // ---------- rollen-benutzerverwaltung AK-10: berechtigungen ----------
+
+    private static string[] Berechtigungen(System.Text.Json.JsonElement json) =>
+        json.GetProperty("berechtigungen").EnumerateArray().Select(e => e.GetString()!).ToArray();
+
+    [Fact]
+    public async Task Me_liefert_dem_Administrator_alle_Berechtigungen_ordinal_sortiert()
+    {
+        using var antwort = await Client.GetAsync(MeUrl);
+
+        Assert.Equal(["audit.read", "coins.read", "coins.write", "users.manage"], Berechtigungen(await JsonAsync(antwort)));
+    }
+
+    [Theory]
+    [InlineData("Sachbearbeiter", new[] { "coins.read", "coins.write" })]
+    [InlineData("Betrachter", new[] { "coins.read" })]
+    public async Task Me_liefert_die_Berechtigungen_der_Rolle(string rolle, string[] erwartet)
+    {
+        var client = await ClientMitRolleAsync(rolle);
+
+        using var antwort = await client.GetAsync(MeUrl);
+
+        Assert.Equal(erwartet, Berechtigungen(await JsonAsync(antwort)));
+    }
+
+    [Fact]
+    public async Task Me_liefert_ohne_Rolle_eine_leere_Berechtigungsliste()
+    {
+        using var antwort = await ClientMit(Testbenutzer.OhneRolle()).GetAsync(MeUrl);
+        var json = await JsonAsync(antwort);
+
+        Assert.Equal(System.Text.Json.JsonValueKind.Array, json.GetProperty("berechtigungen").ValueKind);
+        Assert.Empty(Berechtigungen(json));
+    }
+
+    [Fact]
+    public async Task Me_ignoriert_Berechtigungen_im_Token()
+    {
+        var daten = Testbenutzer.OhneRolle() with
+        {
+            Zusatz = new Dictionary<string, object?>
+            {
+                ["berechtigungen"] = new[] { "users.manage" },
+                ["permissions"] = new[] { "users.manage" },
+                ["scope"] = "openid users.manage audit.read",
+            },
+        };
+
+        using var antwort = await ClientMit(daten).GetAsync(MeUrl);
+
+        Assert.Empty(Berechtigungen(await JsonAsync(antwort)));
+    }
+
+    [Fact]
+    public async Task Me_liefert_fuer_Deaktivierte_403_mit_code_benutzer_deaktiviert()
+    {
+        var client = await ClientMitRolleAsync("Administrator", aktiv: false);
+
+        using var antwort = await client.GetAsync(MeUrl);
+
+        var json = await AssertKeinZugriffAsync(antwort, "benutzer_deaktiviert");
+        Assert.Equal("Ihr Benutzerkonto ist deaktiviert.", json.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task Me_gibt_Deaktivierten_weder_Namen_noch_Rolle_preis()
+    {
+        var konto = await KontoAsync("Sachbearbeiter", aktiv: false, name: "Test Deaktivierte Person");
+
+        using var antwort = await konto.Client.GetAsync(MeUrl);
+        var body = await antwort.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Forbidden, antwort.StatusCode);
+        Assert.DoesNotContain("Test Deaktivierte Person", body);
+        Assert.DoesNotContain("Sachbearbeiter", body);
+        Assert.DoesNotContain(konto.Email!, body);
     }
 
     [Fact]

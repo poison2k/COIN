@@ -1,21 +1,24 @@
 import type { ReactNode } from 'react'
 import { ThemeUmschalter } from '@/features/theme-umschalten'
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/shared/ui/sidebar'
+import { SidebarProvider, SidebarTrigger } from '@/shared/ui/sidebar'
 import { AppSidebar } from './AppSidebar'
 import { AnmeldeBereich, type BenutzerZustand } from './Kopfzeile'
 
 export interface AppShellProps {
-  /** Anmeldezustand für die Kopfzeile (Anmelden bzw. Name und Abmelden). */
+  /** Anmeldezustand für Kopfzeile (Anmelden bzw. Name und Abmelden) und Seitenleiste (Einträge nach Berechtigung). */
   benutzerZustand: BenutzerZustand
   children: ReactNode
 }
 
-/** Layout der App: Seitenleiste, Kopfzeile mit Anmeldung und Umschaltern und Seiteninhalt (AK-14 bis AK-16, AK-30). */
+/**
+ * Layout der App: Seitenleiste, Kopfzeile mit Anmeldung und Umschaltern und Seiteninhalt (AK-14 bis AK-16, AK-30).
+ * Die Kopfzeile steht neben dem `main` (eigenes banner-Landmark), damit der Seiteninhalt nur die Seite enthält.
+ */
 export function AppShell({ benutzerZustand, children }: AppShellProps) {
   return (
     <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
+      <AppSidebar benutzerZustand={benutzerZustand} />
+      <div className="relative flex w-full min-w-0 flex-1 flex-col bg-background">
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger />
           <div className="ml-auto flex min-w-0 items-center gap-2">
@@ -23,8 +26,8 @@ export function AppShell({ benutzerZustand, children }: AppShellProps) {
             <ThemeUmschalter />
           </div>
         </header>
-        {children}
-      </SidebarInset>
+        <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+      </div>
     </SidebarProvider>
   )
 }

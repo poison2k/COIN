@@ -6,8 +6,9 @@ using Coin.IntegrationTests.Infrastruktur;
 namespace Coin.IntegrationTests.Anmeldung;
 
 /// <summary>
-/// Feature anmeldung-keycloak, AK-11 und AK-19: Policy KatalogSchreiben (Administrator, Sachbearbeiter),
-/// 403 für Betrachter und Benutzer ohne Rolle, 401 ohne Token; 401/403 gehen vor 400/404/415.
+/// Feature anmeldung-keycloak, AK-11 und AK-19: Policy coins.write (Administrator, Sachbearbeiter; bis
+/// rollen-benutzerverwaltung „KatalogSchreiben“), 403 für Betrachter und Benutzer ohne Rolle, 401 ohne Token;
+/// 401/403 gehen vor 400/404/415. rollen-benutzerverwaltung AK-6: 403-Body zusätzlich mit code=keine_berechtigung.
 /// Sachbearbeiter und Betrachter werden direkt in der Test-DB gesetzt (nur Testdaten).
 /// </summary>
 public class SchreibrechteTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
@@ -79,7 +80,7 @@ public class SchreibrechteTests(PostgresFixture fixture) : IntegrationTestBasis(
     [Theory]
     [InlineData("Betrachter")]
     [InlineData("keine")]
-    public async Task Die_403_Antwort_hat_Titel_Kein_Zugriff_und_den_festen_Detailtext(string rolle)
+    public async Task Die_403_Antwort_hat_Titel_Kein_Zugriff_den_festen_Detailtext_und_code_keine_berechtigung(string rolle)
     {
         var client = await ClientFuerAsync(rolle);
 
@@ -88,6 +89,23 @@ public class SchreibrechteTests(PostgresFixture fixture) : IntegrationTestBasis(
         var json = await AssertProblemDetailsAsync(antwort, HttpStatusCode.Forbidden);
         Assert.Equal("Kein Zugriff", json.GetProperty("title").GetString());
         Assert.Equal(KeinZugriffDetail, json.GetProperty("detail").GetString());
+        Assert.Equal("keine_berechtigung", json.GetProperty("code").GetString());
+    }
+
+    [Theory]
+    [InlineData("Betrachter")]
+    [InlineData("keine")]
+    public async Task Die_403_Antwort_auf_Put_Bild_hat_den_festen_Detailtext_und_code_keine_berechtigung(string rolle)
+    {
+        var id = await LegeCoinAnUndLiefereIdAsync();
+        var client = await ClientFuerAsync(rolle);
+
+        using var antwort = await client.PutAsync(BildUrl(id), Multipart(Testbilder.Png()));
+
+        var json = await AssertProblemDetailsAsync(antwort, HttpStatusCode.Forbidden);
+        Assert.Equal("Kein Zugriff", json.GetProperty("title").GetString());
+        Assert.Equal(KeinZugriffDetail, json.GetProperty("detail").GetString());
+        Assert.Equal("keine_berechtigung", json.GetProperty("code").GetString());
     }
 
     [Fact]

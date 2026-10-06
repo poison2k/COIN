@@ -22,11 +22,73 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.BenutzerAuditDatensatz", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AkteurId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("akteur_id");
+
+                    b.Property<string>("Alt")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("alt");
+
+                    b.Property<string>("Art")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("art");
+
+                    b.Property<Guid>("BenutzerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("benutzer_id");
+
+                    b.Property<string>("Neu")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("neu");
+
+                    b.Property<DateTimeOffset>("Zeitpunkt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("zeitpunkt");
+
+                    b.HasKey("Id")
+                        .HasName("pk_benutzer_audit");
+
+                    b.HasIndex("AkteurId")
+                        .HasDatabaseName("ix_benutzer_audit_akteur_id");
+
+                    b.HasIndex("BenutzerId", "Zeitpunkt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_benutzer_audit_benutzer");
+
+                    b.HasIndex("Zeitpunkt", "Id")
+                        .IsDescending()
+                        .HasDatabaseName("ix_benutzer_audit_zeitpunkt");
+
+                    b.ToTable("benutzer_audit", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_benutzer_audit_werte", "((art = 'Rolle' AND alt IN ('Administrator', 'Sachbearbeiter', 'Betrachter', 'keine') AND neu IN ('Administrator', 'Sachbearbeiter', 'Betrachter', 'keine')) OR (art = 'Status' AND alt IN ('aktiv', 'deaktiviert') AND neu IN ('aktiv', 'deaktiviert'))) AND alt <> neu");
+                        });
+                });
+
             modelBuilder.Entity("Coin.Infrastructure.Persistenz.BenutzerDatensatz", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<bool>("Aktiv")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("aktiv");
 
                     b.Property<DateTimeOffset>("AktualisiertAm")
                         .HasColumnType("timestamp with time zone")
@@ -154,6 +216,26 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                         {
                             t.HasCheckConstraint("ck_coin_typ_auflage", "auflage IS NULL OR auflage BETWEEN 1 AND 1000000");
                         });
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.BenutzerAuditDatensatz", b =>
+                {
+                    b.HasOne("Coin.Infrastructure.Persistenz.BenutzerDatensatz", "Akteur")
+                        .WithMany()
+                        .HasForeignKey("AkteurId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_benutzer_audit_benutzer_akteur_id");
+
+                    b.HasOne("Coin.Infrastructure.Persistenz.BenutzerDatensatz", "Benutzer")
+                        .WithMany()
+                        .HasForeignKey("BenutzerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_benutzer_audit_benutzer_benutzer_id");
+
+                    b.Navigation("Akteur");
+
+                    b.Navigation("Benutzer");
                 });
 
             modelBuilder.Entity("Coin.Infrastructure.Persistenz.CoinBildDatensatz", b =>

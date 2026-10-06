@@ -6,6 +6,8 @@ export const ROUTEN = {
   anmeldungRueckruf: '/anmeldung/rueckruf',
   /** Ziel nach dem Abmelden (Post-Logout-URI, AK-31). */
   abgemeldet: '/abgemeldet',
-  /** Angemeldet, aber ohne Rolle (AK-29). */
+  /** Angemeldet, aber ohne Rolle (AK-29) oder deaktiviert (rollen-benutzerverwaltung, AK-32). */
   keinZugriff: '/kein-zugriff',
+  /** Benutzer- und Rollenverwaltung, nur mit users.manage (rollen-benutzerverwaltung, AK-25). */
+  benutzerverwaltung: '/benutzerverwaltung',
 } as const

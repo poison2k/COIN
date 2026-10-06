@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { ladeBildHoch, legeCoinAn, type Coin } from '@/entities/coin'
-import type { ApiErgebnis } from '@/shared/api'
+import type { ApiErgebnis, KeinZugriffGrund } from '@/shared/api'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
@@ -22,6 +22,7 @@ const TEXT_KONFLIKT = 'Ein Coin mit diesem Namen und Herausgeber existiert berei
 const TEXT_ALLGEMEINER_FEHLER = 'Der Coin konnte nicht angelegt werden. Bitte später erneut versuchen.'
 const TEXT_SERVER_VALIDIERUNG = 'Die Eingaben wurden vom Server abgelehnt. Bitte prüfen.'
 const TEXT_KEIN_ZUGRIFF = 'Sie sind nicht berechtigt, Coins zu erfassen.'
+const TEXT_DEAKTIVIERT = 'Ihr Benutzerkonto ist deaktiviert.'
 const TEXT_NICHT_ANGEMELDET = 'Ihre Anmeldung ist abgelaufen. Sie werden zur Anmeldung weitergeleitet …'
 
 const LEERE_WERTE = { name: '', herausgeber: '', auflage: '', beschreibung: '' }
@@ -62,12 +63,17 @@ function grundFuerBildFehler(ergebnis: Exclude<ApiErgebnis<Coin>, { art: 'ok' }>
     case 'nichtGefunden':
       return 'Der Coin wurde nicht gefunden.'
     case 'keinZugriff':
-      return TEXT_KEIN_ZUGRIFF
+      return keinZugriffText(ergebnis.grund)
     case 'nichtAngemeldet':
       return 'Ihre Anmeldung ist abgelaufen.'
     default:
       return 'Der Server war nicht erreichbar. Bitte erneut versuchen.'
   }
+}
+
+/** 403: deaktiviertes Konto oder fehlende Berechtigung (rollen-benutzerverwaltung, AK-33). */
+function keinZugriffText(grund: KeinZugriffGrund): string {
+  return grund === 'deaktiviert' ? TEXT_DEAKTIVIERT : TEXT_KEIN_ZUGRIFF
 }
 
 function ohneBildFehler(fehler: CoinFehler): CoinFehler {
@@ -199,7 +205,7 @@ export function CoinFormular({ onGespeichert }: CoinFormularProps) {
           setMeldung({ art: 'fehler', text: TEXT_KONFLIKT })
           return
         case 'keinZugriff':
-          setMeldung({ art: 'fehler', text: TEXT_KEIN_ZUGRIFF })
+          setMeldung({ art: 'fehler', text: keinZugriffText(ergebnis.grund) })
           return
         case 'nichtAngemeldet':
           // Die App entfernt die Sitzung und startet die Anmeldung (AK-27); die Eingaben gehen dabei verloren.

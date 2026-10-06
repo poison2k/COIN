@@ -12,6 +12,9 @@ public static class UngueltigeAnfrageAntwort
 {
     private const string AnfrageSchluessel = "anfrage";
 
+    /// <summary>Name der <c>[FromBody]</c>-Parameter in allen Controllern.</summary>
+    private const string BodyParameter = "request";
+
     public static IActionResult Erstellen(ActionContext context)
     {
         var bereinigt = new ModelStateDictionary();
@@ -36,13 +39,16 @@ public static class UngueltigeAnfrageAntwort
     }
 
     /// <summary>
-    /// <c>$.auflage</c> → <c>auflage</c>; JSON-Wurzel (<c>$</c>) und Parametername (<c>request</c>) → <c>null</c>.
+    /// <c>$.auflage</c> → <c>auflage</c>; Query-Parameter (<c>Seite</c>, <c>benutzerId</c>) → camelCase;
+    /// JSON-Wurzel (<c>$</c>) und Body-Parametername (<c>request</c>) → <c>null</c>.
     /// </summary>
     private static string? Feldname(string schluessel)
     {
         if (!schluessel.StartsWith("$.", StringComparison.Ordinal))
         {
-            return null;
+            return schluessel.Length > 0 && schluessel != BodyParameter && schluessel.All(char.IsAsciiLetterOrDigit)
+                ? char.ToLowerInvariant(schluessel[0]) + schluessel[1..]
+                : null;
         }
 
         var pfad = schluessel[2..];

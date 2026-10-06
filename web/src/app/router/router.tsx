@@ -12,13 +12,14 @@ import { StartSeite } from '@/pages/start'
 import { ROUTEN } from '@/shared/config'
 import { Fehler, NichtGefunden } from './Fehlerseiten'
 import {
+  BenutzerverwaltungRoute,
   CoinListeRoute,
   KeinZugriffRoute,
   NichtGefundenInShell,
   RueckrufRoute,
   ShellLayout,
 } from './routen-komponenten'
-import { erfordertAnmeldung, type SchutzKontext } from './schutz'
+import { erfordertAnmeldung, erfordertBerechtigung, type SchutzKontext } from './schutz'
 
 // Code-basierter Routenbaum (ADR-0010). Seiten bleiben frei von Router-Hooks; Anmelde- und Benutzerdaten
 // kommen als Props aus app (anmeldung-keycloak, Abschnitt 5.5).
@@ -29,7 +30,11 @@ export interface RouterKontext {
 }
 
 const OHNE_ANMELDUNG: RouterKontext = {
-  schutz: async () => ({ anmeldung: { status: 'nichtKonfiguriert', anmelden: () => {} }, benutzer: null }),
+  schutz: async () => ({
+    anmeldung: { status: 'nichtKonfiguriert', anmelden: () => {} },
+    benutzer: null,
+    deaktiviert: false,
+  }),
 }
 
 const wurzel = createRootRouteWithContext<RouterKontext>()({
@@ -62,15 +67,23 @@ const keinZugriffRoute = createRoute({
   beforeLoad: async ({ context, location }) => {
     const schutz = await context.schutz()
     erfordertAnmeldung(schutz, location.href)
-    // Benutzer mit Rolle (oder ohne geladene Daten) haben hier nichts zu sehen (AK-29).
-    if (schutz.benutzer?.rolle !== 'keine') throw redirect({ to: ROUTEN.start, replace: true })
+    // Nur ohne Rolle (AK-29) oder deaktiviert (AK-32); alle anderen haben hier nichts zu sehen.
+    if (!schutz.deaktiviert && schutz.benutzer?.rolle !== 'keine') throw redirect({ to: ROUTEN.start, replace: true })
   },
   component: KeinZugriffRoute,
+})
+const benutzerverwaltungRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: ROUTEN.benutzerverwaltung,
+  beforeLoad: async ({ context, location }) => {
+    erfordertBerechtigung('users.manage')(await context.schutz(), location.href)
+  },
+  component: BenutzerverwaltungRoute,
 })
 
 const routenBaum = wurzel.addChildren([
   rueckrufRoute,
-  shellRoute.addChildren([startRoute, coinListeRoute, abgemeldetRoute, keinZugriffRoute]),
+  shellRoute.addChildren([startRoute, coinListeRoute, abgemeldetRoute, keinZugriffRoute, benutzerverwaltungRoute]),
 ])
 
 /** Erzeugt den Router; Tests übergeben eine Memory-History. Den Anmeldezustand setzt App über den Kontext. */

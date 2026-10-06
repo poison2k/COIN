@@ -1,11 +1,14 @@
 import { vi } from 'vitest'
-import type { Benutzer } from '@/entities/benutzer'
+import type { AuditEintrag } from '@/entities/audit'
+import type { Benutzer, BenutzerEintrag, Rolle } from '@/entities/benutzer'
 import type { Coin } from '@/entities/coin'
 
 /** Eine vom Frontend an die API gesendete Anfrage, wie sie der Fake-Server gesehen hat. */
 export interface Anfrage {
   methode: string
   pfad: string
+  /** Query-Parameter der URL (rollen-benutzerverwaltung: Suche, Paging). */
+  query: URLSearchParams
   headers: Headers
   body: unknown
 }
@@ -57,9 +60,59 @@ export function testDatei(typ = 'image/png', groesse?: number, name = 'motiv.png
   return datei
 }
 
-function pfadVon(input: unknown): string {
+function urlVon(input: unknown): URL {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : String((input as Request).url)
-  return new URL(url, 'http://localhost').pathname
+  return new URL(url, 'http://localhost')
+}
+
+/** Synthetischer Eintrag der Benutzerliste (rollen-benutzerverwaltung, AK-11; keine echten Personendaten). */
+export function testBenutzerEintrag(teil: Partial<BenutzerEintrag> = {}): BenutzerEintrag {
+  return {
+    id: '0199a1b2-0000-7000-8000-00000000b001',
+    name: 'Test Person',
+    email: 'person@test.local',
+    rolle: 'keine',
+    aktiv: true,
+    erstelltAm: '2026-10-05T12:00:00+00:00',
+    ...teil,
+  }
+}
+
+/** Synthetischer Audit-Eintrag (rollen-benutzerverwaltung, AK-14). */
+export function testAuditEintrag(teil: Partial<AuditEintrag> = {}): AuditEintrag {
+  return {
+    id: '0199a1b2-0000-7000-8000-00000000c001',
+    zeitpunkt: '2026-10-05T12:34:56+00:00',
+    akteur: { id: '0199a1b2-0000-7000-8000-00000000a001', name: 'Test Administrator' },
+    benutzer: { id: '0199a1b2-0000-7000-8000-00000000b001', name: 'Test Person' },
+    art: 'Rolle',
+    alt: 'keine',
+    neu: 'Betrachter',
+    ...teil,
+  }
+}
+
+/** Antwort 403 laut AK-6 (ProblemDetails mit code). */
+export function keinZugriffAntwort(code: 'benutzer_deaktiviert' | 'keine_berechtigung'): Response {
+  return problemAntwort(403, {
+    title: 'Kein Zugriff',
+    code,
+    detail:
+      code === 'benutzer_deaktiviert'
+        ? 'Ihr Benutzerkonto ist deaktiviert.'
+        : 'Ihr Benutzerkonto ist nicht berechtigt, Benutzer zu verwalten.',
+  })
+}
+
+/** Antwort 409 laut AK-15/AK-16 (ProblemDetails mit code). */
+export function konfliktAntwort(code: 'letzter_administrator' | 'eigenes_konto'): Response {
+  return problemAntwort(409, { title: 'Änderung nicht möglich', code })
+}
+
+function seiteVon<T>(alle: T[], query: URLSearchParams) {
+  const seite = Number(query.get('seite') ?? '1')
+  const groesse = Number(query.get('groesse') ?? '25')
+  return { eintraege: alle.slice((seite - 1) * groesse, seite * groesse), gesamt: alle.length, seite, groesse }
 }
 
 function bodyVon(init: RequestInit | undefined): unknown {
@@ -75,22 +128,62 @@ function bodyVon(init: RequestInit | undefined): unknown {
 }
 
 /**
- * In-Memory-Nachbildung der Coin-API. Standardverhalten:
+ * In-Memory-Nachbildung der Coin-API. Standardverhalten (rollen-benutzerverwaltung zusätzlich:
+ * GET /api/benutzer mit Suche und Paging, PUT /api/benutzer/{id}/rolle|status, GET /api/audit):
  * GET /api/coins → Liste (nach Name sortiert), POST /api/coins → 201,
  * PUT /api/coins/{id}/bild → 200 mit gesetzter bildUrl bzw. 404,
  * GET /api/me → 200 mit `optionen.me` bzw. 401 ohne angemeldeten Benutzer (anmeldung-keycloak).
  * Mit `einmal(...)` lässt sich die nächste passende Antwort überschreiben.
  */
-export function erstelleFakeApi(startCoins: Coin[] = [], optionen: { me?: Benutzer | null } = {}) {
+export function erstelleFakeApi(
+  startCoins: Coin[] = [],
+  optionen: { me?: Benutzer | null | 'deaktiviert'; benutzer?: BenutzerEintrag[]; audit?: AuditEintrag[] } = {},
+) {
   const coins: Coin[] = [...startCoins]
-  let me: Benutzer | null = optionen.me ?? null
+  let me: Benutzer | null | 'deaktiviert' = optionen.me ?? null
+  const benutzer: BenutzerEintrag[] = [...(optionen.benutzer ?? [])]
+  const audit: AuditEintrag[] = [...(optionen.audit ?? [])]
   const anfragen: Anfrage[] = []
   const ueberschreibungen: Array<{ methode: string; pfad: RegExp; antwort: Antwortgeber }> = []
   let zaehler = 0
 
   const standard: Antwortgeber = (anfrage) => {
     if (anfrage.methode === 'GET' && anfrage.pfad === '/api/me') {
+      if (me === 'deaktiviert') return keinZugriffAntwort('benutzer_deaktiviert')
       return me ? jsonAntwort(200, me) : problemAntwort(401, { title: 'Nicht angemeldet' })
+    }
+    if (anfrage.methode === 'GET' && anfrage.pfad === '/api/benutzer') {
+      const suche = (anfrage.query.get('suche') ?? '').trim().toLowerCase()
+      const treffer = benutzer
+        .filter((b) => !suche || b.name.toLowerCase().includes(suche) || (b.email ?? '').toLowerCase().includes(suche))
+        .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()) || a.id.localeCompare(b.id))
+      return jsonAntwort(200, seiteVon(treffer, anfrage.query))
+    }
+    const benutzerAenderung = /^\/api\/benutzer\/([^/]+)\/(rolle|status)$/.exec(anfrage.pfad)
+    if (anfrage.methode === 'PUT' && benutzerAenderung) {
+      const index = benutzer.findIndex((b) => b.id === benutzerAenderung[1])
+      if (index < 0) return problemAntwort(404, { title: 'Benutzer nicht gefunden' })
+      const alt = benutzer[index]
+      const daten = anfrage.body as { rolle?: Rolle; aktiv?: boolean }
+      const istRolle = benutzerAenderung[2] === 'rolle'
+      const neu: BenutzerEintrag = istRolle ? { ...alt, rolle: daten.rolle as Rolle } : { ...alt, aktiv: !!daten.aktiv }
+      benutzer[index] = neu
+      zaehler++
+      audit.unshift({
+        id: `0199a1b2-0000-7000-8000-${String(zaehler).padStart(12, 'c')}`,
+        zeitpunkt: '2026-10-05T13:00:00+00:00',
+        akteur: me && me !== 'deaktiviert' ? { id: me.id, name: me.name } : null,
+        benutzer: { id: alt.id, name: alt.name },
+        art: istRolle ? 'Rolle' : 'Status',
+        alt: istRolle ? alt.rolle : alt.aktiv ? 'aktiv' : 'deaktiviert',
+        neu: istRolle ? neu.rolle : neu.aktiv ? 'aktiv' : 'deaktiviert',
+      })
+      return jsonAntwort(200, neu)
+    }
+    if (anfrage.methode === 'GET' && anfrage.pfad === '/api/audit') {
+      const benutzerId = anfrage.query.get('benutzerId')
+      const treffer = audit.filter((a) => !benutzerId || a.benutzer.id === benutzerId)
+      return jsonAntwort(200, seiteVon(treffer, anfrage.query))
     }
     if (anfrage.methode === 'GET' && anfrage.pfad === '/api/coins') {
       const sortiert = [...coins].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
@@ -130,9 +223,11 @@ export function erstelleFakeApi(startCoins: Coin[] = [], optionen: { me?: Benutz
   }
 
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = urlVon(input)
     const anfrage: Anfrage = {
       methode: (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase(),
-      pfad: pfadVon(input),
+      pfad: url.pathname,
+      query: url.searchParams,
       headers: new Headers(init?.headers),
       body: bodyVon(init),
     }
@@ -148,6 +243,10 @@ export function erstelleFakeApi(startCoins: Coin[] = [], optionen: { me?: Benutz
   return {
     fetch: fetchMock,
     coins,
+    /** Benutzer der Verwaltung (rollen-benutzerverwaltung); Änderungen per PUT wirken hier. */
+    benutzer,
+    /** Audit-Einträge, neueste zuerst; PUT auf Rolle/Status fügt vorne an. */
+    audit,
     anfragen,
     /** Überschreibt die nächste Antwort für Methode und Pfad (einmalig). */
     einmal(methode: string, pfad: RegExp, antwort: Antwortgeber | Promise<Response> | Response) {
@@ -166,8 +265,8 @@ export function erstelleFakeApi(startCoins: Coin[] = [], optionen: { me?: Benutz
     },
     /** Wendet die Standard-Logik an (z. B. aus einer Überschreibung heraus verzögert). */
     standard,
-    /** Setzt die Antwort von GET /api/me (null = 401). */
-    setzeMe(neu: Benutzer | null) {
+    /** Setzt die Antwort von GET /api/me (null = 401, 'deaktiviert' = 403 benutzer_deaktiviert). */
+    setzeMe(neu: Benutzer | null | 'deaktiviert') {
       me = neu
     },
   }

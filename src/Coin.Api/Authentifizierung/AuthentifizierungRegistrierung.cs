@@ -27,8 +27,6 @@ public static class AuthentifizierungRegistrierung
 
     private const string NichtAngemeldetTitel = "Nicht angemeldet";
     private const string NichtAngemeldetDetail = "Für diese Aktion ist eine Anmeldung erforderlich.";
-    private const string KeinZugriffTitel = "Kein Zugriff";
-    private const string KeinZugriffDetail = "Ihr Benutzerkonto ist nicht berechtigt, den Coin-Katalog zu ändern.";
 
     public static IServiceCollection AddAnmeldung(this IServiceCollection services)
     {
@@ -40,7 +38,7 @@ public static class AuthentifizierungRegistrierung
         services.AddHttpContextAccessor();
         services.AddScoped<BenutzerAbgleichService>();
         services.AddScoped<IAktuellerBenutzer, AktuellerBenutzer>();
-        services.AddScoped<IAuthorizationHandler, RolleAnforderungHandler>();
+        services.AddScoped<IAuthorizationHandler, BerechtigungAnforderungHandler>();
         services.AddSingleton<IAuthorizationMiddlewareResultHandler, AutorisierungsErgebnisBehandlung>();
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
@@ -50,11 +48,21 @@ public static class AuthentifizierungRegistrierung
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
             .PostConfigure<OidcOptionen>(Festlegen);
 
-        services.AddAuthorizationBuilder()
-            .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
-            .AddPolicy(Policies.KatalogSchreiben, policy => policy
+        // Default- und Fallback-Policy: angemeldet und aktiv. Je Berechtigung eine gleichnamige Policy (ADR-0016);
+        // registriert nur aus Berechtigungen.Alle, eine unbekannte Policy bricht beim Aufruf ab (fail-closed).
+        var angemeldetUndAktiv = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .AddRequirements(new BerechtigungAnforderung(null))
+            .Build();
+        var autorisierung = services.AddAuthorizationBuilder()
+            .SetDefaultPolicy(angemeldetUndAktiv)
+            .SetFallbackPolicy(angemeldetUndAktiv);
+        foreach (var berechtigung in Berechtigungen.Alle)
+        {
+            autorisierung.AddPolicy(berechtigung, policy => policy
                 .RequireAuthenticatedUser()
-                .AddRequirements(new RolleAnforderung(Rollen.DuerfenKatalogSchreiben)));
+                .AddRequirements(new BerechtigungAnforderung(berechtigung)));
+        }
 
         return services;
     }
@@ -145,16 +153,6 @@ public static class AuthentifizierungRegistrierung
                 // Ohne error/error_description (IncludeErrorDetails=false), AK-7.
                 response.Headers.Append(HeaderNames.WWWAuthenticate, JwtBearerDefaults.AuthenticationScheme);
                 await ProblemSchreibenAsync(context.HttpContext, StatusCodes.Status401Unauthorized, NichtAngemeldetTitel, NichtAngemeldetDetail);
-            },
-            OnForbidden = async context =>
-            {
-                if (context.Response.HasStarted)
-                {
-                    return;
-                }
-
-                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await ProblemSchreibenAsync(context.HttpContext, StatusCodes.Status403Forbidden, KeinZugriffTitel, KeinZugriffDetail);
             },
         };
     }

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Coin } from '@/entities/coin'
-import { erstelleFakeApi, problemAntwort, type FakeApi } from '../../../../test/fakeApi'
+import { erstelleFakeApi, keinZugriffAntwort, problemAntwort, type FakeApi } from '../../../../test/fakeApi'
 import { formularFelder, fuelleAus, meldungMit, TEXTE } from '../../../../test/hilfen'
 import { CoinFormular } from './CoinFormular'
 
@@ -63,5 +63,39 @@ describe('AK-27: 403 beim Anlegen', () => {
     await screen.findByText(TEXT_403)
 
     expect(api.anfragenMit('PUT')).toHaveLength(0)
+  })
+})
+
+// Feature rollen-benutzerverwaltung, AK-33: 403 mit code. Deaktivierte Benutzer bekommen einen eigenen Text,
+// keine_berechtigung behält den bisherigen.
+
+describe('AK-33: 403 mit code', () => {
+  async function sendeMit(code: 'benutzer_deaktiviert' | 'keine_berechtigung') {
+    api.einmal('POST', POST_COINS, keinZugriffAntwort(code))
+    const user = userEvent.setup()
+    render(<CoinFormular onGespeichert={onGespeichert} />)
+    await fuelleAus(user, { name: 'Coin Alpha', herausgeber: 'Herausgeber Beta' })
+    await user.click(formularFelder().absenden)
+  }
+
+  it('zeigt bei benutzer_deaktiviert „Ihr Benutzerkonto ist deaktiviert.“ als Alarm', async () => {
+    await sendeMit('benutzer_deaktiviert')
+
+    const alarm = await screen.findByRole('alert')
+    expect(alarm).toHaveTextContent('Ihr Benutzerkonto ist deaktiviert.')
+  })
+
+  it('zeigt bei benutzer_deaktiviert nicht den Text für fehlende Berechtigung', async () => {
+    await sendeMit('benutzer_deaktiviert')
+    await screen.findByText('Ihr Benutzerkonto ist deaktiviert.')
+
+    expect(document.body.textContent).not.toContain(TEXT_403)
+  })
+
+  it('zeigt bei keine_berechtigung weiterhin „Sie sind nicht berechtigt, Coins zu erfassen.“', async () => {
+    await sendeMit('keine_berechtigung')
+
+    const alarm = await screen.findByRole('alert')
+    expect(alarm).toHaveTextContent(TEXT_403)
   })
 })

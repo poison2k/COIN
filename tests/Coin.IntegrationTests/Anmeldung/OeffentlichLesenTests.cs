@@ -246,7 +246,7 @@ public class OeffentlichLesenTests(PostgresFixture fixture) : IntegrationTestBas
     {
         await using var verbindung = new Npgsql.NpgsqlConnection(Fixture.ConnectionString);
         await verbindung.OpenAsync();
-        await using var befehl = new Npgsql.NpgsqlCommand("DELETE FROM benutzer", verbindung);
+        await using var befehl = new Npgsql.NpgsqlCommand("TRUNCATE benutzer CASCADE", verbindung);
         await befehl.ExecuteNonQueryAsync();
     }
 

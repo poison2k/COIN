@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { darfKatalogSchreiben, ladeAngemeldetenBenutzer, type Benutzer } from '@/entities/benutzer'
+import { hatBerechtigung, ladeAngemeldetenBenutzer, type Benutzer } from '@/entities/benutzer'
 import type { ApiErgebnis } from '@/shared/api'
 import type { AnmeldeStatus, Anmeldung } from '@/shared/lib/anmeldung'
 import type { BenutzerKontextWert } from './benutzer-kontext'
@@ -9,11 +9,18 @@ interface Anfrage {
   ergebnis: Promise<ApiErgebnis<Benutzer>>
 }
 
+export type BenutzerErgebnis = BenutzerKontextWert & {
+  bereit: boolean
+  /** Lädt /api/me neu (z. B. nach 403 benutzer_deaktiviert auf einen anderen Aufruf, AK-32). */
+  neuLaden: () => void
+}
+
 /**
- * Lädt GET /api/me genau einmal pro Anmeldung (bzw. pro „Erneut versuchen“), nie anonym und nicht bei jeder
- * Navigation oder Token-Erneuerung (AK-28). Die laufende Anfrage wird wiederverwendet (auch im StrictMode).
+ * Lädt GET /api/me genau einmal pro Anmeldung (bzw. pro „Erneut versuchen“ oder `neuLaden`), nie anonym und nicht bei
+ * jeder Navigation oder Token-Erneuerung (AK-28). Die laufende Anfrage wird wiederverwendet (auch im StrictMode).
+ * 403 `benutzer_deaktiviert` führt zum Zustand „deaktiviert“; die Sitzung bleibt bestehen (AK-32).
  */
-export function useBenutzer(anmeldung: Anmeldung): BenutzerKontextWert & { bereit: boolean } {
+export function useBenutzer(anmeldung: Anmeldung): BenutzerErgebnis {
   const [versuch, setVersuch] = useState(0)
   const [geladen, setGeladen] = useState<{ schluessel: string; ergebnis: ApiErgebnis<Benutzer> } | null>(null)
   const anfrage = useRef<Anfrage | null>(null)
@@ -46,7 +53,10 @@ export function useBenutzer(anmeldung: Anmeldung): BenutzerKontextWert & { berei
   const { status } = anmeldung
   const erneutVersuchen = useCallback(() => setVersuch((alt) => alt + 1), [])
 
-  return useMemo(() => ableiten(status, ergebnis, erneutVersuchen), [status, ergebnis, erneutVersuchen])
+  return useMemo(
+    () => ({ ...ableiten(status, ergebnis, erneutVersuchen), neuLaden: erneutVersuchen }),
+    [status, ergebnis, erneutVersuchen],
+  )
 }
 
 function ableiten(
@@ -66,6 +76,9 @@ function ableiten(
   if (ergebnis === null || ergebnis.art === 'nichtAngemeldet') {
     return { zustand: { art: 'pruefe' }, benutzer: null, erfassen: 'unbekannt', bereit: false }
   }
+  if (ergebnis.art === 'keinZugriff' && ergebnis.grund === 'deaktiviert') {
+    return { zustand: { art: 'deaktiviert' }, benutzer: null, erfassen: 'keineBerechtigung', bereit: true }
+  }
   if (ergebnis.art !== 'ok') {
     return {
       zustand: { art: 'fehler', erneutVersuchen },
@@ -79,7 +92,7 @@ function ableiten(
   return {
     zustand: { art: 'angemeldet', benutzer },
     benutzer,
-    erfassen: darfKatalogSchreiben(benutzer.rolle) ? 'erlaubt' : 'keineBerechtigung',
+    erfassen: hatBerechtigung(benutzer, 'coins.write') ? 'erlaubt' : 'keineBerechtigung',
     bereit: true,
   }
 }

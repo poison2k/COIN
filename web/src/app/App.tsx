@@ -1,7 +1,7 @@
 import { RouterProvider } from '@tanstack/react-router'
 import type { UserManager } from 'oidc-client-ts'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { setzeBeiNichtAngemeldet } from '@/shared/api'
+import { setzeBeiDeaktiviert, setzeBeiNichtAngemeldet } from '@/shared/api'
 import { leseOidcKonfig } from '@/shared/config'
 import { AnmeldungProvider, erstelleUserManager, useAnmeldung } from '@/shared/lib/anmeldung'
 import { ThemeProvider } from '@/shared/lib/theme'
@@ -44,7 +44,7 @@ export default function App({ router, userManager }: AppProps) {
  */
 function AppMitAnmeldung({ router }: { router: AppRouter }) {
   const anmeldung = useAnmeldung()
-  const { bereit, ...benutzerWert } = useBenutzer(anmeldung)
+  const { bereit, neuLaden, ...benutzerWert } = useBenutzer(anmeldung)
   const { zustand, benutzer, erfassen } = benutzerWert
   const { status, anmelden, sitzungVerwerfen } = anmeldung
 
@@ -57,9 +57,23 @@ function AppMitAnmeldung({ router }: { router: AppRouter }) {
     return () => setzeBeiNichtAngemeldet(null)
   }, [router, anmelden, sitzungVerwerfen])
 
+  // 403 benutzer_deaktiviert auf einen anderen Aufruf: /api/me neu laden, die App wechselt dann in den Zustand
+  // „deaktiviert“ (AK-32). Nur aus „angemeldet“ heraus, damit /api/me selbst keine Schleife auslöst.
+  const zustandArt = useRef(zustand.art)
+  useEffect(() => {
+    zustandArt.current = zustand.art
+  }, [zustand.art])
+  useEffect(() => {
+    setzeBeiDeaktiviert(() => {
+      if (zustandArt.current === 'angemeldet') neuLaden()
+    })
+    return () => setzeBeiDeaktiviert(null)
+  }, [neuLaden])
+
+  const deaktiviert = zustand.art === 'deaktiviert'
   const schutzKontext = useMemo<SchutzKontext>(
-    () => ({ anmeldung: { status, anmelden }, benutzer }),
-    [status, anmelden, benutzer],
+    () => ({ anmeldung: { status, anmelden }, benutzer, deaktiviert }),
+    [status, anmelden, benutzer, deaktiviert],
   )
 
   const aktuell = useRef({ kontext: schutzKontext, bereit })
@@ -71,6 +85,14 @@ function AppMitAnmeldung({ router }: { router: AppRouter }) {
       for (const aufloesen of wartende.current.splice(0)) aufloesen(schutzKontext)
     }
   }, [schutzKontext, bereit])
+
+  // Wechsel in den Zustand „deaktiviert“ während der Sitzung: Guards neu ausführen, damit geschützte Seiten nach
+  // /kein-zugriff umleiten (AK-32). Läuft nach dem Effekt oben, der den aktuellen Kontext bereitstellt.
+  const warDeaktiviert = useRef(deaktiviert)
+  useEffect(() => {
+    if (deaktiviert && !warDeaktiviert.current) void router.invalidate()
+    warDeaktiviert.current = deaktiviert
+  }, [deaktiviert, router])
 
   const [routerKontext] = useState<RouterKontext>(() => ({
     schutz: () =>

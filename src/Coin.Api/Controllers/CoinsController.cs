@@ -1,6 +1,6 @@
-using Coin.Api.Authentifizierung;
 using Coin.Api.Contracts;
 using Coin.Api.Http;
+using Coin.Domain.Benutzer;
 using Coin.Domain.Katalog;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +11,7 @@ namespace Coin.Api.Controllers;
 /// <summary>
 /// Coin-Katalog. Aktionen bilden nur HTTP auf die Use Cases in <see cref="CoinKatalogService"/> ab (ADR-0001).
 /// Lesen ist öffentlich (ADR-0014, ausdrücklich <c>[AllowAnonymous]</c>), Schreiben verlangt die Policy
-/// <see cref="Policies.KatalogSchreiben"/>. Die Autorisierung läuft vor Model Binding und Body-Lesen (AK-19).
+/// <see cref="Berechtigungen.CoinsWrite"/>. Die Autorisierung läuft vor Model Binding und Body-Lesen (AK-19).
 /// </summary>
 [ApiController]
 [Route("api/coins")]
@@ -27,7 +27,7 @@ public sealed class CoinsController(CoinKatalogService service) : ControllerBase
     private const string DateiFeld = "datei";
 
     [HttpPost]
-    [Authorize(Policy = Policies.KatalogSchreiben)]
+    [Authorize(Policy = Berechtigungen.CoinsWrite)]
     [Inhaltstyp("application/json")]
     public async Task<ActionResult<CoinResponse>> Anlegen([FromBody] CoinAnlegenRequest request, CancellationToken ct)
     {
@@ -64,7 +64,7 @@ public sealed class CoinsController(CoinKatalogService service) : ControllerBase
     }
 
     [HttpPut("{id:guid}/bild")]
-    [Authorize(Policy = Policies.KatalogSchreiben)]
+    [Authorize(Policy = Berechtigungen.CoinsWrite)]
     [Inhaltstyp("multipart/form-data")]
     [RequestSizeLimit(KestrelUploadLimitBytes)]
     [FormularBindungDeaktivieren]

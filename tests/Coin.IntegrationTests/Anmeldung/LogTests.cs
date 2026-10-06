@@ -9,11 +9,15 @@ namespace Coin.IntegrationTests.Anmeldung;
 /// <summary>
 /// Feature anmeldung-keycloak, AK-21: Keine Tokens, kein Authorization-Header, keine E-Mails und keine Anzeigenamen
 /// in den Logs. Alle Logs ab Trace werden im Speicher abgefangen.
+/// Erweitert durch rollen-benutzerverwaltung, AK-22: Das Szenario ruft zusätzlich Benutzerliste, Rolle/Status setzen,
+/// Audit-Log und /api/me eines Deaktivierten auf; auch dabei keine E-Mails, Anzeigenamen oder Audit-Inhalte.
 /// </summary>
 public class LogTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
 {
     private const string LogEmail = "log.pruefung@coin-test.invalid";
     private const string LogName = "Logprüfung Testperson";
+
+    private readonly List<string> _neueEndpunkte = [];
 
     private static TokenDaten LogBenutzer => new()
     {
@@ -71,6 +75,27 @@ public class LogTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
         var id = (await JsonAsync(angelegt)).GetProperty("id").GetGuid();
         Assert.Equal(HttpStatusCode.OK, await SendeAsync(HttpMethod.Put, BildUrl(id), admin, Multipart(Testbilder.Png())));
 
+        // rollen-benutzerverwaltung (AK-22): neue Endpunkte. Die Status werden gesammelt und in einem eigenen Test
+        // geprüft, damit die übrigen Log-Prüfungen nicht vom Stand der Implementierung abhängen.
+        using var meAnfrage = new HttpRequestMessage(HttpMethod.Get, MeUrl);
+        meAnfrage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", gueltig);
+        using var meAntwort = await client.SendAsync(meAnfrage);
+        var logId = (await JsonAsync(meAntwort)).GetProperty("id").GetGuid();
+        _neueEndpunkte.Clear();
+        async Task MerkeAsync(string name, HttpMethod methode, string url, string? token, HttpContent? inhalt = null) =>
+            _neueEndpunkte.Add($"{name} -> {(int)await SendeAsync(methode, url, token, inhalt)}");
+
+        await MerkeAsync("Liste", HttpMethod.Get, $"{BenutzerUrl}?suche={Uri.EscapeDataString("Logprüfung")}", admin);
+        await MerkeAsync("Rolle", HttpMethod.Put, RolleUrl(logId), admin, JsonContent.Create(new { rolle = "Betrachter" }));
+        await MerkeAsync("Deaktivieren", HttpMethod.Put, StatusUrl(logId), admin, JsonContent.Create(new { aktiv = false }));
+        await MerkeAsync("Me deaktiviert", HttpMethod.Get, MeUrl, gueltig);
+        await MerkeAsync("Reaktivieren", HttpMethod.Put, StatusUrl(logId), admin, JsonContent.Create(new { aktiv = true }));
+        await MerkeAsync("Audit", HttpMethod.Get, AuditUrl, admin);
+        await MerkeAsync("Audit gefiltert", HttpMethod.Get, $"{AuditUrl}?benutzerId={logId}", admin);
+        await MerkeAsync("Liste als Betrachter", HttpMethod.Get, BenutzerUrl, gueltig);
+        await MerkeAsync("Rolle ungueltig", HttpMethod.Put, RolleUrl(logId), admin, JsonContent.Create(new { rolle = "Superuser" }));
+        await MerkeAsync("Suche E-Mail", HttpMethod.Get, $"{BenutzerUrl}?suche={Uri.EscapeDataString(LogEmail)}", admin);
+
         return (logs, [gueltig, admin, abgelaufen, fremd, falscheAud]);
     }
 
@@ -81,6 +106,49 @@ public class LogTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
 
         Assert.Contains(logs.Eintraege, e => e.Contains("Microsoft.AspNetCore", StringComparison.Ordinal));
         Assert.Contains(logs.Eintraege, e => e.StartsWith("Debug", StringComparison.Ordinal) || e.StartsWith("Trace", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Szenario_ruft_die_neuen_Endpunkte_mit_den_erwarteten_Status_auf()
+    {
+        await SzenarioAsync();
+
+        Assert.Equal(
+            [
+                "Liste -> 200",
+                "Rolle -> 200",
+                "Deaktivieren -> 200",
+                "Me deaktiviert -> 403",
+                "Reaktivieren -> 200",
+                "Audit -> 200",
+                "Audit gefiltert -> 200",
+                "Liste als Betrachter -> 403",
+                "Rolle ungueltig -> 400",
+                "Suche E-Mail -> 200",
+            ],
+            _neueEndpunkte);
+    }
+
+    [Fact]
+    public async Task Logs_enthalten_keine_Audit_Werte_zum_Testbenutzer()
+    {
+        var (logs, _) = await SzenarioAsync();
+        Assert.Contains("Rolle -> 200", _neueEndpunkte);
+
+        // Ids sind erlaubt, Namen und Werte der Änderungen in Verbindung mit Personen nicht.
+        Assert.DoesNotContain("keine → Betrachter", logs.Gesamt);
+        Assert.DoesNotContain("aktiv → deaktiviert", logs.Gesamt);
+        Assert.DoesNotContain("Logprüfung", logs.Gesamt);
+    }
+
+    [Fact]
+    public async Task Logs_enthalten_die_Suchbegriffe_der_Benutzersuche_auch_URL_kodiert_nicht()
+    {
+        var (logs, _) = await SzenarioAsync();
+
+        // Die Suche nach einer E-Mail steht in der Query; auch die kodierte Form ist ein Personendatum (AK-22).
+        Assert.DoesNotContain(Uri.EscapeDataString(LogEmail), logs.Gesamt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(Uri.EscapeDataString("Logprüfung"), logs.Gesamt, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

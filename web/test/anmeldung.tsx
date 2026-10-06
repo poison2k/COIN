@@ -14,28 +14,40 @@ export const AUTHORIZATION_ENDPOINT = `${TEST_AUTHORITY}/protocol/openid-connect
 export const END_SESSION_ENDPOINT = `${TEST_AUTHORITY}/protocol/openid-connect/logout`
 export const TOKEN_ENDPOINT = `${TEST_AUTHORITY}/protocol/openid-connect/token`
 
-/** Antworten von GET /api/me für die Testbenutzer. */
+/**
+ * Antworten von GET /api/me für die Testbenutzer. Seit rollen-benutzerverwaltung (AK-10) mit `berechtigungen`
+ * laut Rechtematrix (ordinal sortiert). Ohne `as const`, damit `berechtigungen` ein (veränderbares) Array bleibt.
+ */
 export const ME = {
   admin: {
     id: '0199a1b2-0000-7000-8000-00000000a001',
     name: 'Test Administrator',
     email: 'admin@test.local',
     rolle: 'Administrator',
+    berechtigungen: ['audit.read', 'coins.read', 'coins.write', 'users.manage'],
   },
   sachbearbeiter: {
     id: '0199a1b2-0000-7000-8000-00000000a002',
     name: 'Test Sachbearbeiter',
     email: 'sachbearbeiter@test.local',
     rolle: 'Sachbearbeiter',
+    berechtigungen: ['coins.read', 'coins.write'],
   },
   betrachter: {
     id: '0199a1b2-0000-7000-8000-00000000a003',
     name: 'Test Betrachter',
     email: 'betrachter@test.local',
     rolle: 'Betrachter',
+    berechtigungen: ['coins.read'],
   },
-  keine: { id: '0199a1b2-0000-7000-8000-00000000a004', name: 'Test Neu', email: 'neu@test.local', rolle: 'keine' },
-} as const satisfies Record<string, Benutzer>
+  keine: {
+    id: '0199a1b2-0000-7000-8000-00000000a004',
+    name: 'Test Neu',
+    email: 'neu@test.local',
+    rolle: 'keine',
+    berechtigungen: [],
+  },
+} satisfies Record<string, Benutzer>
 
 export type TestBenutzer = keyof typeof ME
 

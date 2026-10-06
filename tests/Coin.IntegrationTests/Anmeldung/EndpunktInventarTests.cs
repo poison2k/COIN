@@ -12,6 +12,7 @@ namespace Coin.IntegrationTests.Anmeldung;
 /// <summary>
 /// Feature anmeldung-keycloak, AK-10: Inventar der Endpunkte über <see cref="EndpointDataSource"/>.
 /// Anonym erreichbar sind genau die drei Lese-Endpunkte des Katalogs (ADR-0014), in Development zusätzlich nur OpenAPI.
+/// Angepasst durch rollen-benutzerverwaltung (AK-3): Policy <c>coins.write</c> statt <c>KatalogSchreiben</c>.
 /// </summary>
 public partial class EndpunktInventarTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
 {
@@ -61,22 +62,23 @@ public partial class EndpunktInventarTests(PostgresFixture fixture) : Integratio
     }
 
     [Fact]
-    public void Es_gibt_eine_Policy_KatalogSchreiben()
+    public void Es_gibt_eine_Policy_coins_write()
     {
+        // rollen-benutzerverwaltung AK-3: Policy „KatalogSchreiben“ heißt jetzt wie die Berechtigung.
         var optionen = Fixture.Factory.Services.GetRequiredService<IOptions<AuthorizationOptions>>().Value;
 
-        Assert.NotNull(optionen.GetPolicy("KatalogSchreiben"));
+        Assert.NotNull(optionen.GetPolicy("coins.write"));
     }
 
     [Theory]
     [InlineData("POST /api/coins")]
     [InlineData("PUT /api/coins/{id}/bild")]
-    public void Schreibende_Endpunkte_verlangen_die_Policy_KatalogSchreiben(string name)
+    public void Schreibende_Endpunkte_verlangen_die_Policy_coins_write(string name)
     {
         var endpunkt = Assert.Single(Endpunkte(Fixture.Factory), e => e.Name == name).Endpunkt;
 
         var authorize = endpunkt.Metadata.GetOrderedMetadata<IAuthorizeData>();
-        Assert.Contains(authorize, a => a.Policy == "KatalogSchreiben");
+        Assert.Contains(authorize, a => a.Policy == "coins.write");
         Assert.Null(endpunkt.Metadata.GetMetadata<IAllowAnonymous>());
     }
 
