@@ -1,4 +1,5 @@
 using Coin.Domain.Benutzer;
+using Coin.Domain.Gemeinsam;
 using Microsoft.Extensions.Time.Testing;
 using DomainBenutzer = Coin.Domain.Benutzer.Benutzer;
 

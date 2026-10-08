@@ -14,7 +14,7 @@ public class FehlerbehandlungTests(PostgresFixture fixture) : IntegrationTestBas
     private HttpClient ClientMitDefektemRepository() =>
         Fixture.Factory
             .WithWebHostBuilder(b => b.ConfigureTestServices(s =>
-                s.AddScoped<ICoinKatalogRepository, WerfendesRepository>()))
+                s.AddScoped(_ => WerfenderProxy<ICoinKatalogRepository>.Erzeugen(GeheimeMeldung))))
             .CreateClient();
 
     [Fact]
@@ -54,17 +54,5 @@ public class FehlerbehandlungTests(PostgresFixture fixture) : IntegrationTestBas
         Assert.DoesNotContain("Coin.Infrastructure", body);
         Assert.DoesNotContain("Coin.Api", body);
         Assert.DoesNotContain(GeheimeMeldung, body);
-    }
-
-    private sealed class WerfendesRepository : ICoinKatalogRepository
-    {
-        private static Exception Fehler() => new InvalidOperationException(GeheimeMeldung);
-
-        public Task<bool> ExistiertAsync(string name, string herausgeber, CancellationToken ct) => throw Fehler();
-        public Task<bool> HinzufuegenAsync(CoinTyp coin, CancellationToken ct) => throw Fehler();
-        public Task<IReadOnlyList<CoinEintrag>> AlleAsync(CancellationToken ct) => throw Fehler();
-        public Task<CoinEintrag?> FindenAsync(Guid id, CancellationToken ct) => throw Fehler();
-        public Task BildSpeichernAsync(Guid id, CoinBild bild, CancellationToken ct) => throw Fehler();
-        public Task<CoinBild?> BildLadenAsync(Guid id, CancellationToken ct) => throw Fehler();
     }
 }

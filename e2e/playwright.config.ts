@@ -27,6 +27,11 @@ export default defineConfig({
   testDir: './tests',
   globalSetup: './global-setup.ts',
   fullyParallel: false,
+  // Seriell über alle Dateien: Die Specs teilen sich Wegwerf-DB und Testbenutzer. benutzerverwaltung.spec.ts
+  // entzieht/deaktiviert betrachter@test.local, katalog-seiten.spec.ts (3) braucht ihn zugleich als aktiven
+  // Betrachter (AK-37 bzw. AK-28 verlangen beide dieses Konto); außerdem prüft benutzerverwaltung.spec.ts die
+  // oberste Audit-Zeile, die parallele Rollenvergaben verfälschen würden.
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: [['list'], ['html', { open: 'never' }]],

@@ -14,20 +14,24 @@ import { formularFelder, fuelleAus, meldungMit, seitentext, TEXTE } from '../../
 import { CoinFormular } from './CoinFormular'
 
 // AK-30 bis AK-36: Formular „Coin anlegen“.
+// Feature katalog-seiten, AK-21 bis AK-24: onAngelegt(coin, { bild }) ersetzt onGespeichert und wird erst aufgerufen,
+// wenn nichts mehr offen ist (nicht beim Teilerfolg); die Seite navigiert danach zur Detailseite.
+
+type OnAngelegt = (coin: Coin, ergebnis: { bild: 'gespeichert' | 'ohne' }) => void
 
 let api: FakeApi
-let onGespeichert: ReturnType<typeof vi.fn<(coin: Coin) => void>>
+let onAngelegt: ReturnType<typeof vi.fn<OnAngelegt>>
 
 beforeEach(() => {
   api = erstelleFakeApi()
   vi.stubGlobal('fetch', api.fetch)
-  onGespeichert = vi.fn<(coin: Coin) => void>()
+  onAngelegt = vi.fn<OnAngelegt>()
 })
 
 function zeigeFormular() {
   // applyAccept: false, damit auch unzulässige Dateitypen ausgewählt werden können (AK-31).
   const user = userEvent.setup({ applyAccept: false })
-  const ansicht = render(<CoinFormular onGespeichert={onGespeichert} />)
+  const ansicht = render(<CoinFormular onAngelegt={onAngelegt} />)
   return { user, ...ansicht }
 }
 
@@ -132,7 +136,7 @@ describe('AK-30: Aufbau des Formulars', () => {
 
     await user.click(formularFelder().absenden)
 
-    await waitFor(() => expect(onGespeichert).toHaveBeenCalled())
+    await waitFor(() => expect(onAngelegt).toHaveBeenCalled())
     expect(api.anfragenMit('PUT')).toHaveLength(0)
   })
 
@@ -424,7 +428,7 @@ describe('AK-33: erfolgreiches Anlegen', () => {
 
     await user.click(formularFelder().absenden)
 
-    await waitFor(() => expect(onGespeichert).toHaveBeenCalled())
+    await waitFor(() => expect(onAngelegt).toHaveBeenCalled())
     expect(api.anfragen.map((a) => a.methode)).toEqual(['POST'])
   })
 
@@ -459,9 +463,33 @@ describe('AK-33: erfolgreiches Anlegen', () => {
     await user.click(formularFelder().absenden)
 
     await waitFor(() => expect(meldungMit(TEXTE.erfolg)).toBeDefined())
-    const letzterAufruf = onGespeichert.mock.calls.at(-1)?.[0]
+    const letzterAufruf = onAngelegt.mock.calls.at(-1)?.[0]
     expect(letzterAufruf?.name).toBe('Coin Alpha')
     expect(letzterAufruf?.bildUrl).toMatch(/^\/api\/coins\/.+\/bild\?v=/)
+  })
+
+  it('meldet nach erfolgreichem Upload genau einmal mit bild: gespeichert (katalog-seiten, AK-22)', async () => {
+    const { user } = zeigeFormular()
+    await fuelleAus(user, { ...PFLICHT, bild: testDatei() })
+
+    await user.click(formularFelder().absenden)
+
+    await waitFor(() => expect(onAngelegt).toHaveBeenCalledTimes(1))
+    expect(onAngelegt.mock.calls[0][1]).toEqual({ bild: 'gespeichert' })
+  })
+
+  it('meldet erst nach dem Upload, nicht schon nach dem POST (katalog-seiten, AK-22)', async () => {
+    const offen = offeneAntwort()
+    api.einmal('PUT', PUT_BILD, () => offen.promise)
+    const { user } = zeigeFormular()
+    await fuelleAus(user, { ...PFLICHT, bild: testDatei() })
+
+    await user.click(formularFelder().absenden)
+
+    await waitFor(() => expect(api.anfragenMit('PUT')).toHaveLength(1))
+    expect(onAngelegt).not.toHaveBeenCalled()
+    offen.aufloesen(problemAntwort(415))
+    await waitFor(() => expect(meldungMit(TEXTE.teilerfolgPraefix)).toBeDefined())
   })
 
   it('meldet ohne Bild den angelegten Coin mit bildUrl null an die Seite', async () => {
@@ -470,8 +498,8 @@ describe('AK-33: erfolgreiches Anlegen', () => {
 
     await user.click(formularFelder().absenden)
 
-    await waitFor(() => expect(onGespeichert).toHaveBeenCalledTimes(1))
-    expect(onGespeichert.mock.calls[0][0]).toMatchObject({ name: 'Coin Alpha', bildUrl: null })
+    await waitFor(() => expect(onAngelegt).toHaveBeenCalledTimes(1))
+    expect(onAngelegt.mock.calls[0][0]).toMatchObject({ name: 'Coin Alpha', bildUrl: null })
   })
 })
 
@@ -507,7 +535,9 @@ describe('AK-34: Teilerfolg beim Bild-Upload', () => {
     expect(seitentext()).not.toMatch(/Failed to fetch|TypeError/)
   })
 
-  it('meldet den angelegten Coin ohne Bild an die Seite', async () => {
+  // katalog-seiten, AK-23: Beim Teilerfolg bleibt die Seite stehen; onAngelegt erst nach Wiederholung oder Verzicht.
+  // Bisher: „meldet den angelegten Coin ohne Bild an die Seite“ (onGespeichert schon beim Teilerfolg).
+  it('meldet beim Teilerfolg noch keinen angelegten Coin an die Seite', async () => {
     api.einmal('PUT', PUT_BILD, problemAntwort(415))
     const { user } = zeigeFormular()
     await fuelleAus(user, { ...PFLICHT, bild: testDatei() })
@@ -515,7 +545,7 @@ describe('AK-34: Teilerfolg beim Bild-Upload', () => {
     await user.click(formularFelder().absenden)
 
     await waitFor(() => expect(meldungMit(TEXTE.teilerfolgPraefix)).toBeDefined())
-    expect(onGespeichert).toHaveBeenCalledWith(expect.objectContaining({ name: 'Coin Alpha', bildUrl: null }))
+    expect(onAngelegt).not.toHaveBeenCalled()
   })
 
   it('zeigt den Button „Bild erneut hochladen“', async () => {
@@ -551,8 +581,129 @@ describe('AK-34: Teilerfolg beim Bild-Upload', () => {
     await user.click(await screen.findByRole('button', { name: TEXTE.erneutHochladen }))
 
     await waitFor(() => expect(meldungMit(TEXTE.erfolg)).toBeDefined())
-    expect(onGespeichert.mock.calls.at(-1)?.[0].bildUrl).toMatch(/\/bild\?v=/)
+    expect(onAngelegt.mock.calls.at(-1)?.[0].bildUrl).toMatch(/\/bild\?v=/)
     expect(screen.queryByRole('button', { name: TEXTE.erneutHochladen })).not.toBeInTheDocument()
+  })
+
+  it('meldet nach erfolgreicher Wiederholung genau einmal mit bild: gespeichert (katalog-seiten, AK-23)', async () => {
+    api.netzwerkfehler('PUT', PUT_BILD)
+    const { user } = zeigeFormular()
+    await fuelleAus(user, { ...PFLICHT, bild: testDatei() })
+    await user.click(formularFelder().absenden)
+
+    await user.click(await screen.findByRole('button', { name: TEXTE.erneutHochladen }))
+
+    await waitFor(() => expect(onAngelegt).toHaveBeenCalledTimes(1))
+    expect(onAngelegt.mock.calls[0][1]).toEqual({ bild: 'gespeichert' })
+  })
+
+  it('meldet nach erneut fehlgeschlagener Wiederholung weiterhin nichts', async () => {
+    api.netzwerkfehler('PUT', PUT_BILD)
+    api.netzwerkfehler('PUT', PUT_BILD)
+    const { user } = zeigeFormular()
+    await fuelleAus(user, { ...PFLICHT, bild: testDatei() })
+    await user.click(formularFelder().absenden)
+
+    await user.click(await screen.findByRole('button', { name: TEXTE.erneutHochladen }))
+
+    await waitFor(() => expect(api.anfragenMit('PUT')).toHaveLength(2))
+    await waitFor(() => expect(screen.getByRole('button', { name: TEXTE.erneutHochladen })).toBeEnabled())
+    expect(onAngelegt).not.toHaveBeenCalled()
+  })
+})
+
+// ---------- katalog-seiten, AK-23 (Entscheidung F6): „Ohne Bild fortfahren“ ----------
+
+describe('AK-23: „Ohne Bild fortfahren“ beim Teilerfolg', () => {
+  const OHNE_BILD = 'Ohne Bild fortfahren'
+
+  async function teilerfolg() {
+    api.einmal('PUT', PUT_BILD, problemAntwort(415))
+    const ergebnis = zeigeFormular()
+    await fuelleAus(ergebnis.user, { ...PFLICHT, bild: testDatei() })
+    await ergebnis.user.click(formularFelder().absenden)
+    await waitFor(() => expect(meldungMit(TEXTE.teilerfolgPraefix)).toBeDefined())
+    return ergebnis
+  }
+
+  it('zeigt den Button „Ohne Bild fortfahren“ neben „Bild erneut hochladen“', async () => {
+    await teilerfolg()
+
+    expect(screen.getByRole('button', { name: OHNE_BILD })).toBeEnabled()
+    expect(screen.getByRole('button', { name: TEXTE.erneutHochladen })).toBeEnabled()
+  })
+
+  it('zeigt den Button ohne Teilerfolg nicht', () => {
+    zeigeFormular()
+
+    expect(screen.queryByRole('button', { name: OHNE_BILD })).not.toBeInTheDocument()
+  })
+
+  it('zeigt den Button bei einem Konflikt (409) nicht', async () => {
+    api.einmal('POST', /^\/api\/coins$/, problemAntwort(409))
+    const { user } = zeigeFormular()
+    await fuelleAus(user, PFLICHT)
+
+    await user.click(formularFelder().absenden)
+
+    await waitFor(() => expect(meldungMit(TEXTE.konflikt)).toBeDefined())
+    expect(screen.queryByRole('button', { name: OHNE_BILD })).not.toBeInTheDocument()
+  })
+
+  it('meldet den angelegten Coin genau einmal mit bild: ohne', async () => {
+    const { user } = await teilerfolg()
+
+    await user.click(screen.getByRole('button', { name: OHNE_BILD }))
+
+    await waitFor(() => expect(onAngelegt).toHaveBeenCalledTimes(1))
+    expect(onAngelegt.mock.calls[0][0]).toMatchObject({ name: 'Coin Alpha', bildUrl: null })
+    expect(onAngelegt.mock.calls[0][1]).toEqual({ bild: 'ohne' })
+  })
+
+  it('sendet dabei keinen weiteren Request', async () => {
+    const { user } = await teilerfolg()
+    const vorher = api.anfragen.length
+
+    await user.click(screen.getByRole('button', { name: OHNE_BILD }))
+
+    await waitFor(() => expect(onAngelegt).toHaveBeenCalled())
+    expect(api.anfragen).toHaveLength(vorher)
+  })
+
+  it('ist per Tastatur auslösbar', async () => {
+    const { user } = await teilerfolg()
+    screen.getByRole('button', { name: OHNE_BILD }).focus()
+
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => expect(onAngelegt).toHaveBeenCalledTimes(1))
+  })
+
+  it('sendet das Formular nicht ab (type="button")', async () => {
+    await teilerfolg()
+
+    expect(screen.getByRole('button', { name: OHNE_BILD })).toHaveAttribute('type', 'button')
+  })
+})
+
+// ---------- katalog-seiten, AK-24: Fehler bleiben auf der Seite ----------
+
+describe('AK-24: kein onAngelegt bei Fehlern', () => {
+  it.each([
+    ['400', () => problemAntwort(400, { title: 'Eingaben ungültig', errors: { name: ['Name ist erforderlich.'] } })],
+    ['403', () => problemAntwort(403, { title: 'Kein Zugriff' })],
+    ['409', () => problemAntwort(409)],
+    ['500', () => problemAntwort(500)],
+  ])('ruft onAngelegt bei %s nicht auf', async (_status, antwort) => {
+    api.einmal('POST', /^\/api\/coins$/, antwort())
+    const { user } = zeigeFormular()
+    await fuelleAus(user, PFLICHT)
+
+    await user.click(formularFelder().absenden)
+
+    await waitFor(() => expect(api.anfragenMit('POST')).toHaveLength(1))
+    await waitFor(() => expect(formularFelder().absenden).toBeEnabled())
+    expect(onAngelegt).not.toHaveBeenCalled()
   })
 })
 

@@ -8,7 +8,8 @@ function abbruch(grund) {
 }
 
 /**
- * Prüft über die Kette Web → Proxy → API → DB, dass GET /api/coins 200 mit leerem Array liefert.
+ * Prüft über die Kette Web → Proxy → API → DB, dass GET /api/coins 200 mit einer leeren Seite liefert
+ * (Seiten-Format `{ eintraege, gesamt, seite, groesse }` seit katalog-seiten, Entscheidung F7).
  * Wirft sonst einen Error, dessen Meldung mit ABBRUCH_MELDUNG beginnt.
  */
 export async function pruefeSystemtestDatenbankLeer({ url = 'http://localhost:5183/api/coins', fetch } = {}) {
@@ -32,10 +33,13 @@ export async function pruefeSystemtestDatenbankLeer({ url = 'http://localhost:51
     throw abbruch('Antwort ist kein JSON')
   }
 
-  if (!Array.isArray(daten)) {
-    throw abbruch('Antwort ist keine Liste')
+  if (daten === null || typeof daten !== 'object' || Array.isArray(daten)) {
+    throw abbruch('Antwort ist keine Seite')
   }
-  if (daten.length !== 0) {
-    throw abbruch(`${daten.length} Coin(s) bereits vorhanden`)
+  if (!Array.isArray(daten.eintraege) || typeof daten.gesamt !== 'number') {
+    throw abbruch('Antwort ist keine Seite (eintraege/gesamt fehlen)')
+  }
+  if (daten.gesamt !== 0 || daten.eintraege.length !== 0) {
+    throw abbruch(`${Math.max(daten.gesamt, daten.eintraege.length)} Coin(s) bereits vorhanden`)
   }
 }

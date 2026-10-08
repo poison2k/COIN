@@ -228,6 +228,9 @@ public class LogTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
     private const string ZielName = "Protokollziel Testperson";
     private const string RolleBody = "{\"rolle\":\"Betrachter\"}";
 
+    /// <summary>Suchbegriff der öffentlichen Coin-Suche (katalog-seiten, AK-5): darf nicht im Protokoll stehen.</summary>
+    private const string GeheimeCoinSuche = "Geheimsuche Coinkatalog";
+
     /// <summary>Ein gesendeter Request mit dem tatsächlich empfangenen Status.</summary>
     private sealed record Gesendet(string Name, int Status);
 
@@ -315,6 +318,7 @@ public class LogTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
 
             (await SendeAsync("Bild hochladen", HttpMethod.Put, BildUrl(coinId), admin, Multipart(Testbilder.Png()))).Dispose();
             (await SendeAsync("Bild anonym", HttpMethod.Get, BildUrl(coinId), null)).Dispose();
+            (await SendeAsync("Coin-Suche anonym", HttpMethod.Get, $"{CoinsUrl}?suche={Uri.EscapeDataString(GeheimeCoinSuche)}&seite=1&groesse=5", null)).Dispose();
         }
         else
         {
@@ -401,6 +405,7 @@ public class LogTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
                 $"POST /api/coins {StatusVon(szenario, "Coin anlegen")}",
                 $"PUT /api/coins/{{id}}/bild {StatusVon(szenario, "Bild hochladen")}",
                 $"GET /api/coins/{{id}}/bild {StatusVon(szenario, "Bild anonym")}",
+                $"GET /api/coins {StatusVon(szenario, "Coin-Suche anonym")}",
             ],
             eintraege.Select(Signatur).ToArray());
     }
@@ -433,6 +438,26 @@ public class LogTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
         var szenario = await ProtokollSzenarioAsync();
 
         Assert.Equal("/api/benutzer", Wert(EintragFuer(szenario, "Suche"), "Route"));
+    }
+
+    // ---------- katalog-seiten, AK-5: Coin-Suche ohne Suchbegriff und Query im Protokoll ----------
+
+    [Fact]
+    public async Task Request_Protokoll_nennt_fuer_die_Coin_Suche_die_Route_ohne_Query()
+    {
+        var szenario = await ProtokollSzenarioAsync();
+
+        Assert.Equal("GET /api/coins 200", Signatur(EintragFuer(szenario, "Coin-Suche anonym")));
+    }
+
+    [Fact]
+    public async Task Request_Protokoll_Szenario_loggt_den_Suchbegriff_der_Coin_Suche_nicht()
+    {
+        var szenario = await ProtokollSzenarioAsync();
+
+        Assert.DoesNotContain("Geheimsuche", szenario.Logs.Gesamt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(Uri.EscapeDataString(GeheimeCoinSuche), szenario.Logs.Gesamt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("groesse=5", szenario.Logs.Gesamt, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -489,7 +514,7 @@ public class LogTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
     [Fact]
     public async Task Request_Protokoll_meldet_500_bei_einer_unbehandelten_Ausnahme()
     {
-        var szenario = await ProtokollSzenarioAsync(dienste: s => s.AddScoped<ICoinKatalogRepository, WerfendesKatalogRepository>());
+        var szenario = await ProtokollSzenarioAsync(dienste: s => s.AddScoped(_ => WerfenderProxy<ICoinKatalogRepository>.Erzeugen("Testfehler Request-Protokoll")));
 
         Assert.Equal("500", StatusVon(szenario, "Liste anonym"));
         Assert.Equal("GET /api/coins 500", Signatur(EintragFuer(szenario, "Liste anonym")));
@@ -819,17 +844,5 @@ public class LogTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
         public override long GetTimestamp() => Interlocked.Add(ref _ticks, schritt.Ticks);
 
         public override DateTimeOffset GetUtcNow() => System.GetUtcNow();
-    }
-
-    private sealed class WerfendesKatalogRepository : ICoinKatalogRepository
-    {
-        private static Exception Fehler() => new InvalidOperationException("Testfehler Request-Protokoll");
-
-        public Task<bool> ExistiertAsync(string name, string herausgeber, CancellationToken ct) => throw Fehler();
-        public Task<bool> HinzufuegenAsync(CoinTyp coin, CancellationToken ct) => throw Fehler();
-        public Task<IReadOnlyList<CoinEintrag>> AlleAsync(CancellationToken ct) => throw Fehler();
-        public Task<CoinEintrag?> FindenAsync(Guid id, CancellationToken ct) => throw Fehler();
-        public Task BildSpeichernAsync(Guid id, CoinBild bild, CancellationToken ct) => throw Fehler();
-        public Task<CoinBild?> BildLadenAsync(Guid id, CancellationToken ct) => throw Fehler();
     }
 }

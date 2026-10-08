@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { ROUTEN } from '@/shared/config'
 import { buttonVariants } from '@/shared/ui/button'
 
-/** Startseite (/) mit Begrüßung und Einstieg in die Coin-Liste (AK-13). */
+/** Startseite (/) mit Begrüßung und Einstieg in den Katalog (AK-13, katalog-seiten AK-25). */
 export function StartSeite() {
   return (
     <div className="mx-auto grid w-full max-w-5xl justify-items-start gap-4 p-6">
@@ -12,7 +12,7 @@ export function StartSeite() {
         Echtheitszertifikate.
       </p>
       <Link to={ROUTEN.coinListe} className={buttonVariants()}>
-        Zur Coin-Liste
+        Zum Katalog
       </Link>
     </div>
   )

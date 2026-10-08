@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { hatBerechtigung, ladeAngemeldetenBenutzer, type Benutzer } from '@/entities/benutzer'
+import { ladeAngemeldetenBenutzer, type Benutzer } from '@/entities/benutzer'
 import type { ApiErgebnis } from '@/shared/api'
 import type { AnmeldeStatus, Anmeldung } from '@/shared/lib/anmeldung'
 import type { ErneutPruefenErgebnis } from '@/pages/kein-zugriff'
@@ -120,24 +120,23 @@ function ableiten(
 ): Omit<BenutzerKontextWert, 'erneutPruefen'> & { bereit: boolean } {
   switch (status) {
     case 'nichtKonfiguriert':
-      return { zustand: { art: 'nichtKonfiguriert' }, benutzer: null, erfassen: 'anmelden', bereit: true }
+      return { zustand: { art: 'nichtKonfiguriert' }, benutzer: null, bereit: true }
     case 'pruefe':
-      return { zustand: { art: 'pruefe' }, benutzer: null, erfassen: 'unbekannt', bereit: false }
+      return { zustand: { art: 'pruefe' }, benutzer: null, bereit: false }
     case 'anonym':
-      return { zustand: { art: 'anonym' }, benutzer: null, erfassen: 'anmelden', bereit: true }
+      return { zustand: { art: 'anonym' }, benutzer: null, bereit: true }
   }
 
   if (ergebnis === null || ergebnis.art === 'nichtAngemeldet') {
-    return { zustand: { art: 'pruefe' }, benutzer: null, erfassen: 'unbekannt', bereit: false }
+    return { zustand: { art: 'pruefe' }, benutzer: null, bereit: false }
   }
   if (ergebnis.art === 'keinZugriff' && ergebnis.grund === 'deaktiviert') {
-    return { zustand: { art: 'deaktiviert' }, benutzer: null, erfassen: 'keineBerechtigung', bereit: true }
+    return { zustand: { art: 'deaktiviert' }, benutzer: null, bereit: true }
   }
   if (ergebnis.art !== 'ok') {
     return {
       zustand: { art: 'fehler', erneutVersuchen },
       benutzer: null,
-      erfassen: 'unbekannt',
       bereit: true,
     }
   }
@@ -146,7 +145,6 @@ function ableiten(
   return {
     zustand: { art: 'angemeldet', benutzer },
     benutzer,
-    erfassen: hatBerechtigung(benutzer, 'coins.write') ? 'erlaubt' : 'keineBerechtigung',
     bereit: true,
   }
 }

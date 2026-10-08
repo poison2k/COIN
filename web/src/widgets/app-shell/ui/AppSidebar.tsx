@@ -25,9 +25,17 @@ interface NavEintrag {
 
 const NAVIGATION: readonly NavEintrag[] = [
   { titel: 'Startseite', pfad: ROUTEN.start, icon: HouseIcon },
-  { titel: 'Coin-Liste', pfad: ROUTEN.coinListe, icon: ListIcon },
+  { titel: 'Katalog', pfad: ROUTEN.coinListe, icon: ListIcon },
   { titel: 'Benutzerverwaltung', pfad: ROUTEN.benutzerverwaltung, icon: UsersIcon, berechtigung: 'users.manage' },
 ]
+
+/**
+ * Aktiv auf dem eigenen Pfad und auf Unterseiten (z. B. „Katalog“ auf /coins/neu und /coins/{id}, katalog-seiten
+ * AK-25). `aria-current` setzt der Link selbst, nur auf dem exakten Pfad.
+ */
+function istAktiv(pfad: string, ziel: string): boolean {
+  return pfad === ziel || (ziel !== ROUTEN.start && pfad.startsWith(`${ziel}/`))
+}
 
 export interface AppSidebarProps {
   benutzerZustand: BenutzerZustand
@@ -56,11 +64,11 @@ export function AppSidebar({ benutzerZustand }: AppSidebarProps) {
                 {eintraege.map((eintrag) => (
                   <SidebarMenuItem key={eintrag.pfad}>
                     <SidebarMenuButton
-                      isActive={pfad === eintrag.pfad}
+                      isActive={istAktiv(pfad, eintrag.pfad)}
                       render={
                         <Link
                           to={eintrag.pfad}
-                          activeOptions={{ exact: true }}
+                          activeOptions={{ exact: true, includeSearch: false }}
                           onClick={() => {
                             // Auf schmalen Bildschirmen schließt das Overlay nach der Auswahl.
                             if (isMobile) setOpenMobile(false)

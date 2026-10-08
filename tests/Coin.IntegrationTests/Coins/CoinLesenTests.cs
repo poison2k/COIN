@@ -4,19 +4,24 @@ using Coin.IntegrationTests.Infrastruktur;
 
 namespace Coin.IntegrationTests.Coins;
 
-/// <summary>GET /api/coins und GET /api/coins/{id}: AK-9, AK-17, AK-18.</summary>
+/// <summary>
+/// GET /api/coins und GET /api/coins/{id}: AK-9, AK-17, AK-18. Seit katalog-seiten (AK-1, Entscheidung F7) liefert die
+/// Liste das Seiten-Format; Suche und Paging prüft <see cref="CoinSucheTests"/>.
+/// </summary>
 public class CoinLesenTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
 {
     // ---------- AK-17: Liste ----------
 
     [Fact]
-    public async Task GetListe_ohne_Coins_liefert_leeres_Array()
+    public async Task GetListe_ohne_Coins_liefert_eine_leere_erste_Seite()
     {
         using var antwort = await Anonym.GetAsync(CoinsUrl);
 
         Assert.Equal(HttpStatusCode.OK, antwort.StatusCode);
         Assert.Equal("application/json", antwort.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("[]", (await antwort.Content.ReadAsStringAsync()).Trim());
+        Assert.Equal(
+            """{"eintraege":[],"gesamt":0,"seite":1,"groesse":25}""",
+            (await antwort.Content.ReadAsStringAsync()).Trim());
     }
 
     [Fact]

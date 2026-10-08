@@ -109,6 +109,11 @@ export function konfliktAntwort(code: 'letzter_administrator' | 'eigenes_konto')
   return problemAntwort(409, { title: 'Änderung nicht möglich', code })
 }
 
+/** Eine Seite im Format der API (Benutzerliste, Audit-Log, seit katalog-seiten auch GET /api/coins). */
+export function seiteAntwort<T>(eintraege: T[], teil: { gesamt?: number; seite?: number; groesse?: number } = {}) {
+  return { eintraege, gesamt: teil.gesamt ?? eintraege.length, seite: teil.seite ?? 1, groesse: teil.groesse ?? 25 }
+}
+
 function seiteVon<T>(alle: T[], query: URLSearchParams) {
   const seite = Number(query.get('seite') ?? '1')
   const groesse = Number(query.get('groesse') ?? '25')
@@ -130,7 +135,8 @@ function bodyVon(init: RequestInit | undefined): unknown {
 /**
  * In-Memory-Nachbildung der Coin-API. Standardverhalten (rollen-benutzerverwaltung zusätzlich:
  * GET /api/benutzer mit Suche und Paging, PUT /api/benutzer/{id}/rolle|status, GET /api/audit):
- * GET /api/coins → Liste (nach Name sortiert), POST /api/coins → 201,
+ * GET /api/coins → Seite { eintraege, gesamt, seite, groesse } mit Suche (katalog-seiten, AK-1),
+ * GET /api/coins/{id} → Coin bzw. 404, POST /api/coins → 201,
  * PUT /api/coins/{id}/bild → 200 mit gesetzter bildUrl bzw. 404,
  * GET /api/me → 200 mit `optionen.me` bzw. 401 ohne angemeldeten Benutzer (anmeldung-keycloak).
  * Mit `einmal(...)` lässt sich die nächste passende Antwort überschreiben.
@@ -186,8 +192,18 @@ export function erstelleFakeApi(
       return jsonAntwort(200, seiteVon(treffer, anfrage.query))
     }
     if (anfrage.methode === 'GET' && anfrage.pfad === '/api/coins') {
-      const sortiert = [...coins].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-      return jsonAntwort(200, sortiert)
+      // katalog-seiten (AK-1 bis AK-3): Seiten-Format, Suche in Name oder Herausgeber, Sortierung Name, dann id.
+      const suche = (anfrage.query.get('suche') ?? '').trim().toLowerCase()
+      const treffer = coins
+        .filter((c) => !suche || c.name.toLowerCase().includes(suche) || c.herausgeber.toLowerCase().includes(suche))
+        .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()) || a.id.localeCompare(b.id))
+      return jsonAntwort(200, seiteVon(treffer, anfrage.query))
+    }
+    const einzeln = /^\/api\/coins\/([^/]+)$/.exec(anfrage.pfad)
+    if (anfrage.methode === 'GET' && einzeln) {
+      // katalog-seiten (AK-17): GET /api/coins/{id}; unbekannt → 404 „Coin nicht gefunden“.
+      const coin = coins.find((c) => c.id === decodeURIComponent(einzeln[1]))
+      return coin ? jsonAntwort(200, { ...coin }) : problemAntwort(404, { title: 'Coin nicht gefunden' })
     }
     if (anfrage.methode === 'POST' && anfrage.pfad === '/api/coins') {
       const daten = anfrage.body as {

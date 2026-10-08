@@ -3,11 +3,12 @@ import {
   erstelleFakeApi,
   jsonAntwort,
   problemAntwort,
+  seiteAntwort,
   testCoin,
   testDatei,
   type FakeApi,
 } from '../../../../test/fakeApi'
-import { ladeBildHoch, ladeCoins, legeCoinAn } from './coins'
+import { ladeBildHoch, ladeCoin, ladeCoins, legeCoinAn } from './coins'
 
 // Abbildung der HTTP-Statuscodes auf typisierte Ergebnisse (Abschnitt 6 des Entwurfs, AK-12 bis AK-25).
 
@@ -21,34 +22,111 @@ beforeEach(() => {
 const neuerCoin = { name: 'Coin Alpha', herausgeber: 'Herausgeber Beta', auflage: null, beschreibung: null }
 const COIN_ID = '0199a1b2-0000-7000-8000-000000000001'
 
+// Feature katalog-seiten, AK-1 und AK-2 (Entscheidung F7): ladeCoins({ suche, seite, groesse }) liefert eine Seite.
+const ALLE = { suche: '', seite: 1, groesse: 25 }
+
 describe('ladeCoins', () => {
   it('ruft GET /api/coins auf', async () => {
-    await ladeCoins()
+    await ladeCoins(ALLE)
 
     expect(api.anfragen).toHaveLength(1)
     expect(api.anfragen[0].methode).toBe('GET')
     expect(api.anfragen[0].pfad).toBe('/api/coins')
   })
 
-  it('liefert ok mit den Coins bei 200', async () => {
+  it('sendet seite und groesse als Query-Parameter', async () => {
+    await ladeCoins({ suche: '', seite: 3, groesse: 10 })
+
+    expect(api.anfragen[0].query.get('seite')).toBe('3')
+    expect(api.anfragen[0].query.get('groesse')).toBe('10')
+  })
+
+  it('sendet die Suche URL-kodiert', async () => {
+    await ladeCoins({ suche: 'a&b=c %_\\ ä#?', seite: 1, groesse: 25 })
+
+    expect(api.anfragen[0].query.get('suche')).toBe('a&b=c %_\\ ä#?')
+  })
+
+  it('sendet eine leere Suche nicht', async () => {
+    await ladeCoins(ALLE)
+
+    expect(api.anfragen[0].query.has('suche')).toBe(false)
+  })
+
+  it('sendet eine Suche nur aus Leerzeichen nicht', async () => {
+    await ladeCoins({ suche: '   ', seite: 1, groesse: 25 })
+
+    expect(api.anfragen[0].query.has('suche')).toBe(false)
+  })
+
+  it('liefert ok mit der Seite bei 200', async () => {
     const coin = testCoin()
-    api.einmal('GET', /^\/api\/coins$/, jsonAntwort(200, [coin]))
+    api.einmal('GET', /^\/api\/coins$/, jsonAntwort(200, seiteAntwort([coin], { gesamt: 1 })))
 
-    const ergebnis = await ladeCoins()
+    const ergebnis = await ladeCoins(ALLE)
 
-    expect(ergebnis).toEqual({ art: 'ok', daten: [coin] })
+    expect(ergebnis).toEqual({ art: 'ok', daten: { eintraege: [coin], gesamt: 1, seite: 1, groesse: 25 } })
+  })
+
+  it('liefert validierung bei 400', async () => {
+    const errors = { seite: ['Die Seite muss mindestens 1 sein.'] }
+    api.einmal('GET', /^\/api\/coins$/, problemAntwort(400, { title: 'Eingaben ungültig', errors }))
+
+    expect(await ladeCoins(ALLE)).toEqual({ art: 'validierung', fehler: errors })
   })
 
   it('liefert fehler bei 500', async () => {
     api.einmal('GET', /^\/api\/coins$/, problemAntwort(500))
 
-    expect((await ladeCoins()).art).toBe('fehler')
+    expect((await ladeCoins(ALLE)).art).toBe('fehler')
   })
 
   it('liefert fehler bei Netzwerkfehler statt eine Ausnahme zu werfen', async () => {
     api.netzwerkfehler('GET', /^\/api\/coins$/)
 
-    expect((await ladeCoins()).art).toBe('fehler')
+    expect((await ladeCoins(ALLE)).art).toBe('fehler')
+  })
+})
+
+// Feature katalog-seiten, AK-17: ladeCoin(id) für die Detailseite.
+describe('ladeCoin', () => {
+  it('ruft GET /api/coins/{id} auf', async () => {
+    api.coins.push(testCoin({ id: COIN_ID }))
+
+    await ladeCoin(COIN_ID)
+
+    expect(api.anfragen).toHaveLength(1)
+    expect(api.anfragen[0].methode).toBe('GET')
+    expect(api.anfragen[0].pfad).toBe(`/api/coins/${COIN_ID}`)
+  })
+
+  it('liefert ok mit dem Coin bei 200', async () => {
+    const coin = testCoin({ id: COIN_ID, beschreibung: 'Text' })
+    api.coins.push(coin)
+
+    expect(await ladeCoin(COIN_ID)).toEqual({ art: 'ok', daten: coin })
+  })
+
+  it('liefert nichtGefunden bei 404', async () => {
+    expect((await ladeCoin(COIN_ID)).art).toBe('nichtGefunden')
+  })
+
+  it('liefert fehler bei 500', async () => {
+    api.einmal('GET', /^\/api\/coins\/[^/]+$/, problemAntwort(500))
+
+    expect((await ladeCoin(COIN_ID)).art).toBe('fehler')
+  })
+
+  it('liefert fehler bei Netzwerkfehler', async () => {
+    api.netzwerkfehler('GET', /^\/api\/coins\/[^/]+$/)
+
+    expect((await ladeCoin(COIN_ID)).art).toBe('fehler')
+  })
+
+  it('kodiert die id im Pfad', async () => {
+    await ladeCoin('a/b')
+
+    expect(api.anfragen[0].pfad).toBe('/api/coins/a%2Fb')
   })
 })
 

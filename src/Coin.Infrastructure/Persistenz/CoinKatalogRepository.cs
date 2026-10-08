@@ -1,3 +1,4 @@
+using Coin.Domain.Gemeinsam;
 using Coin.Domain.Katalog;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -46,15 +47,34 @@ internal sealed class CoinKatalogRepository(CoinDbContext db) : ICoinKatalogRepo
         }
     }
 
-    public async Task<IReadOnlyList<CoinEintrag>> AlleAsync(CancellationToken ct) =>
-        await db.Coins
-            .AsNoTracking()
+    public async Task<Seite<CoinEintrag>> SuchenAsync(string? suche, int seite, int groesse, CancellationToken ct)
+    {
+        var abfrage = db.Coins.AsNoTracking();
+        if (!string.IsNullOrEmpty(suche))
+        {
+            var muster = Suchmuster.Teilstring(suche);
+            abfrage = abfrage.Where(c =>
+                EF.Functions.ILike(c.Name, muster, Suchmuster.Escape)
+                || EF.Functions.ILike(c.Herausgeber, muster, Suchmuster.Escape));
+        }
+
+        var gesamt = await abfrage.CountAsync(ct);
+        if (Suchmuster.Versatz(seite, groesse) is not { } versatz)
+        {
+            return new Seite<CoinEintrag>([], gesamt, seite, groesse);
+        }
+
+        var eintraege = await abfrage
             .OrderBy(c => c.Name.ToLower())
             .ThenBy(c => c.Id)
+            .Skip(versatz)
+            .Take(groesse)
             .Select(c => new CoinEintrag(
                 c.Id, c.Name, c.Herausgeber, c.Auflage, c.Beschreibung, c.ErstelltAm,
                 c.Bild != null ? c.Bild.Sha256 : null))
             .ToListAsync(ct);
+        return new Seite<CoinEintrag>(eintraege, gesamt, seite, groesse);
+    }
 
     public Task<CoinEintrag?> FindenAsync(Guid id, CancellationToken ct) =>
         db.Coins

@@ -7,23 +7,27 @@ import { formularFelder, fuelleAus, meldungMit, TEXTE } from '../../../../test/h
 import { CoinFormular } from './CoinFormular'
 
 // AK-27: 403 beim Anlegen → Meldung im Formular per role="alert".
+// Feature katalog-seiten, AK-21 bis AK-24: onAngelegt(coin, { bild }) ersetzt onGespeichert und wird erst aufgerufen,
+// wenn nichts mehr offen ist (nicht beim Teilerfolg); die Seite navigiert danach zur Detailseite.
+
+type OnAngelegt = (coin: Coin, ergebnis: { bild: 'gespeichert' | 'ohne' }) => void
 
 const TEXT_403 = 'Sie sind nicht berechtigt, Coins zu erfassen.'
 const POST_COINS = /^\/api\/coins$/
 
 let api: FakeApi
-let onGespeichert: ReturnType<typeof vi.fn<(coin: Coin) => void>>
+let onAngelegt: ReturnType<typeof vi.fn<OnAngelegt>>
 
 beforeEach(() => {
   api = erstelleFakeApi()
   vi.stubGlobal('fetch', api.fetch)
-  onGespeichert = vi.fn<(coin: Coin) => void>()
+  onAngelegt = vi.fn<OnAngelegt>()
 })
 
 async function sendeMit403() {
   api.einmal('POST', POST_COINS, problemAntwort(403, { title: 'Kein Zugriff' }))
   const user = userEvent.setup()
-  render(<CoinFormular onGespeichert={onGespeichert} />)
+  render(<CoinFormular onAngelegt={onAngelegt} />)
   await fuelleAus(user, { name: 'Coin Alpha', herausgeber: 'Herausgeber Beta' })
   await user.click(formularFelder().absenden)
   return { user }
@@ -42,7 +46,7 @@ describe('AK-27: 403 beim Anlegen', () => {
     await screen.findByText(TEXT_403)
 
     expect(meldungMit(TEXTE.erfolg)).toBeUndefined()
-    expect(onGespeichert).not.toHaveBeenCalled()
+    expect(onAngelegt).not.toHaveBeenCalled()
   })
 
   it('zeigt keine technischen Details der Antwort', async () => {
@@ -55,7 +59,7 @@ describe('AK-27: 403 beim Anlegen', () => {
   it('lädt kein Bild hoch, wenn das Anlegen mit 403 abgelehnt wurde', async () => {
     api.einmal('POST', POST_COINS, problemAntwort(403))
     const user = userEvent.setup({ applyAccept: false })
-    render(<CoinFormular onGespeichert={onGespeichert} />)
+    render(<CoinFormular onAngelegt={onAngelegt} />)
     const bild = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'motiv.png', { type: 'image/png' })
     await fuelleAus(user, { name: 'Coin Alpha', herausgeber: 'Herausgeber Beta', bild })
 
@@ -73,7 +77,7 @@ describe('AK-33: 403 mit code', () => {
   async function sendeMit(code: 'benutzer_deaktiviert' | 'keine_berechtigung') {
     api.einmal('POST', POST_COINS, keinZugriffAntwort(code))
     const user = userEvent.setup()
-    render(<CoinFormular onGespeichert={onGespeichert} />)
+    render(<CoinFormular onAngelegt={onAngelegt} />)
     await fuelleAus(user, { name: 'Coin Alpha', herausgeber: 'Herausgeber Beta' })
     await user.click(formularFelder().absenden)
   }

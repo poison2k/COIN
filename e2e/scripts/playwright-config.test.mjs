@@ -25,6 +25,10 @@ describe('playwright.config.ts', () => {
     assert.match(String(config.globalSetup), /global-setup\.ts$/)
   })
 
+  test('läuft mit genau einem Worker, weil die Specs Datenbank und Testbenutzer teilen', () => {
+    assert.equal(config.workers, 1)
+  })
+
   test('es gibt genau zwei webServer (API und Web)', () => {
     assert.equal(config.webServer.length, 2)
   })

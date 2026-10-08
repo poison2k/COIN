@@ -1,1 +1,1 @@
-export { CoinFormular, type CoinFormularProps } from './ui/CoinFormular'
+export { CoinFormular, type AngelegtErgebnis, type CoinFormularProps } from './ui/CoinFormular'

@@ -38,7 +38,7 @@ public sealed class CoinsController(CoinKatalogService service) : ControllerBase
         {
             CoinAnlegenErgebnis.Angelegt angelegt =>
                 CreatedAtAction(nameof(Finden), new { id = angelegt.Coin.Id }, CoinResponse.Aus(angelegt.Coin)),
-            CoinAnlegenErgebnis.Ungueltig ungueltig => Validierungsfehler(ungueltig.Fehler),
+            CoinAnlegenErgebnis.Ungueltig ungueltig => this.Validierungsfehler(ungueltig.Fehler),
             CoinAnlegenErgebnis.Duplikat => Problem(
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Coin existiert bereits",
@@ -47,12 +47,16 @@ public sealed class CoinsController(CoinKatalogService service) : ControllerBase
         };
     }
 
+    /// <summary>Katalogliste mit Suche (Name/Herausgeber) und Paging. Öffentlich (ADR-0014), unabhängig vom Token.</summary>
     [HttpGet]
     [AllowAnonymous]
-    public async Task<ActionResult<IEnumerable<CoinResponse>>> Auflisten(CancellationToken ct)
+    public async Task<ActionResult<SeiteResponse<CoinResponse>>> Auflisten(
+        [FromQuery] CoinSucheAnfrage anfrage, CancellationToken ct)
     {
-        var coins = await service.AuflistenAsync(ct);
-        return Ok(coins.Select(CoinResponse.Aus));
+        var ergebnis = await service.SuchenAsync(anfrage.Suche, anfrage.Seite, anfrage.Groesse, ct);
+        return ergebnis.IstErfolgreich
+            ? Ok(SeiteResponse<CoinResponse>.Aus(ergebnis.Wert!, CoinResponse.Aus))
+            : this.Validierungsfehler(ergebnis.Fehler);
     }
 
     [HttpGet("{id:guid}")]
@@ -128,21 +132,8 @@ public sealed class CoinsController(CoinKatalogService service) : ControllerBase
             entityTag: new EntityTagHeaderValue($"\"{bild.Sha256}\""));
     }
 
-    private ActionResult Validierungsfehler(IReadOnlyDictionary<string, string[]> fehler)
-    {
-        foreach (var (feld, meldungen) in fehler)
-        {
-            foreach (var meldung in meldungen)
-            {
-                ModelState.AddModelError(feld, meldung);
-            }
-        }
-
-        return ValidationProblem(title: "Eingaben ungültig", modelStateDictionary: ModelState);
-    }
-
     private ActionResult DateiFehler(string meldung) =>
-        Validierungsfehler(new Dictionary<string, string[]> { [DateiFeld] = [meldung] });
+        this.Validierungsfehler(new Dictionary<string, string[]> { [DateiFeld] = [meldung] });
 
     private ObjectResult BildZuGross() => Problem(
         statusCode: StatusCodes.Status413PayloadTooLarge,

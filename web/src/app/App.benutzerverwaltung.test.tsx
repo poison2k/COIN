@@ -30,7 +30,9 @@ const TEXTE = {
   deaktiviert:
     'Ihr Benutzerkonto ist deaktiviert. Den Coin-Katalog können Sie weiterhin ansehen. Wenden Sie sich bei Fragen an einen Administrator.',
   keineRolle: 'Ihrem Konto ist aber noch keine Rolle zugewiesen',
-  keineBerechtigung: 'Coins erfassen können nur Administratoren und Sachbearbeiter.',
+  /** katalog-seiten, AK-10: „Kein Zugriff“ für Benutzer mit Rolle ohne die Berechtigung der Seite. */
+  ohneBerechtigung:
+    'Ihr Benutzerkonto ist für diese Seite nicht berechtigt. Den Coin-Katalog können Sie weiterhin ansehen. Wenden Sie sich bei Fragen an einen Administrator.',
 } as const
 
 const ENGLISCH =
@@ -199,11 +201,33 @@ describe('/benutzerverwaltung', () => {
     expect(screen.getByRole('combobox', { name: 'Rolle von Anna Probe' })).toBeEnabled()
   })
 
-  it.each(['betrachter', 'sachbearbeiter'] as const)('leitet %s zur Startseite', async (als) => {
+  // katalog-seiten, AK-11 (Entscheidung F1): bisher Weiterleitung zur Startseite.
+  it.each(['betrachter', 'sachbearbeiter'] as const)('leitet %s nach /kein-zugriff?grund=berechtigung', async (als) => {
     const { router } = zeigeApp('/benutzerverwaltung', { als })
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/kein-zugriff'))
+    expect(router.state.location.search).toEqual({ grund: 'berechtigung' })
     expect(screen.queryByRole('heading', { level: 1, name: 'Benutzerverwaltung' })).not.toBeInTheDocument()
+  })
+
+  it.each(['betrachter', 'sachbearbeiter'] as const)('zeigt %s „Kein Zugriff“ mit dem Text aus AK-10', async (als) => {
+    zeigeApp('/benutzerverwaltung', { als })
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Kein Zugriff' })).toBeInTheDocument()
+    await waitFor(() => expect(document.body.textContent?.replace(/\s+/g, ' ')).toContain(TEXTE.ohneBerechtigung))
+    expect(within(screen.getByRole('main')).queryByRole('button', { name: 'Erneut prüfen' })).not.toBeInTheDocument()
+    expect(within(screen.getByRole('main')).getByRole('link', { name: 'Zum Coin-Katalog' })).toHaveAttribute(
+      'href',
+      '/coins',
+    )
+    expect(within(screen.getByRole('main')).getByRole('button', { name: 'Abmelden' })).toBeInTheDocument()
+  })
+
+  it('ersetzt beim Weiterleiten den Eintrag /benutzerverwaltung im Verlauf (replace)', async () => {
+    const { router } = zeigeApp('/benutzerverwaltung', { als: 'betrachter' })
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/kein-zugriff'))
+    expect(router.history.length).toBe(1)
   })
 
   it('leitet Benutzer ohne Rolle nach /kein-zugriff', async () => {
@@ -307,12 +331,13 @@ describe('deaktivierter Benutzer', () => {
     expect(await screen.findByText('Coin Alpha')).toBeInTheDocument()
   })
 
-  it('sieht unter /coins kein Formular „Coin anlegen“', async () => {
+  it('sieht unter /coins kein Formular „Coin anlegen“ und keinen Link „Coin hinzufügen“', async () => {
     zeigeApp('/coins', { als: 'deaktiviert' })
     await angemeldetGeladen()
     await screen.findByText('Coin Alpha')
 
     expect(screen.queryByRole('button', { name: 'Coin anlegen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Coin hinzufügen' })).not.toBeInTheDocument()
   })
 
   it('wird nach dem Rückruf nach /kein-zugriff geleitet', async () => {
@@ -380,19 +405,33 @@ describe('deaktivierter Benutzer', () => {
   })
 })
 
-// ---------- AK-33: erfassen aus berechtigungen ----------
+// ---------- AK-33, seit katalog-seiten AK-13: „Coin hinzufügen“ aus berechtigungen ----------
 
-describe('Erfassen nach Berechtigung', () => {
-  it('zeigt das Formular bei coins.write, auch wenn die Rolle Betrachter heißt', async () => {
+describe('Coin hinzufügen nach Berechtigung', () => {
+  it('zeigt den Link bei coins.write, auch wenn die Rolle Betrachter heißt', async () => {
     zeigeApp('/coins', { als: { ...ME.betrachter, berechtigungen: ['coins.read', 'coins.write'] } })
+
+    expect(await screen.findByRole('link', { name: 'Coin hinzufügen' })).toHaveAttribute('href', '/coins/neu')
+  })
+
+  it('zeigt den Link ohne coins.write nicht, auch wenn die Rolle Administrator heißt', async () => {
+    zeigeApp('/coins', { als: { ...ME.admin, berechtigungen: ['coins.read'] } })
+    await angemeldetGeladen()
+    await screen.findByText('Coin Alpha')
+
+    expect(screen.queryByRole('link', { name: 'Coin hinzufügen' })).not.toBeInTheDocument()
+  })
+
+  it('zeigt das Formular auf /coins/neu bei coins.write, auch wenn die Rolle Betrachter heißt', async () => {
+    zeigeApp('/coins/neu', { als: { ...ME.betrachter, berechtigungen: ['coins.read', 'coins.write'] } })
 
     expect(await screen.findByRole('button', { name: 'Coin anlegen' })).toBeInTheDocument()
   })
 
-  it('zeigt den Hinweis ohne coins.write, auch wenn die Rolle Administrator heißt', async () => {
-    zeigeApp('/coins', { als: { ...ME.admin, berechtigungen: ['coins.read'] } })
+  it('leitet von /coins/neu ohne coins.write auf „Kein Zugriff“, auch wenn die Rolle Administrator heißt', async () => {
+    const { router } = zeigeApp('/coins/neu', { als: { ...ME.admin, berechtigungen: ['coins.read', 'users.manage'] } })
 
-    expect(await screen.findByText(TEXTE.keineBerechtigung)).toBeInTheDocument()
+    await waitFor(() => expect(router.state.location.pathname).toBe('/kein-zugriff'))
     expect(screen.queryByRole('button', { name: 'Coin anlegen' })).not.toBeInTheDocument()
   })
 })
@@ -437,6 +476,15 @@ describe('deutsche Texte', () => {
     await screen.findByRole('alertdialog', { name: 'Benutzer deaktivieren?' })
 
     expect(alleTexte()).not.toMatch(ENGLISCH)
+  })
+
+  it('/kein-zugriff?grund=berechtigung ohne englische Texte und mit genau einem h1 (katalog-seiten, AK-26)', async () => {
+    zeigeApp('/benutzerverwaltung', { als: 'betrachter' })
+    await screen.findByRole('heading', { level: 1, name: 'Kein Zugriff' })
+    await waitFor(() => expect(document.body.textContent?.replace(/\s+/g, ' ')).toContain(TEXTE.ohneBerechtigung))
+
+    expect(alleTexte()).not.toMatch(ENGLISCH)
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 
   it('/kein-zugriff für Deaktivierte ohne englische Texte und mit genau einem h1', async () => {

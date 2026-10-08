@@ -210,13 +210,17 @@ public abstract class IntegrationTestBasis(PostgresFixture fixture) : IAsyncLife
         return await JsonAsync(antwort);
     }
 
+    /// <summary>
+    /// Einträge der ersten Katalogseite (anonym, Standardgröße 25). Seit katalog-seiten (AK-1, Entscheidung F7) liefert
+    /// <c>GET /api/coins</c> das Seiten-Format <c>{ eintraege, gesamt, seite, groesse }</c> statt eines Arrays.
+    /// </summary>
     protected async Task<JsonElement[]> LadeListeAsync()
     {
         using var antwort = await Anonym.GetAsync(CoinsUrl);
         Assert.Equal(HttpStatusCode.OK, antwort.StatusCode);
         var json = await JsonAsync(antwort);
-        Assert.Equal(JsonValueKind.Array, json.ValueKind);
-        return json.EnumerateArray().ToArray();
+        Assert.Equal(JsonValueKind.Object, json.ValueKind);
+        return json.GetProperty("eintraege").EnumerateArray().ToArray();
     }
 
     protected static async Task<JsonElement> JsonAsync(HttpResponseMessage antwort)

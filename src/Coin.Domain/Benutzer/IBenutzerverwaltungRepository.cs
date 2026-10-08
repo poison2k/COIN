@@ -1,3 +1,5 @@
+using Coin.Domain.Gemeinsam;
+
 namespace Coin.Domain.Benutzer;
 
 /// <summary>Persistenz der Benutzerverwaltung (ADR-0017, ADR-0018).</summary>

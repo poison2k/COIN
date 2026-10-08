@@ -12,7 +12,8 @@ import { erstelleRouter } from './router/router'
 // AK-13 bis AK-17, AK-21: Verdrahtung von Router, App-Shell (Sidebar) und Theme.
 // Der Router wird mit Memory-History erzeugt (Abschnitt 4.4 des Entwurfs).
 // Feature anmeldung-keycloak: Die App läuft standardmäßig mit angemeldetem Administrator (Abschnitt 6.2),
-// damit die bestehenden Assertions (z. B. Formular unter /coins) unverändert gelten.
+// damit die bestehenden Assertions gelten. Feature katalog-seiten (AK-12, AK-25, Entscheidung F4): Benennung „Katalog“,
+// kein Formular mehr unter /coins.
 
 const THEME_SCHLUESSEL = 'coin-theme'
 
@@ -35,8 +36,8 @@ function html(): HTMLElement {
   return document.documentElement
 }
 
-/** Navigationseintrag der Sidebar (exakter Name, damit „Zur Coin-Liste“ nicht mitzählt). */
-function sidebarLink(name: 'Startseite' | 'Coin-Liste'): HTMLElement {
+/** Navigationseintrag der Sidebar (exakter Name, damit „Zum Katalog“ nicht mitzählt). */
+function sidebarLink(name: 'Startseite' | 'Katalog'): HTMLElement {
   return screen.getByRole('link', { name })
 }
 
@@ -45,23 +46,25 @@ async function waehleFarbschema(user: ReturnType<typeof userEvent.setup>, eintra
   await user.click(await screen.findByRole('menuitem', { name: eintrag }))
 }
 
-describe('App – Coin-Liste unter /coins', () => {
+describe('App – Katalog unter /coins', () => {
   it('zeigt unter /coins die Katalogliste', async () => {
     zeigeApp('/coins')
 
     expect(await screen.findByText(TEXTE.leereListe)).toBeInTheDocument()
   })
 
-  it('zeigt unter /coins das Formular „Coin anlegen“', async () => {
+  // katalog-seiten, AK-12/AK-13: Das Formular liegt auf /coins/neu; /coins zeigt dem Administrator nur den Link.
+  it('zeigt unter /coins dem Administrator den Link „Coin hinzufügen“ statt des Formulars', async () => {
     zeigeApp('/coins')
 
-    expect(await screen.findByRole('button', { name: 'Coin anlegen' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Coin hinzufügen' })).toHaveAttribute('href', '/coins/neu')
+    expect(screen.queryByRole('button', { name: 'Coin anlegen' })).not.toBeInTheDocument()
   })
 
-  it('zeigt unter /coins die Überschrift „Coin-Katalog“', async () => {
+  it('zeigt unter /coins die Überschrift „Katalog“', async () => {
     zeigeApp('/coins')
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Coin-Katalog' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Katalog' })).toBeInTheDocument()
   })
 
   it('enthält keine Inhalte des Vite-Templates mehr', async () => {
@@ -79,26 +82,26 @@ describe('App – Startseite unter /', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })).toBeInTheDocument()
   })
 
-  it('zeigt den Link „Zur Coin-Liste“ mit Ziel /coins', async () => {
+  it('zeigt den Link „Zum Katalog“ mit Ziel /coins', async () => {
     zeigeApp('/')
 
-    expect(await screen.findByRole('link', { name: 'Zur Coin-Liste' })).toHaveAttribute('href', '/coins')
+    expect(await screen.findByRole('link', { name: 'Zum Katalog' })).toHaveAttribute('href', '/coins')
   })
 
   it('zeigt auf der Startseite weder Katalogliste noch Formular', async () => {
     zeigeApp('/')
     await screen.findByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })
 
-    expect(screen.queryByRole('heading', { name: 'Coin-Katalog' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Katalog' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Coin anlegen' })).not.toBeInTheDocument()
   })
 
-  it('führt über den Link „Zur Coin-Liste“ zur Coin-Liste', async () => {
+  it('führt über den Link „Zum Katalog“ zum Katalog', async () => {
     const { user, router } = zeigeApp('/')
 
-    await user.click(await screen.findByRole('link', { name: 'Zur Coin-Liste' }))
+    await user.click(await screen.findByRole('link', { name: 'Zum Katalog' }))
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Coin-Katalog' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Katalog' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/coins')
   })
 
@@ -117,12 +120,12 @@ describe('App – Sidebar', () => {
     expect(await screen.findByText('C.O.I.N.')).toBeInTheDocument()
   })
 
-  it('verlinkt „Startseite“ auf / und „Coin-Liste“ auf /coins', async () => {
+  it('verlinkt „Startseite“ auf / und „Katalog“ auf /coins', async () => {
     zeigeApp('/')
     await screen.findByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })
 
     expect(sidebarLink('Startseite')).toHaveAttribute('href', '/')
-    expect(sidebarLink('Coin-Liste')).toHaveAttribute('href', '/coins')
+    expect(sidebarLink('Katalog')).toHaveAttribute('href', '/coins')
   })
 
   it('markiert auf / den Eintrag „Startseite“ als aktiv', async () => {
@@ -130,40 +133,40 @@ describe('App – Sidebar', () => {
     await screen.findByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })
 
     expect(sidebarLink('Startseite')).toHaveAttribute('aria-current', 'page')
-    expect(sidebarLink('Coin-Liste')).not.toHaveAttribute('aria-current')
+    expect(sidebarLink('Katalog')).not.toHaveAttribute('aria-current')
   })
 
-  it('markiert auf /coins den Eintrag „Coin-Liste“ als aktiv', async () => {
+  it('markiert auf /coins den Eintrag „Katalog“ als aktiv', async () => {
     zeigeApp('/coins')
-    await screen.findByRole('heading', { level: 1, name: 'Coin-Katalog' })
+    await screen.findByRole('heading', { level: 1, name: 'Katalog' })
 
-    expect(sidebarLink('Coin-Liste')).toHaveAttribute('aria-current', 'page')
+    expect(sidebarLink('Katalog')).toHaveAttribute('aria-current', 'page')
     expect(sidebarLink('Startseite')).not.toHaveAttribute('aria-current')
   })
 
-  it('führt per Klick auf „Coin-Liste“ zur Coin-Liste', async () => {
+  it('führt per Klick auf „Katalog“ zum Katalog', async () => {
     const { user, router } = zeigeApp('/')
     await screen.findByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })
 
-    await user.click(sidebarLink('Coin-Liste'))
+    await user.click(sidebarLink('Katalog'))
 
     expect(await screen.findByText(TEXTE.leereListe)).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/coins')
   })
 
-  it('verschiebt die Markierung nach dem Klick auf „Coin-Liste“', async () => {
+  it('verschiebt die Markierung nach dem Klick auf „Katalog“', async () => {
     const { user } = zeigeApp('/')
     await screen.findByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })
 
-    await user.click(sidebarLink('Coin-Liste'))
+    await user.click(sidebarLink('Katalog'))
 
-    await waitFor(() => expect(sidebarLink('Coin-Liste')).toHaveAttribute('aria-current', 'page'))
+    await waitFor(() => expect(sidebarLink('Katalog')).toHaveAttribute('aria-current', 'page'))
     expect(sidebarLink('Startseite')).not.toHaveAttribute('aria-current')
   })
 
-  it('führt per Klick auf „Startseite“ von der Coin-Liste zurück zur Startseite', async () => {
+  it('führt per Klick auf „Startseite“ vom Katalog zurück zur Startseite', async () => {
     const { user, router } = zeigeApp('/coins')
-    await screen.findByRole('heading', { level: 1, name: 'Coin-Katalog' })
+    await screen.findByRole('heading', { level: 1, name: 'Katalog' })
 
     await user.click(sidebarLink('Startseite'))
 
@@ -229,7 +232,7 @@ describe('App – Sidebar ein-/ausklappen (Desktop)', () => {
     await screen.findByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })
 
     expect(istPerTabErreichbar(sidebarLink('Startseite'))).toBe(true)
-    expect(istPerTabErreichbar(sidebarLink('Coin-Liste'))).toBe(true)
+    expect(istPerTabErreichbar(sidebarLink('Katalog'))).toBe(true)
   })
 
   it('nimmt die Sidebar-Links im eingeklappten Zustand aus dem Tab-Fluss', async () => {
@@ -251,7 +254,7 @@ describe('App – Sidebar ein-/ausklappen (Desktop)', () => {
     await waitFor(() => expect(desktopSidebar()).toHaveAttribute('data-state', 'expanded'))
 
     expect(istPerTabErreichbar(sidebarLink('Startseite'))).toBe(true)
-    expect(istPerTabErreichbar(sidebarLink('Coin-Liste'))).toBe(true)
+    expect(istPerTabErreichbar(sidebarLink('Katalog'))).toBe(true)
   })
 })
 
@@ -279,7 +282,7 @@ describe('App – Sidebar als Overlay (schmaler Bildschirm)', () => {
     zeigeApp('/')
     await screen.findByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })
 
-    expect(screen.queryByRole('link', { name: 'Coin-Liste' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Katalog' })).not.toBeInTheDocument()
   })
 
   it('öffnet per Button ein Overlay als Dialog mit dem Namen „Seitenleiste“', async () => {
@@ -296,17 +299,17 @@ describe('App – Sidebar als Overlay (schmaler Bildschirm)', () => {
     expect(beschreibung).not.toMatch(/\b(Displays|mobile|Sidebar)\b/)
   })
 
-  it('zeigt im Overlay die Einträge „Startseite“ und „Coin-Liste“', async () => {
+  it('zeigt im Overlay die Einträge „Startseite“ und „Katalog“', async () => {
     const { dialog } = await oeffneOverlay()
 
     expect(within(dialog).getByRole('link', { name: 'Startseite' })).toHaveAttribute('href', '/')
-    expect(within(dialog).getByRole('link', { name: 'Coin-Liste' })).toHaveAttribute('href', '/coins')
+    expect(within(dialog).getByRole('link', { name: 'Katalog' })).toHaveAttribute('href', '/coins')
   })
 
-  it('schließt das Overlay nach Klick auf „Coin-Liste“ und zeigt die Liste', async () => {
+  it('schließt das Overlay nach Klick auf „Katalog“ und zeigt die Liste', async () => {
     const { user, router, dialog } = await oeffneOverlay()
 
-    await user.click(within(dialog).getByRole('link', { name: 'Coin-Liste' }))
+    await user.click(within(dialog).getByRole('link', { name: 'Katalog' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Seitenleiste' })).not.toBeInTheDocument())
     expect(await screen.findByText(TEXTE.leereListe)).toBeInTheDocument()

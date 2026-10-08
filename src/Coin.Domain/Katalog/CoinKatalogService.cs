@@ -1,3 +1,5 @@
+using Coin.Domain.Gemeinsam;
+
 namespace Coin.Domain.Katalog;
 
 /// <summary>Use Cases des Coin-Katalogs.</summary>
@@ -52,7 +54,19 @@ public sealed class CoinKatalogService(ICoinKatalogRepository repository, TimePr
         return new BildHochladenErgebnis.Gespeichert(coin with { BildSha256 = bild.Sha256 });
     }
 
-    public Task<IReadOnlyList<CoinEintrag>> AuflistenAsync(CancellationToken ct) => repository.AlleAsync(ct);
+    /// <summary>Katalogliste mit Suche und Paging. Fehler je Feld: <c>suche</c>, <c>seite</c>, <c>groesse</c>.</summary>
+    public async Task<Ergebnis<Seite<CoinEintrag>>> SuchenAsync(string? suche, int? seite, int? groesse, CancellationToken ct)
+    {
+        var fehler = Seitenabfrage.Fehler(suche, seite, groesse);
+        if (fehler.Count > 0)
+        {
+            return Ergebnis<Seite<CoinEintrag>>.Fehlschlag(fehler);
+        }
+
+        var liste = await repository.SuchenAsync(
+            Seitenabfrage.Suchbegriff(suche), seite ?? 1, groesse ?? Seitenabfrage.StandardGroesse, ct);
+        return Ergebnis<Seite<CoinEintrag>>.Erfolg(liste);
+    }
 
     public Task<CoinEintrag?> FindenAsync(Guid id, CancellationToken ct) => repository.FindenAsync(id, ct);
 

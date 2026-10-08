@@ -11,6 +11,10 @@ function antwort(status, body) {
   return async () => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status })
 }
 
+// Leere Seite im Format von GET /api/coins (katalog-seiten, AK-1/F7).
+const LEERE_SEITE = { eintraege: [], gesamt: 0, seite: 1, groesse: 25 }
+const LEERE_SEITE_JSON = JSON.stringify(LEERE_SEITE)
+
 function erwarteAbbruch(fehler) {
   assert.ok(fehler instanceof Error)
   assert.ok(fehler.message.startsWith(MELDUNG), `unerwartete Meldung: ${fehler.message}`)
@@ -24,15 +28,15 @@ describe('ABBRUCH_MELDUNG', () => {
 })
 
 describe('pruefeSystemtestDatenbankLeer', () => {
-  test('ist erfolgreich bei Status 200 und leerem Array', async () => {
-    await pruefeSystemtestDatenbankLeer({ fetch: antwort(200, []) })
+  test('ist erfolgreich bei Status 200 und leerer Seite', async () => {
+    await pruefeSystemtestDatenbankLeer({ fetch: antwort(200, LEERE_SEITE) })
   })
 
   test('fragt standardmäßig http://localhost:5183/api/coins ab (Kette Web → Proxy → API)', async () => {
     const aufrufe = []
     const fetch = async (url) => {
       aufrufe.push(String(url))
-      return new Response('[]', { status: 200 })
+      return new Response(LEERE_SEITE_JSON, { status: 200 })
     }
     await pruefeSystemtestDatenbankLeer({ fetch })
     assert.deepEqual(aufrufe, ['http://localhost:5183/api/coins'])
@@ -42,7 +46,7 @@ describe('pruefeSystemtestDatenbankLeer', () => {
     const aufrufe = []
     const fetch = async (url) => {
       aufrufe.push(String(url))
-      return new Response('[]', { status: 200 })
+      return new Response(LEERE_SEITE_JSON, { status: 200 })
     }
     await pruefeSystemtestDatenbankLeer({ url: 'http://localhost:6000/api/coins', fetch })
     assert.deepEqual(aufrufe, ['http://localhost:6000/api/coins'])
@@ -50,15 +54,29 @@ describe('pruefeSystemtestDatenbankLeer', () => {
 
   test('bricht ab, wenn bereits Coins vorhanden sind', async () => {
     const coins = [{ id: 1, name: 'Synthetischer Coin', herausgeber: 'Testherausgeber' }]
-    await assert.rejects(pruefeSystemtestDatenbankLeer({ fetch: antwort(200, coins) }), erwarteAbbruch)
+    const seite = { eintraege: coins, gesamt: 1, seite: 1, groesse: 25 }
+    await assert.rejects(pruefeSystemtestDatenbankLeer({ fetch: antwort(200, seite) }), erwarteAbbruch)
+  })
+
+  test('bricht ab, wenn gesamt Coins meldet, auch wenn eintraege leer ist', async () => {
+    const seite = { eintraege: [], gesamt: 3, seite: 1, groesse: 25 }
+    await assert.rejects(pruefeSystemtestDatenbankLeer({ fetch: antwort(200, seite) }), erwarteAbbruch)
+  })
+
+  test('bricht ab, wenn die Antwort noch das alte Array-Format hat', async () => {
+    await assert.rejects(pruefeSystemtestDatenbankLeer({ fetch: antwort(200, []) }), erwarteAbbruch)
+  })
+
+  test('bricht ab, wenn gesamt fehlt', async () => {
+    await assert.rejects(pruefeSystemtestDatenbankLeer({ fetch: antwort(200, { eintraege: [] }) }), erwarteAbbruch)
   })
 
   test('bricht bei Status 500 ab', async () => {
-    await assert.rejects(pruefeSystemtestDatenbankLeer({ fetch: antwort(500, []) }), erwarteAbbruch)
+    await assert.rejects(pruefeSystemtestDatenbankLeer({ fetch: antwort(500, LEERE_SEITE) }), erwarteAbbruch)
   })
 
   test('bricht bei Status 404 ab', async () => {
-    await assert.rejects(pruefeSystemtestDatenbankLeer({ fetch: antwort(404, []) }), erwarteAbbruch)
+    await assert.rejects(pruefeSystemtestDatenbankLeer({ fetch: antwort(404, LEERE_SEITE) }), erwarteAbbruch)
   })
 
   test('bricht bei Status 204 ohne Inhalt ab', async () => {
@@ -80,7 +98,7 @@ describe('pruefeSystemtestDatenbankLeer', () => {
     )
   })
 
-  test('bricht ab, wenn die Antwort ein Objekt statt eines Arrays ist', async () => {
+  test('bricht ab, wenn die Antwort ein leeres Objekt ohne eintraege ist', async () => {
     await assert.rejects(pruefeSystemtestDatenbankLeer({ fetch: antwort(200, {}) }), erwarteAbbruch)
   })
 
@@ -93,7 +111,7 @@ describe('pruefeSystemtestDatenbankLeer', () => {
     let aufgerufen = false
     globalThis.fetch = async () => {
       aufgerufen = true
-      return new Response('[]', { status: 200 })
+      return new Response(LEERE_SEITE_JSON, { status: 200 })
     }
     try {
       await pruefeSystemtestDatenbankLeer()

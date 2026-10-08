@@ -1,11 +1,36 @@
-import { sende, type ApiErgebnis } from '@/shared/api'
+import { sende, type ApiErgebnis, type Seite } from '@/shared/api'
 import type { Coin, CoinAnlegen } from '../model/types'
 
 const COINS_URL = '/api/coins'
 
-/** GET /api/coins */
-export function ladeCoins(): Promise<ApiErgebnis<Coin[]>> {
-  return sende<Coin[]>(COINS_URL, { method: 'GET', headers: { Accept: 'application/json' } }, [200])
+export interface CoinSuche {
+  /** Suchbegriff; leer bzw. nur Leerzeichen wird nicht gesendet. */
+  suche: string
+  /** Seite, beginnend bei 1. */
+  seite: number
+  groesse: number
+}
+
+/** GET /api/coins?suche&seite&groesse – eine Seite des Katalogs (öffentlich). */
+export function ladeCoins({ suche, seite, groesse }: CoinSuche): Promise<ApiErgebnis<Seite<Coin>>> {
+  const query = new URLSearchParams()
+  if (suche.trim() !== '') query.set('suche', suche)
+  query.set('seite', String(seite))
+  query.set('groesse', String(groesse))
+  return sende<Seite<Coin>>(
+    `${COINS_URL}?${query.toString()}`,
+    { method: 'GET', headers: { Accept: 'application/json' } },
+    [200],
+  )
+}
+
+/** GET /api/coins/{id} – ein Coin (öffentlich); 404 → `nichtGefunden`. */
+export function ladeCoin(id: string): Promise<ApiErgebnis<Coin>> {
+  return sende<Coin>(
+    `${COINS_URL}/${encodeURIComponent(id)}`,
+    { method: 'GET', headers: { Accept: 'application/json' } },
+    [200],
+  )
 }
 
 /** POST /api/coins */

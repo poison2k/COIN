@@ -1,3 +1,5 @@
+using Coin.Domain.Gemeinsam;
+
 namespace Coin.Domain.Benutzer;
 
 /// <summary>Ergebnis einer Rollen- oder Statusänderung (ADR-0018).</summary>
@@ -26,11 +28,6 @@ public abstract record AenderungErgebnis
 /// </summary>
 public sealed class BenutzerverwaltungService(IBenutzerverwaltungRepository repository, TimeProvider zeit)
 {
-    public const int GroesseMin = 1;
-    public const int GroesseMax = 100;
-    public const int StandardGroesse = 25;
-    public const int SucheMaxLaenge = 100;
-
     public Task<AenderungErgebnis> RolleZuweisenAsync(Guid akteurId, Guid zielId, Rolle? rolle, CancellationToken ct) =>
         AendernAsync(akteurId, zielId, new Aenderung.RolleSetzen(rolle), ct);
 
@@ -40,33 +37,27 @@ public sealed class BenutzerverwaltungService(IBenutzerverwaltungRepository repo
     /// <summary>Benutzerliste (AK-11). Fehler je Feld: <c>suche</c>, <c>seite</c>, <c>groesse</c>.</summary>
     public async Task<Ergebnis<Seite<Benutzer>>> AuflistenAsync(string? suche, int? seite, int? groesse, CancellationToken ct)
     {
-        var fehler = SeiteFehler(seite, groesse);
-        var begriff = suche?.Trim();
-        if (begriff is { Length: > SucheMaxLaenge })
-        {
-            fehler["suche"] = [$"Der Suchbegriff darf höchstens {SucheMaxLaenge} Zeichen lang sein."];
-        }
-
+        var fehler = Seitenabfrage.Fehler(suche, seite, groesse);
         if (fehler.Count > 0)
         {
             return Ergebnis<Seite<Benutzer>>.Fehlschlag(fehler);
         }
 
         var liste = await repository.SuchenAsync(
-            string.IsNullOrEmpty(begriff) ? null : begriff, seite ?? 1, groesse ?? StandardGroesse, ct);
+            Seitenabfrage.Suchbegriff(suche), seite ?? 1, groesse ?? Seitenabfrage.StandardGroesse, ct);
         return Ergebnis<Seite<Benutzer>>.Erfolg(liste);
     }
 
     /// <summary>Audit-Log (AK-14). Fehler je Feld: <c>seite</c>, <c>groesse</c>.</summary>
     public async Task<Ergebnis<Seite<AuditEintragAnsicht>>> AuditLesenAsync(Guid? benutzerId, int? seite, int? groesse, CancellationToken ct)
     {
-        var fehler = SeiteFehler(seite, groesse);
+        var fehler = Seitenabfrage.SeiteFehler(seite, groesse);
         if (fehler.Count > 0)
         {
             return Ergebnis<Seite<AuditEintragAnsicht>>.Fehlschlag(fehler);
         }
 
-        var liste = await repository.AuditSeiteAsync(benutzerId, seite ?? 1, groesse ?? StandardGroesse, ct);
+        var liste = await repository.AuditSeiteAsync(benutzerId, seite ?? 1, groesse ?? Seitenabfrage.StandardGroesse, ct);
         return Ergebnis<Seite<AuditEintragAnsicht>>.Erfolg(liste);
     }
 
@@ -112,22 +103,6 @@ public sealed class BenutzerverwaltungService(IBenutzerverwaltungRepository repo
                 AuditEintrag.StatusWert(alt.Aktiv), AuditEintrag.StatusWert(neu.Aktiv)),
             _ => throw new ArgumentOutOfRangeException(nameof(aenderung)),
         };
-
-    private static Dictionary<string, string[]> SeiteFehler(int? seite, int? groesse)
-    {
-        var fehler = new Dictionary<string, string[]>();
-        if (seite is < 1)
-        {
-            fehler["seite"] = ["Die Seite muss mindestens 1 sein."];
-        }
-
-        if (groesse is < GroesseMin or > GroesseMax)
-        {
-            fehler["groesse"] = [$"Die Seitengröße muss zwischen {GroesseMin} und {GroesseMax} liegen."];
-        }
-
-        return fehler;
-    }
 
     /// <summary>UTC, auf Mikrosekunden gekürzt (Auflösung von PostgreSQL <c>timestamptz</c>).</summary>
     private DateTimeOffset Jetzt()

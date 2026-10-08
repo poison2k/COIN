@@ -160,7 +160,13 @@ test.beforeEach(async ({ page }) => {
   )
   await page.route(
     (url) => url.pathname === '/api/coins',
-    (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    // Seit katalog-seiten (AK-1, Entscheidung F7) im Seiten-Format.
+    (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ eintraege: [], gesamt: 0, seite: 1, groesse: 25 }),
+      }),
   )
   await mockeIdp(page, () => ({
     access_token: 'ui-access-token-neu',
@@ -200,7 +206,9 @@ test('anonym wird beim Öffnen von / und /coins nicht zum Login geleitet und /ap
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })).toBeVisible()
   await page.goto('/coins')
-  await expect(page.getByText('Zum Erfassen von Coins melden Sie sich bitte an.')).toBeVisible()
+  // katalog-seiten (AK-12/AK-13): kein Anmeldehinweis mehr, anonym auch kein „Coin hinzufügen“.
+  await expect(page.getByText('Noch keine Coins erfasst.')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Coin hinzufügen' })).toHaveCount(0)
 
   expect(page.url()).toBe(`${WEB}/coins`)
   expect(idp).toEqual([])
@@ -352,7 +360,9 @@ test('nach dem Abmelden gibt es keine oidc.-Schlüssel und im localStorage höch
   await meldeAnAls(page, ADMIN)
   await page.goto('/')
   await kopfzeile(page).getByRole('button', { name: 'Abmelden' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Abgemeldet' })).toBeVisible()
+  // Nach der Weiterleitung über den IdP-Mock lädt Vite die App neu; unter Last dauert das länger als 5 s.
+  await page.waitForURL(`${WEB}/abgemeldet`, { waitUntil: 'load', timeout: 15_000 })
+  await expect(page.getByRole('heading', { level: 1, name: 'Abgemeldet' })).toBeVisible({ timeout: 15_000 })
 
   const speicher = await page.evaluate(() => ({
     session: Object.keys(sessionStorage),
@@ -420,7 +430,8 @@ test('nach der Erneuerung senden API-Aufrufe das neue Token', async ({ page }) =
       await route.fallback()
     },
   )
-  await page.goto('/coins')
+  // katalog-seiten (AK-21): Das Formular liegt auf /coins/neu.
+  await page.goto('/coins/neu')
   await expect.poll(() => idp.filter((r) => r.url() === TOKEN).length, { timeout: 10_000 }).toBeGreaterThan(0)
 
   await page.getByLabel(/^Name/).fill('Coin Alpha')
@@ -447,8 +458,8 @@ test('/api/me wird bei mehreren Navigationen genau einmal aufgerufen', async ({ 
   await page.goto('/')
   await expect(kopfzeile(page)).toContainText('Test Administrator')
 
-  await page.getByRole('link', { name: 'Coin-Liste', exact: true }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Coin-Katalog' })).toBeVisible()
+  await page.getByRole('link', { name: 'Katalog', exact: true }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Katalog' })).toBeVisible()
   await page.getByRole('link', { name: 'Startseite', exact: true }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })).toBeVisible()
 

@@ -1,1 +1,1 @@
-export { CoinListeSeite, type CoinListeSeiteProps, type Erfassen } from './ui/CoinListeSeite'
+export { CoinListeSeite, type CoinListeSeiteProps } from './ui/CoinListeSeite'

@@ -47,7 +47,7 @@ export default function App({ router, userManager }: AppProps) {
 function AppMitAnmeldung({ router }: { router: AppRouter }) {
   const anmeldung = useAnmeldung()
   const { bereit, neuLaden, zuletztGeprueft, ...benutzerWert } = useBenutzer(anmeldung)
-  const { zustand, benutzer, erfassen, erneutPruefen } = benutzerWert
+  const { zustand, benutzer, erneutPruefen } = benutzerWert
   const { status, anmelden, sitzungVerwerfen } = anmeldung
 
   // 401 auf einen schreibenden Aufruf: Sitzung verwerfen und mit Rückkehr auf den aktuellen Pfad anmelden (AK-27).
@@ -114,8 +114,8 @@ function AppMitAnmeldung({ router }: { router: AppRouter }) {
   }))
 
   const kontextWert = useMemo<BenutzerKontextWert>(
-    () => ({ zustand, benutzer, erfassen, erneutPruefen }),
-    [zustand, benutzer, erfassen, erneutPruefen],
+    () => ({ zustand, benutzer, erneutPruefen }),
+    [zustand, benutzer, erneutPruefen],
   )
 
   return (

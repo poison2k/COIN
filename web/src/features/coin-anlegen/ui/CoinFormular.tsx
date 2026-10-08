@@ -82,13 +82,21 @@ function ohneBildFehler(fehler: CoinFehler): CoinFehler {
   return kopie
 }
 
+/** Was mit dem Motivbild geschehen ist: gespeichert (bzw. keins gewählt) oder bewusst ohne Bild fortgefahren. */
+export interface AngelegtErgebnis {
+  bild: 'gespeichert' | 'ohne'
+}
+
 export interface CoinFormularProps {
-  /** Wird mit dem gespeicherten Coin aufgerufen (nach Anlegen und nach erfolgreichem Bild-Upload). */
-  onGespeichert: (coin: Coin) => void
+  /**
+   * Wird genau einmal aufgerufen, wenn nichts mehr offen ist (katalog-seiten, AK-22/AK-23): nach dem Anlegen ohne Bild,
+   * nach erfolgreichem Bild-Upload (`gespeichert`) oder nach „Ohne Bild fortfahren“ beim Teilerfolg (`ohne`).
+   */
+  onAngelegt: (coin: Coin, ergebnis: AngelegtErgebnis) => void
 }
 
 /** Formular „Coin anlegen“ inkl. Motivbild (AK-30 bis AK-35). */
-export function CoinFormular({ onGespeichert }: CoinFormularProps) {
+export function CoinFormular({ onAngelegt }: CoinFormularProps) {
   const [werte, setWerte] = useState(LEERE_WERTE)
   const [bild, setBild] = useState<File | null>(null)
   const [vorschau, setVorschau] = useState<string | null>(null)
@@ -139,7 +147,7 @@ export function CoinFormular({ onGespeichert }: CoinFormularProps) {
   async function ladeHoch(coin: Coin, datei: File, ersterVersuch: boolean) {
     const ergebnis = await ladeBildHoch(coin.id, datei)
     if (ergebnis.art === 'ok') {
-      onGespeichert(ergebnis.daten)
+      onAngelegt(ergebnis.daten, { bild: 'gespeichert' })
       setWerte(LEERE_WERTE)
       setzeBild(null)
       setFehler({})
@@ -149,10 +157,7 @@ export function CoinFormular({ onGespeichert }: CoinFormularProps) {
     }
 
     // Teilerfolg: Coin existiert, Bild nicht. Textfelder leeren, Bild für die Wiederholung behalten.
-    if (ersterVersuch) {
-      onGespeichert(coin)
-      setWerte(LEERE_WERTE)
-    }
+    if (ersterVersuch) setWerte(LEERE_WERTE)
     const grund = grundFuerBildFehler(ergebnis)
     setFehler({ bild: grund })
     setOffenerUpload(coin)
@@ -222,7 +227,7 @@ export function CoinFormular({ onGespeichert }: CoinFormularProps) {
         return
       }
 
-      onGespeichert(coin)
+      onAngelegt(coin, { bild: 'gespeichert' })
       setWerte(LEERE_WERTE)
       setFehler({})
       setMeldung({ art: 'erfolg', text: TEXT_ERFOLG })
@@ -239,6 +244,17 @@ export function CoinFormular({ onGespeichert }: CoinFormularProps) {
     const coin = offenerUpload
     const datei = bild as File
     await mitSperre(() => ladeHoch(coin, datei, false))
+  }
+
+  /** Teilerfolg: auf das Bild verzichten, ohne weiteren Request (katalog-seiten, AK-23). */
+  function ohneBildFortfahren() {
+    if (!offenerUpload || sendetRef.current) return
+    const coin = offenerUpload
+    setOffenerUpload(null)
+    setzeBild(null)
+    setFehler({})
+    setMeldung(null)
+    onAngelegt(coin, { bild: 'ohne' })
   }
 
   function feldAttribute(feld: CoinFeld, zusatzBeschreibung?: string) {
@@ -350,6 +366,17 @@ export function CoinFormular({ onGespeichert }: CoinFormularProps) {
               disabled={sendet}
             >
               Bild erneut hochladen
+            </Button>
+          )}
+          {meldung.art === 'teilerfolg' && offenerUpload && (
+            <Button
+              type="button"
+              variant="outline"
+              className="text-foreground"
+              onClick={ohneBildFortfahren}
+              disabled={sendet}
+            >
+              Ohne Bild fortfahren
             </Button>
           )}
         </div>

@@ -57,6 +57,9 @@ const TEXTE = {
     'Ihr Benutzerkonto ist deaktiviert. Den Coin-Katalog können Sie weiterhin ansehen. Wenden Sie sich bei Fragen an einen Administrator.',
   letzterAdmin: 'Der letzte aktive Administrator kann weder herabgestuft noch deaktiviert werden.',
   eigenesKonto: 'Das eigene Konto kann nicht geändert werden.',
+  /** katalog-seiten, AK-10. */
+  ohneBerechtigung:
+    'Ihr Benutzerkonto ist für diese Seite nicht berechtigt. Den Coin-Katalog können Sie weiterhin ansehen. Wenden Sie sich bei Fragen an einen Administrator.',
 } as const
 
 const ENGLISCH =
@@ -92,6 +95,15 @@ let listenAbrufe: URLSearchParams[] = []
 let naechstePutAntwort: { status: number; body: object } | null = null
 /** Hält PUT-Antworten zurück, bis das Promise erfüllt ist (Rev. 3, AK-48/AK-49: Zustand „während der Anfrage“). */
 let putSperre: Promise<void> | null = null
+/** Hält GET /api/benutzer zurück, bis das Promise erfüllt ist (katalog-seiten, AK-26: Fokus beim Blättern). */
+let listenSperre: Promise<void> | null = null
+/** Aufgezeichnete GET /api/audit (Query). */
+let auditAbrufe: URLSearchParams[] = []
+/** Hält GET /api/audit zurück, bis das Promise erfüllt ist (QA Runde 2, H3: Fokus beim Blättern im Audit-Log). */
+let auditSperre: Promise<void> | null = null
+/** Seiten, auf die GET /api/benutzer bzw. GET /api/audit mit 500 antworten (QA Runde 3, H-a: Ladefehler beim Blättern). */
+let benutzerFehlerSeiten: number[] = []
+let auditFehlerSeiten: number[] = []
 
 function istApi(url: URL): boolean {
   return url.pathname === '/api' || url.pathname.startsWith('/api/')
@@ -166,6 +178,10 @@ async function mockeBenutzerApi(page: Page): Promise<void> {
       if (route.request().method() !== 'GET') return route.fallback()
       const query = new URL(route.request().url()).searchParams
       listenAbrufe.push(query)
+      if (listenSperre) await listenSperre
+      if (benutzerFehlerSeiten.includes(Number(query.get('seite') ?? '1'))) {
+        return json(route, 500, { title: 'Interner Fehler', status: 500 }, 'application/problem+json')
+      }
       const suche = (query.get('suche') ?? '').trim().toLowerCase()
       const treffer = benutzer
         .filter((b) => !suche || b.name.toLowerCase().includes(suche) || (b.email ?? '').includes(suche))
@@ -199,7 +215,15 @@ async function mockeBenutzerApi(page: Page): Promise<void> {
   )
   await page.route(
     (url) => url.pathname === '/api/audit',
-    (route) => json(route, 200, seite(audit, new URL(route.request().url()).searchParams)),
+    async (route) => {
+      const query = new URL(route.request().url()).searchParams
+      auditAbrufe.push(query)
+      if (auditSperre) await auditSperre
+      if (auditFehlerSeiten.includes(Number(query.get('seite') ?? '1'))) {
+        return json(route, 500, { title: 'Interner Fehler', status: 500 }, 'application/problem+json')
+      }
+      return json(route, 200, seite(audit, query))
+    },
   )
 }
 
@@ -249,6 +273,51 @@ async function waehleOptionPerTastatur(page: Page, option: string): Promise<void
   await page.keyboard.press('Enter')
 }
 
+/** Wo der Fokus liegt: „body“, „{aria-label der nav}: {Text}“ oder „anderswo: …“ (für lesbare Fehlermeldungen). */
+async function fokusOrt(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const el = document.activeElement
+    if (!el || el === document.body) return 'body'
+    const nav = el.closest('nav')
+    const text = el.textContent?.trim() ?? ''
+    return nav ? `${nav.getAttribute('aria-label') ?? ''}: ${text}` : `anderswo: ${el.tagName} ${text}`
+  })
+}
+
+/** Hält die nächsten Abrufe der Benutzerliste zurück; der Aufruf der Rückgabe gibt sie frei. */
+function sperreListe(): () => void {
+  let freigeben!: () => void
+  listenSperre = new Promise<void>((aufloesen) => {
+    freigeben = aufloesen
+  })
+  return () => {
+    listenSperre = null
+    freigeben()
+  }
+}
+
+/** Hält die nächsten Abrufe des Audit-Logs zurück; der Aufruf der Rückgabe gibt sie frei. */
+function sperreAudit(): () => void {
+  let freigeben!: () => void
+  auditSperre = new Promise<void>((aufloesen) => {
+    freigeben = aufloesen
+  })
+  return () => {
+    auditSperre = null
+    freigeben()
+  }
+}
+
+/** Synthetische Benutzer „Person 001“ … für mehrere Seiten der Liste. */
+function vieleBenutzer(anzahl: number): BenutzerEintrag[] {
+  return Array.from({ length: anzahl }, (_, i) =>
+    eintrag({
+      id: `0199a1b2-0000-7000-8000-${String(i + 1).padStart(12, 'd')}`,
+      name: `Person ${String(i + 1).padStart(3, '0')}`,
+    }),
+  )
+}
+
 async function alleTexte(page: Page): Promise<string> {
   return page.evaluate(() => {
     const attribute = [...document.body.querySelectorAll('*')].flatMap((el) =>
@@ -264,6 +333,11 @@ test.beforeEach(async ({ page }) => {
   listenAbrufe = []
   naechstePutAntwort = null
   putSperre = null
+  listenSperre = null
+  auditAbrufe = []
+  auditSperre = null
+  benutzerFehlerSeiten = []
+  auditFehlerSeiten = []
   benutzer = [
     eintrag({ id: ADMIN.id, name: ADMIN.name, email: ADMIN.email, rolle: 'Administrator' }),
     eintrag({ id: '0199a1b2-0000-7000-8000-00000000b001', name: 'Anna Probe', email: 'anna@test.local' }),
@@ -282,9 +356,10 @@ test.beforeEach(async ({ page }) => {
       await route.abort('failed')
     },
   )
+  // Seit katalog-seiten (AK-1, Entscheidung F7) im Seiten-Format.
   await page.route(
     (url) => url.pathname === '/api/coins',
-    (route) => json(route, 200, []),
+    (route) => json(route, 200, { eintraege: [], gesamt: 0, seite: 1, groesse: 25 }),
   )
   await mockeBenutzerApi(page)
 })
@@ -307,16 +382,22 @@ test('Sidebar zeigt „Benutzerverwaltung“ nicht für den Betrachter', async (
   await page.goto('/')
   await expect(page.locator('header').getByRole('button', { name: 'Abmelden' })).toBeVisible()
 
-  await expect(sidebar(page).getByRole('link', { name: 'Coin-Liste' })).toBeVisible()
+  await expect(sidebar(page).getByRole('link', { name: 'Katalog', exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Benutzerverwaltung' })).toHaveCount(0)
 })
 
-test('Direktaufruf von /benutzerverwaltung als Betrachter führt zur Startseite', async ({ page }) => {
+// katalog-seiten, AK-11 (Entscheidung F1): bisher Weiterleitung zur Startseite.
+test('Direktaufruf von /benutzerverwaltung als Betrachter führt zu „Kein Zugriff“ mit Grund keine Berechtigung', async ({
+  page,
+}) => {
   await meldeAnAls(page, BETRACHTER)
   await page.goto('/benutzerverwaltung')
 
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL('/kein-zugriff?grund=berechtigung')
+  await expect(page.getByRole('heading', { level: 1, name: 'Kein Zugriff' })).toBeVisible()
+  await expect(page.getByText(TEXTE.ohneBerechtigung)).toBeVisible()
   await expect(page.getByRole('heading', { level: 1, name: 'Benutzerverwaltung' })).toHaveCount(0)
+  await expect(page.getByRole('main').getByRole('button', { name: 'Erneut prüfen' })).toHaveCount(0)
 })
 
 // ---------- AK-26, AK-27, AK-35: Tastatur ----------
@@ -488,6 +569,171 @@ test('Audit-Tab: Blättern auf Seite 2', async ({ page }) => {
   await expect(page.getByText('Seite 2 von 2')).toBeVisible()
   await expect(page.getByRole('table', { name: 'Audit-Log' })).toContainText('Person 026')
   await expect(page.getByRole('button', { name: 'Nächste Seite' })).toBeDisabled()
+})
+
+// ---------- katalog-seiten, AK-26 (WCAG 2.4.3): Fokus beim Blättern der Benutzerliste ----------
+
+test('Benutzer: Enter auf „Nächste Seite“ mit verzögerter Antwort: Fokus bleibt während des Ladens im Blättern', async ({
+  page,
+}) => {
+  benutzer = [benutzer[0], ...vieleBenutzer(59)]
+  await meldeAnAls(page, ADMIN)
+  await page.goto('/benutzerverwaltung')
+  await expect(page.getByText('Seite 1 von 3')).toBeVisible()
+  const freigeben = sperreListe()
+  await page.getByRole('button', { name: 'Nächste Seite' }).focus()
+
+  await page.keyboard.press('Enter')
+  await expect.poll(() => listenAbrufe.some((q) => q.get('seite') === '2')).toBe(true)
+  await page.waitForTimeout(150)
+
+  try {
+    expect(await fokusOrt(page)).toMatch(/^Seitennavigation: /)
+  } finally {
+    freigeben()
+  }
+})
+
+test('Benutzer: Enter auf „Nächste Seite“ mit verzögerter Antwort: nach dem Laden liegt der Fokus auf „Nächste Seite“', async ({
+  page,
+}) => {
+  benutzer = [benutzer[0], ...vieleBenutzer(59)]
+  await meldeAnAls(page, ADMIN)
+  await page.goto('/benutzerverwaltung')
+  await expect(page.getByText('Seite 1 von 3')).toBeVisible()
+  const freigeben = sperreListe()
+  await page.getByRole('button', { name: 'Nächste Seite' }).focus()
+  await page.keyboard.press('Enter')
+  await expect.poll(() => listenAbrufe.some((q) => q.get('seite') === '2')).toBe(true)
+  await page.waitForTimeout(150)
+
+  freigeben()
+
+  await expect(page.getByText('Seite 2 von 3')).toBeVisible()
+  expect(await fokusOrt(page)).toBe('Seitennavigation: Nächste Seite')
+})
+
+test('Benutzer: Enter auf „Nächste Seite“ zur letzten Seite: Fokus bleibt im Blättern, nicht auf body', async ({
+  page,
+}) => {
+  benutzer = [benutzer[0], ...vieleBenutzer(29)]
+  await meldeAnAls(page, ADMIN)
+  await page.goto('/benutzerverwaltung')
+  await expect(page.getByText('Seite 1 von 2')).toBeVisible()
+  await page.getByRole('button', { name: 'Nächste Seite' }).focus()
+
+  await page.keyboard.press('Enter')
+
+  await expect(page.getByText('Seite 2 von 2')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Nächste Seite' })).toBeDisabled()
+  expect(await fokusOrt(page)).toMatch(/^Seitennavigation: /)
+})
+
+// ---------- QA Runde 2 (H3), WCAG 2.4.3: Fokus beim Blättern im Audit-Log ----------
+
+test('Audit: Enter auf „Nächste Seite“ mit verzögerter Antwort: Fokus bleibt während des Ladens im Blättern', async ({
+  page,
+}) => {
+  audit = Array.from({ length: 60 }, (_, i) => auditEintrag(i + 1))
+  await meldeAnAls(page, ADMIN)
+  await page.goto('/benutzerverwaltung')
+  await page.getByRole('tab', { name: 'Audit-Log' }).click()
+  await expect(page.getByText('Seite 1 von 3')).toBeVisible()
+  const freigeben = sperreAudit()
+  await page.getByRole('button', { name: 'Nächste Seite' }).focus()
+
+  await page.keyboard.press('Enter')
+  await expect.poll(() => auditAbrufe.some((q) => q.get('seite') === '2')).toBe(true)
+  await page.waitForTimeout(150)
+
+  try {
+    expect(await fokusOrt(page)).toMatch(/^Seitennavigation: /)
+  } finally {
+    freigeben()
+  }
+})
+
+test('Audit: Enter auf „Nächste Seite“ mit verzögerter Antwort: nach dem Laden liegt der Fokus auf „Nächste Seite“', async ({
+  page,
+}) => {
+  audit = Array.from({ length: 60 }, (_, i) => auditEintrag(i + 1))
+  await meldeAnAls(page, ADMIN)
+  await page.goto('/benutzerverwaltung')
+  await page.getByRole('tab', { name: 'Audit-Log' }).click()
+  await expect(page.getByText('Seite 1 von 3')).toBeVisible()
+  const freigeben = sperreAudit()
+  await page.getByRole('button', { name: 'Nächste Seite' }).focus()
+  await page.keyboard.press('Enter')
+  await expect.poll(() => auditAbrufe.some((q) => q.get('seite') === '2')).toBe(true)
+  await page.waitForTimeout(150)
+
+  freigeben()
+
+  await expect(page.getByText('Seite 2 von 3')).toBeVisible()
+  expect(await fokusOrt(page)).toBe('Seitennavigation: Nächste Seite')
+})
+
+test('Audit: Enter auf „Nächste Seite“ zur letzten Seite: Fokus bleibt im Blättern, nicht auf body', async ({
+  page,
+}) => {
+  audit = Array.from({ length: 30 }, (_, i) => auditEintrag(i + 1))
+  await meldeAnAls(page, ADMIN)
+  await page.goto('/benutzerverwaltung')
+  await page.getByRole('tab', { name: 'Audit-Log' }).click()
+  await expect(page.getByText('Seite 1 von 2')).toBeVisible()
+  await page.getByRole('button', { name: 'Nächste Seite' }).focus()
+
+  await page.keyboard.press('Enter')
+
+  await expect(page.getByText('Seite 2 von 2')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Nächste Seite' })).toBeDisabled()
+  expect(await fokusOrt(page)).toMatch(/^Seitennavigation: /)
+})
+
+// ---------- QA Runde 3 (H-a): Ladefehler beim Blättern – Fokus fällt nicht auf body ----------
+
+/** Wo der Fokus liegt: „body“, „main“ oder „außerhalb von main: …“. */
+async function fokusBereich(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const el = document.activeElement
+    if (!el || el === document.body) return 'body'
+    return el.closest('main') ? 'main' : `außerhalb von main: ${el.tagName}`
+  })
+}
+
+test('Benutzer: Ladefehler nach Enter auf „Nächste Seite“: der Fokus bleibt im Hauptbereich und fällt nicht auf body', async ({
+  page,
+}) => {
+  benutzer = [benutzer[0], ...vieleBenutzer(59)]
+  benutzerFehlerSeiten = [2]
+  await meldeAnAls(page, ADMIN)
+  await page.goto('/benutzerverwaltung')
+  await expect(page.getByText('Seite 1 von 3')).toBeVisible()
+  await page.getByRole('button', { name: 'Nächste Seite' }).focus()
+
+  await page.keyboard.press('Enter')
+
+  await expect(page.getByRole('alert').filter({ hasText: 'Benutzer konnten nicht geladen werden.' })).toBeVisible()
+  await page.waitForTimeout(150)
+  expect(await fokusBereich(page)).toBe('main')
+})
+
+test('Audit: Ladefehler nach Enter auf „Nächste Seite“: der Fokus bleibt im Hauptbereich und fällt nicht auf body', async ({
+  page,
+}) => {
+  audit = Array.from({ length: 60 }, (_, i) => auditEintrag(i + 1))
+  auditFehlerSeiten = [2]
+  await meldeAnAls(page, ADMIN)
+  await page.goto('/benutzerverwaltung')
+  await page.getByRole('tab', { name: 'Audit-Log' }).click()
+  await expect(page.getByText('Seite 1 von 3')).toBeVisible()
+  await page.getByRole('button', { name: 'Nächste Seite' }).focus()
+
+  await page.keyboard.press('Enter')
+
+  await expect(page.getByRole('alert').filter({ hasText: 'Audit-Log konnte nicht geladen werden.' })).toBeVisible()
+  await page.waitForTimeout(150)
+  expect(await fokusBereich(page)).toBe('main')
 })
 
 // ---------- AK-35: sichtbarer Fokus, deutsche Texte ----------

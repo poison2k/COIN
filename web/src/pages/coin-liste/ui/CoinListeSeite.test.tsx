@@ -1,196 +1,186 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  erstelleFakeApi,
-  jsonAntwort,
-  offeneAntwort,
-  problemAntwort,
-  testCoin,
-  testDatei,
-  type FakeApi,
-} from '../../../../test/fakeApi'
-import { formularFelder, fuelleAus, meldungMit, seitentext, TEXTE } from '../../../../test/hilfen'
-import { CoinListeSeite } from './CoinListeSeite'
+import { erstelleFakeApi, testCoin, type FakeApi } from '../../../../test/fakeApi'
+import { seitentext, TEXTE } from '../../../../test/hilfen'
+import { zeigeMitRouter } from '../../../../test/router'
+import { CoinListeSeite, type CoinListeSeiteProps } from '../index'
 
-// AK-28, AK-29, AK-33, AK-34, AK-36: Zusammenspiel von Liste und Formular auf der Startseite.
+// Feature katalog-seiten, AK-12, AK-13, AK-26: Seite „Katalog“ (/coins) nur zum Ansehen. Kein Formular außer der Suche,
+// Link „Coin hinzufügen“ nur mit `darfAnlegen`. Laden, Suche und Blättern prüft das Widget (CoinKatalog.test.tsx).
+// Ersetzt die Tests zum Formular auf /coins (bisher AK-28, AK-29, AK-33, AK-34 aus coin-katalog und anmeldung-keycloak).
+
+const ENTFALLEN = [
+  'Neuen Coin erfassen',
+  'Zum Erfassen von Coins melden Sie sich bitte an.',
+  'Coins erfassen können nur Administratoren und Sachbearbeiter.',
+]
 
 let api: FakeApi
 
 beforeEach(() => {
-  api = erstelleFakeApi()
+  api = erstelleFakeApi([
+    testCoin({ name: 'Coin Alpha', bildUrl: '/api/coins/0199a1b2-0000-7000-8000-000000000001/bild?v=a' }),
+  ])
   vi.stubGlobal('fetch', api.fetch)
 })
 
-function zeigeSeite() {
-  const user = userEvent.setup({ applyAccept: false })
-  render(<CoinListeSeite />)
-  return { user }
+function zeigeSeite(props: Partial<CoinListeSeiteProps> = {}) {
+  const onSuche = vi.fn<(suche: string) => void>()
+  const onSeite = vi.fn<(seite: number) => void>()
+  const user = userEvent.setup()
+  const { router } = zeigeMitRouter(
+    () => <CoinListeSeite suche="" seite={1} darfAnlegen={false} onSuche={onSuche} onSeite={onSeite} {...props} />,
+    { pfad: '/coins' },
+  )
+  return { user, router, onSuche, onSeite }
 }
 
-const LADEHINWEIS = /Coins werden geladen/
-const LADEFEHLER = /Coins konnten nicht geladen werden/
-const GET_LISTE = /^\/api\/coins$/
-const PUT_BILD = /^\/api\/coins\/[^/]+\/bild$/
-
-async function zeileVon(name: string): Promise<HTMLElement> {
-  const zelle = await screen.findByRole('cell', { name })
-  return zelle.closest('tr') as HTMLElement
+async function geladen(): Promise<void> {
+  await screen.findByRole('table', { name: 'Coins' })
 }
 
-describe('AK-29: Laden der Liste', () => {
-  it('zeigt einen Ladehinweis, solange die Liste lädt', async () => {
-    const offen = offeneAntwort()
-    api.einmal('GET', GET_LISTE, () => offen.promise)
-
+describe('Aufbau', () => {
+  it('zeigt die Überschrift „Katalog“ als Ebene 1', async () => {
     zeigeSeite()
 
-    expect(await screen.findByText(LADEHINWEIS)).toBeInTheDocument()
-    offen.aufloesen(jsonAntwort(200, []))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Katalog' })).toBeInTheDocument()
   })
 
-  it('blendet den Ladehinweis nach dem Laden aus', async () => {
+  it('hat genau eine Überschrift der Ebene 1', async () => {
+    zeigeSeite()
+    await geladen()
+
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+  })
+
+  it('zeigt die Katalogliste mit Motivbild', async () => {
     zeigeSeite()
 
-    await screen.findByText(TEXTE.leereListe)
-    expect(screen.queryByText(LADEHINWEIS)).not.toBeInTheDocument()
+    const bild = await screen.findByRole('img', { name: 'Motiv: Coin Alpha' })
+    expect(bild).toHaveAttribute('src', '/api/coins/0199a1b2-0000-7000-8000-000000000001/bild?v=a')
   })
 
-  it('zeigt nach dem Laden die Coins', async () => {
-    api.coins.push(testCoin({ name: 'Coin Alpha' }))
-
-    zeigeSeite()
-
-    expect(await zeileVon('Coin Alpha')).toBeInTheDocument()
-  })
-
-  it('zeigt „Noch keine Coins erfasst.“, wenn die Liste leer ist', async () => {
+  it('zeigt „Noch keine Coins erfasst.“ bei leerem Katalog', async () => {
+    api.coins.splice(0)
     zeigeSeite()
 
     expect(await screen.findByText(TEXTE.leereListe)).toBeInTheDocument()
   })
 
-  it('zeigt bei einem Serverfehler eine verständliche Fehlermeldung', async () => {
-    api.einmal('GET', GET_LISTE, problemAntwort(500, { detail: 'NpgsqlException: Verbindung verweigert' }))
+  it('reicht Suche und Seite an den Katalog weiter', async () => {
+    zeigeSeite({ suche: 'Alpha', seite: 1 })
+    await geladen()
 
-    zeigeSeite()
-
-    const alarm = await screen.findByRole('alert')
-    expect(alarm).toHaveTextContent(LADEFEHLER)
+    const abruf = api.anfragenMit('GET', /^\/api\/coins$/).at(-1)
+    expect(abruf?.query.get('suche')).toBe('Alpha')
+    expect(abruf?.query.get('seite')).toBe('1')
   })
 
-  it('zeigt bei einem Serverfehler keine technischen Details', async () => {
-    api.einmal('GET', GET_LISTE, problemAntwort(500, { detail: 'NpgsqlException: Verbindung verweigert' }))
+  it('meldet eine Suche über onSuche', async () => {
+    const { user, onSuche } = zeigeSeite()
+    await geladen()
 
-    zeigeSeite()
+    await user.type(screen.getByRole('searchbox', { name: 'Coins suchen' }), 'Beta{Enter}')
 
-    await screen.findByText(LADEFEHLER)
-    expect(seitentext()).not.toMatch(/Npgsql|Verbindung verweigert|500|Internal Server Error/)
-  })
-
-  it('zeigt bei einem Netzwerkfehler die Fehlermeldung ohne technische Details', async () => {
-    api.netzwerkfehler('GET', GET_LISTE)
-
-    zeigeSeite()
-
-    expect(await screen.findByText(LADEFEHLER)).toBeInTheDocument()
-    expect(seitentext()).not.toMatch(/Failed to fetch|TypeError/)
-  })
-
-  it('zeigt im Fehlerfall weder Ladehinweis noch Leermeldung', async () => {
-    api.einmal('GET', GET_LISTE, problemAntwort(500))
-
-    zeigeSeite()
-
-    await screen.findByText(LADEFEHLER)
-    expect(screen.queryByText(LADEHINWEIS)).not.toBeInTheDocument()
-    expect(screen.queryByText(TEXTE.leereListe)).not.toBeInTheDocument()
+    expect(onSuche).toHaveBeenCalledWith('Beta')
   })
 })
 
-describe('AK-33: neuer Coin erscheint ohne Neuladen in der Liste', () => {
-  it('zeigt einen ohne Bild angelegten Coin mit „Kein Bild“ und „unbekannt“', async () => {
-    const { user } = zeigeSeite()
-    await screen.findByText(TEXTE.leereListe)
-    await fuelleAus(user, { name: 'Coin Neu', herausgeber: 'Herausgeber Neu' })
+// ---------- AK-12: kein Formular ----------
 
-    await user.click(formularFelder().absenden)
+describe.each([false, true])('ohne Formular (darfAnlegen = %s)', (darfAnlegen) => {
+  it('enthält kein Formular außer der Suche', async () => {
+    zeigeSeite({ darfAnlegen })
+    await geladen()
 
-    const zeile = await zeileVon('Coin Neu')
-    expect(within(zeile).getByText('Herausgeber Neu')).toBeInTheDocument()
-    expect(within(zeile).getByText('Kein Bild')).toBeInTheDocument()
-    expect(within(zeile).getByText('unbekannt')).toBeInTheDocument()
+    const formulare = [...document.querySelectorAll('form')]
+    expect(formulare).toHaveLength(1)
+    expect(within(formulare[0]).getByRole('searchbox', { name: 'Coins suchen' })).toBeInTheDocument()
   })
 
-  it('zeigt einen mit Bild angelegten Coin mit Vorschaubild', async () => {
-    const { user } = zeigeSeite()
-    await screen.findByText(TEXTE.leereListe)
-    await fuelleAus(user, { name: 'Coin Neu', herausgeber: 'Herausgeber Neu', bild: testDatei() })
+  it('enthält kein Eingabefeld außer dem Suchfeld', async () => {
+    zeigeSeite({ darfAnlegen })
+    await geladen()
 
-    await user.click(formularFelder().absenden)
-
-    const bild = await screen.findByRole('img', { name: 'Motiv: Coin Neu' })
-    expect(bild.getAttribute('src')).toMatch(/^\/api\/coins\/.+\/bild\?v=/)
+    const felder = [...document.querySelectorAll('input, textarea, select')]
+    expect(felder).toEqual([screen.getByRole('searchbox', { name: 'Coins suchen' })])
   })
 
-  it('entfernt die Leermeldung, sobald ein Coin angelegt ist', async () => {
-    const { user } = zeigeSeite()
-    await screen.findByText(TEXTE.leereListe)
-    await fuelleAus(user, { name: 'Coin Neu', herausgeber: 'Herausgeber Neu' })
+  it('zeigt keinen Button „Coin anlegen“ und keinen Button „Anmelden“', async () => {
+    zeigeSeite({ darfAnlegen })
+    await geladen()
 
-    await user.click(formularFelder().absenden)
-
-    await zeileVon('Coin Neu')
-    expect(screen.queryByText(TEXTE.leereListe)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Coin anlegen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Anmelden' })).not.toBeInTheDocument()
   })
 
-  it('behält vorhandene Coins in der Liste', async () => {
-    api.coins.push(testCoin({ id: 'vorhanden', name: 'Coin Alt' }))
-    const { user } = zeigeSeite()
-    await zeileVon('Coin Alt')
-    await fuelleAus(user, { name: 'Coin Neu', herausgeber: 'Herausgeber Neu' })
+  it('enthält die Texte des entfallenen Erfassen-Abschnitts nicht mehr', async () => {
+    zeigeSeite({ darfAnlegen })
+    await geladen()
 
-    await user.click(formularFelder().absenden)
-
-    await zeileVon('Coin Neu')
-    expect(await zeileVon('Coin Alt')).toBeInTheDocument()
+    for (const text of ENTFALLEN) expect(seitentext()).not.toContain(text)
   })
 })
 
-describe('AK-34: Teilerfolg auf der Seite', () => {
-  it('zeigt den Coin nach fehlgeschlagenem Upload ohne Bild in der Liste', async () => {
-    api.einmal('PUT', PUT_BILD, problemAntwort(415))
-    const { user } = zeigeSeite()
-    await screen.findByText(TEXTE.leereListe)
-    await fuelleAus(user, { name: 'Coin Teil', herausgeber: 'Herausgeber Teil', bild: testDatei() })
+// ---------- AK-13: Link „Coin hinzufügen“ ----------
 
-    await user.click(formularFelder().absenden)
+describe('Link „Coin hinzufügen“', () => {
+  it('erscheint mit darfAnlegen als Link auf /coins/neu', async () => {
+    zeigeSeite({ darfAnlegen: true })
 
-    await waitFor(() => expect(meldungMit(TEXTE.teilerfolgPraefix)).toBeDefined())
-    const zeile = await zeileVon('Coin Teil')
-    expect(within(zeile).getByText('Kein Bild')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Coin hinzufügen' })).toHaveAttribute('href', '/coins/neu')
   })
 
-  it('zeigt nach erfolgreichem „Bild erneut hochladen“ das Vorschaubild ohne zweiten Coin', async () => {
-    api.netzwerkfehler('PUT', PUT_BILD)
-    const { user } = zeigeSeite()
-    await screen.findByText(TEXTE.leereListe)
-    await fuelleAus(user, { name: 'Coin Teil', herausgeber: 'Herausgeber Teil', bild: testDatei() })
-    await user.click(formularFelder().absenden)
+  it('ist ein Link und kein Button', async () => {
+    zeigeSeite({ darfAnlegen: true })
+    await screen.findByRole('link', { name: 'Coin hinzufügen' })
 
-    await user.click(await screen.findByRole('button', { name: TEXTE.erneutHochladen }))
+    expect(screen.queryByRole('button', { name: 'Coin hinzufügen' })).not.toBeInTheDocument()
+  })
 
-    expect(await screen.findByRole('img', { name: 'Motiv: Coin Teil' })).toBeInTheDocument()
-    expect(screen.getAllByRole('cell', { name: 'Coin Teil' })).toHaveLength(1)
-    expect(api.anfragenMit('POST')).toHaveLength(1)
+  it('blendet das Icon für Screenreader aus', async () => {
+    zeigeSeite({ darfAnlegen: true })
+    const link = await screen.findByRole('link', { name: 'Coin hinzufügen' })
+
+    const icons = [...link.querySelectorAll('svg')]
+    expect(icons.length).toBeGreaterThan(0)
+    for (const svg of icons) expect(svg).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('steht vor dem Katalog (neben der Überschrift)', async () => {
+    zeigeSeite({ darfAnlegen: true })
+    await geladen()
+
+    const link = screen.getByRole('link', { name: 'Coin hinzufügen' })
+    const suche = screen.getByRole('searchbox', { name: 'Coins suchen' })
+    expect(link.compareDocumentPosition(suche) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('führt zu /coins/neu', async () => {
+    const { user, router } = zeigeSeite({ darfAnlegen: true })
+
+    await user.click(await screen.findByRole('link', { name: 'Coin hinzufügen' }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/coins/neu'))
+  })
+
+  it('fehlt ohne darfAnlegen im DOM', async () => {
+    zeigeSeite({ darfAnlegen: false })
+    await geladen()
+
+    expect(screen.queryByRole('link', { name: 'Coin hinzufügen' })).not.toBeInTheDocument()
+    expect(seitentext()).not.toContain('Coin hinzufügen')
   })
 })
 
-describe('AK-36: deutsche Texte', () => {
-  it('zeigt auf der Startseite keine englischen Standardtexte', async () => {
-    zeigeSeite()
-    await screen.findByText(TEXTE.leereListe)
+// ---------- AK-26: deutsche Texte ----------
 
-    expect(seitentext()).not.toMatch(/\b(Loading|Error|No data|Submit|Image|Created)\b/)
+describe('deutsche Texte', () => {
+  it('zeigt keine englischen Standardtexte', async () => {
+    zeigeSeite({ darfAnlegen: true })
+    await geladen()
+
+    expect(seitentext()).not.toMatch(/\b(Loading|Error|No data|Submit|Image|Created|Add|New|Search|Catalog)\b/)
   })
 })

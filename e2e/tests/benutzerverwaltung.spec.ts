@@ -86,18 +86,17 @@ test("Admin weist betrachter@test.local die Rolle Betrachter zu; Audit-Log und R
         .getByRole("table")
         .or(betrachter.getByText("Noch keine Coins erfasst.")),
     ).toBeVisible();
+    // katalog-seiten (AK-13, AK-25): statt des entfallenen Hinweistexts fehlt „Coin hinzufügen“; Sidebar „Katalog“.
     await expect(
-      betrachter.getByText(
-        "Coins erfassen können nur Administratoren und Sachbearbeiter.",
-      ),
-    ).toBeVisible();
+      betrachter.getByRole("link", { name: "Coin hinzufügen" }),
+    ).toHaveCount(0);
     await expect(
       betrachter.getByRole("button", { name: "Coin anlegen" }),
     ).toHaveCount(0);
     await expect(
       betrachter
         .getByRole("navigation", { name: "Hauptnavigation" })
-        .getByRole("link", { name: "Coin-Liste" }),
+        .getByRole("link", { name: "Katalog", exact: true }),
     ).toBeVisible();
     await expect(
       betrachter.getByRole("link", { name: "Benutzerverwaltung" }),

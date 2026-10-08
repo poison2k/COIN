@@ -1,3 +1,4 @@
+using Coin.Domain.Gemeinsam;
 using Coin.Domain.Katalog;
 
 namespace Coin.UnitTests.Katalog;
@@ -39,8 +40,30 @@ internal sealed class FakeCoinKatalogRepository : ICoinKatalogRepository
         return Task.FromResult(true);
     }
 
-    public Task<IReadOnlyList<CoinEintrag>> AlleAsync(CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<CoinEintrag>>(_coins.Select(ZuEintrag).ToList());
+    /// <summary>Parameter des letzten Aufrufs von <see cref="SuchenAsync"/> (katalog-seiten, AK-1 bis AK-4).</summary>
+    public (string? Suche, int Seite, int Groesse)? LetzteSuche { get; private set; }
+
+    public int AnzahlSuchenAufrufe { get; private set; }
+
+    /// <summary>
+    /// Teilstring in Name oder Herausgeber ohne Beachtung der Groß-/Kleinschreibung, sortiert nach Name, dann Id.
+    /// Trimmt nicht selbst (Aufgabe der Domain).
+    /// </summary>
+    public Task<Seite<CoinEintrag>> SuchenAsync(string? suche, int seite, int groesse, CancellationToken ct)
+    {
+        AnzahlSuchenAufrufe++;
+        LetzteSuche = (suche, seite, groesse);
+        var treffer = _coins
+            .Where(c => suche is null
+                || c.Name.Contains(suche, StringComparison.OrdinalIgnoreCase)
+                || c.Herausgeber.Contains(suche, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(c => c.Id)
+            .Select(ZuEintrag)
+            .ToList();
+        var eintraege = treffer.Skip((seite - 1) * groesse).Take(groesse).ToList();
+        return Task.FromResult(new Seite<CoinEintrag>(eintraege, treffer.Count, seite, groesse));
+    }
 
     public Task<CoinEintrag?> FindenAsync(Guid id, CancellationToken ct) =>
         Task.FromResult(_coins.Where(c => c.Id == id).Select(ZuEintrag).FirstOrDefault());

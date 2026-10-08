@@ -1,5 +1,6 @@
 using System.Data;
 using Coin.Domain.Benutzer;
+using Coin.Domain.Gemeinsam;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using NpgsqlTypes;
@@ -14,8 +15,6 @@ internal sealed class BenutzerverwaltungRepository(CoinDbContext db) : IBenutzer
 {
     /// <summary>Fester Schlüssel der Advisory-Sperre „benutzerverwaltung“ (ADR-0018 Punkt 2).</summary>
     public const long SperrSchluessel = 0x434F_494E_4256_0001;
-
-    private const char Escape = '\\';
 
     public async Task<T> InSperreAsync<T>(Func<IBenutzerverwaltungSitzung, Task<T>> aktion, CancellationToken ct)
     {
@@ -37,14 +36,14 @@ internal sealed class BenutzerverwaltungRepository(CoinDbContext db) : IBenutzer
         var abfrage = db.Benutzer.AsNoTracking();
         if (!string.IsNullOrEmpty(suche))
         {
-            var muster = $"%{Maskieren(suche)}%";
+            var muster = Suchmuster.Teilstring(suche);
             abfrage = abfrage.Where(b =>
-                EF.Functions.ILike(b.Anzeigename, muster, Escape.ToString())
-                || (b.Email != null && EF.Functions.ILike(b.Email, muster, Escape.ToString())));
+                EF.Functions.ILike(b.Anzeigename, muster, Suchmuster.Escape)
+                || (b.Email != null && EF.Functions.ILike(b.Email, muster, Suchmuster.Escape)));
         }
 
         var gesamt = await abfrage.CountAsync(ct);
-        if (Versatz(seite, groesse) is not { } versatz)
+        if (Suchmuster.Versatz(seite, groesse) is not { } versatz)
         {
             return new Seite<Benutzer>([], gesamt, seite, groesse);
         }
@@ -67,7 +66,7 @@ internal sealed class BenutzerverwaltungRepository(CoinDbContext db) : IBenutzer
         }
 
         var gesamt = await abfrage.CountAsync(ct);
-        if (Versatz(seite, groesse) is not { } versatz)
+        if (Suchmuster.Versatz(seite, groesse) is not { } versatz)
         {
             return new Seite<AuditEintragAnsicht>([], gesamt, seite, groesse);
         }
@@ -98,19 +97,6 @@ internal sealed class BenutzerverwaltungRepository(CoinDbContext db) : IBenutzer
             gesamt,
             seite,
             groesse);
-    }
-
-    /// <summary>Platzhalter <c>%</c>, <c>_</c> und das Escape-Zeichen selbst gelten wörtlich.</summary>
-    private static string Maskieren(string text) => text
-        .Replace(@"\", @"\\", StringComparison.Ordinal)
-        .Replace("%", @"\%", StringComparison.Ordinal)
-        .Replace("_", @"\_", StringComparison.Ordinal);
-
-    /// <summary>Anzahl zu überspringender Zeilen; <c>null</c>, wenn die Seite jenseits jeder möglichen Zeile liegt.</summary>
-    private static int? Versatz(int seite, int groesse)
-    {
-        var versatz = (long)(seite - 1) * groesse;
-        return versatz > int.MaxValue ? null : (int)versatz;
     }
 
     private sealed class Sitzung(CoinDbContext db) : IBenutzerverwaltungSitzung

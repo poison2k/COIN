@@ -39,7 +39,9 @@ async function mockeCoinListe(page: Page, coins: Coin[]): Promise<void> {
         await route.fallback()
         return
       }
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(coins) })
+      // Seit katalog-seiten (AK-1, Entscheidung F7) im Seiten-Format.
+      const body = { eintraege: coins, gesamt: coins.length, seite: 1, groesse: 25 }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
     },
   )
 }
@@ -60,10 +62,10 @@ test('zeigt unter / die Startseite', async ({ page }) => {
   await page.goto('/')
 
   await expect(page.getByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Zur Coin-Liste' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Zum Katalog' })).toBeVisible()
 })
 
-test('führt über den Sidebar-Eintrag „Coin-Liste“ ohne Neuladen zur Liste mit dem gemockten Coin', async ({ page }) => {
+test('führt über den Sidebar-Eintrag „Katalog“ ohne Neuladen zur Liste mit dem gemockten Coin', async ({ page }) => {
   await mockeCoinListe(page, [TEST_COIN])
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })).toBeVisible()
@@ -72,7 +74,7 @@ test('führt über den Sidebar-Eintrag „Coin-Liste“ ohne Neuladen zur Liste 
     ;(window as unknown as { ohneNeuladen?: boolean }).ohneNeuladen = true
   })
 
-  await page.getByRole('link', { name: 'Coin-Liste', exact: true }).click()
+  await page.getByRole('link', { name: 'Katalog', exact: true }).click()
 
   await expect(page).toHaveURL(/\/coins$/)
   const zeile = page.getByRole('row').filter({ hasText: 'Coin Alpha' })
@@ -83,13 +85,13 @@ test('führt über den Sidebar-Eintrag „Coin-Liste“ ohne Neuladen zur Liste 
   expect(await page.evaluate(() => (window as unknown as { ohneNeuladen?: boolean }).ohneNeuladen)).toBe(true)
 })
 
-test('markiert nach der Navigation den Sidebar-Eintrag „Coin-Liste“ als aktiv', async ({ page }) => {
+test('markiert nach der Navigation den Sidebar-Eintrag „Katalog“ als aktiv', async ({ page }) => {
   await mockeCoinListe(page, [])
   await page.goto('/')
 
-  await page.getByRole('link', { name: 'Coin-Liste', exact: true }).click()
+  await page.getByRole('link', { name: 'Katalog', exact: true }).click()
 
-  await expect(page.getByRole('link', { name: 'Coin-Liste', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('link', { name: 'Katalog', exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(page.getByRole('link', { name: 'Startseite', exact: true })).not.toHaveAttribute('aria-current', 'page')
 })
 
@@ -125,7 +127,7 @@ test('öffnet auf schmalem Bildschirm die Sidebar als Overlay und schließt es n
   await page.getByRole('button', { name: 'Seitenleiste ein-/ausblenden' }).click()
   const overlay = page.getByRole('dialog', { name: 'Seitenleiste' })
   await expect(overlay).toBeVisible()
-  await overlay.getByRole('link', { name: 'Coin-Liste', exact: true }).click()
+  await overlay.getByRole('link', { name: 'Katalog', exact: true }).click()
 
   await expect(overlay).toBeHidden()
   await expect(page).toHaveURL(/\/coins$/)

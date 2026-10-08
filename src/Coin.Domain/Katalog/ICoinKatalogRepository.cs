@@ -1,3 +1,5 @@
+using Coin.Domain.Gemeinsam;
+
 namespace Coin.Domain.Katalog;
 
 public interface ICoinKatalogRepository
@@ -8,8 +10,12 @@ public interface ICoinKatalogRepository
     /// <summary>Speichert einen neuen Coin. <c>false</c>, wenn der eindeutige Index verletzt wurde (Duplikat).</summary>
     Task<bool> HinzufuegenAsync(CoinTyp coin, CancellationToken ct);
 
-    /// <summary>Alle Coins ohne Bildbytes, sortiert nach Name (ohne Beachtung der Schreibweise).</summary>
-    Task<IReadOnlyList<CoinEintrag>> AlleAsync(CancellationToken ct);
+    /// <summary>
+    /// Eine Seite Coins ohne Bildbytes, deren Name oder Herausgeber <paramref name="suche"/> enthält (Teilstring,
+    /// wörtlich, ohne Groß-/Kleinschreibung; <c>null</c> = alle). Sortiert nach Name ohne Beachtung der
+    /// Schreibweise, dann nach Id. <paramref name="suche"/> kommt bereits getrimmt.
+    /// </summary>
+    Task<Seite<CoinEintrag>> SuchenAsync(string? suche, int seite, int groesse, CancellationToken ct);
 
     /// <summary>Ein Coin ohne Bildbytes oder <c>null</c>.</summary>
     Task<CoinEintrag?> FindenAsync(Guid id, CancellationToken ct);

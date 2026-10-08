@@ -4,6 +4,8 @@ import { fuelleKeycloakFormular, meldeAn } from './hilfen/anmeldung'
 
 // Systemtests Anmeldung (Feature anmeldung-keycloak, AK-37) gegen echten Systemtest-Keycloak (5184),
 // echte API (5182) und Wegwerf-Datenbank. Testbenutzer sind synthetisch (infra/keycloak/coin-realm.json).
+// Feature katalog-seiten: Das Formular liegt auf /coins/neu; /coins zeigt statt des Anmeldehinweises bzw. des Hinweises
+// „Coins erfassen können nur …“ nur mit coins.write den Link „Coin hinzufügen“. Coins werden über die Suche gefunden.
 
 const MOTIV_PNG = fileURLToPath(new URL('../fixtures/motiv.png', import.meta.url))
 
@@ -11,14 +13,14 @@ function eindeutig(praefix: string): string {
   return `${praefix} ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-test('(a) anonym zeigt /coins die Liste mit geladenem Vorschaubild und den Anmeldehinweis, aber kein Formular', async ({
+test('(a) anonym zeigt /coins die Liste mit geladenem Vorschaubild, aber weder Formular noch „Coin hinzufügen“', async ({
   page,
   browser,
 }) => {
   // Vorbereitung als Admin: Coin mit Bild anlegen.
   const name = eindeutig('Systemtest Anonym sichtbar')
   await meldeAn(page, 'admin@test.local')
-  await page.goto('/coins')
+  await page.goto('/coins/neu')
   await page.getByLabel(/^Name/).fill(name)
   await page.getByLabel(/^Herausgeber/).fill('Systemtest Herausgeber')
   await page.getByLabel(/^Motivbild/).setInputFiles(MOTIV_PNG)
@@ -30,15 +32,19 @@ test('(a) anonym zeigt /coins die Liste mit geladenem Vorschaubild und den Anmel
   const anonym = await anonymKontext.newPage()
   try {
     await anonym.goto('/coins')
+    await expect(anonym.getByRole('table')).toBeVisible()
+    await expect(anonym.getByRole('link', { name: 'Coin hinzufügen' })).toHaveCount(0)
+    await anonym.getByRole('searchbox', { name: 'Coins suchen' }).fill(name)
+    await anonym.getByRole('button', { name: 'Suchen' }).click()
 
     const zeile = anonym.getByRole('row').filter({ has: anonym.getByRole('cell', { name, exact: true }) })
     await expect(zeile).toHaveCount(1)
     const bild = zeile.getByRole('img', { name: `Motiv: ${name}` })
     await expect(bild).toBeVisible()
     await expect.poll(() => bild.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0)
-    await expect(anonym.getByText('Zum Erfassen von Coins melden Sie sich bitte an.')).toBeVisible()
     await expect(anonym.getByRole('button', { name: 'Coin anlegen' })).toHaveCount(0)
-    await expect(anonym).toHaveURL('http://localhost:5183/coins')
+    await expect(anonym.getByRole('link', { name: 'Coin hinzufügen' })).toHaveCount(0)
+    await expect(anonym).toHaveURL(/^http:\/\/localhost:5183\/coins(\?|$)/)
   } finally {
     await anonymKontext.close()
   }
@@ -77,6 +83,6 @@ test('(c) neu@test.local landet auf „Kein Zugriff“ und sieht über „Zum Co
 
   await expect(page).toHaveURL('http://localhost:5183/coins')
   await expect(page.getByRole('table').or(page.getByText('Noch keine Coins erfasst.'))).toBeVisible()
-  await expect(page.getByText('Coins erfassen können nur Administratoren und Sachbearbeiter.')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Coin hinzufügen' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Coin anlegen' })).toHaveCount(0)
 })

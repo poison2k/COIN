@@ -13,6 +13,8 @@ import { ROUTEN } from '@/shared/config'
 import { Fehler, NichtGefunden } from './Fehlerseiten'
 import {
   BenutzerverwaltungRoute,
+  CoinAnlegenRoute,
+  CoinDetailRoute,
   CoinListeRoute,
   KeinZugriffRoute,
   NichtGefundenInShell,
@@ -20,6 +22,7 @@ import {
   ShellLayout,
 } from './routen-komponenten'
 import { erfordertAnmeldung, erfordertBerechtigung, type SchutzKontext } from './schutz'
+import { katalogSuche, keinZugriffSuche } from './suchparameter'
 
 // Code-basierter Routenbaum (ADR-0010). Seiten bleiben frei von Router-Hooks; Anmelde- und Benutzerdaten
 // kommen als Props aus app (anmeldung-keycloak, Abschnitt 5.5).
@@ -54,7 +57,23 @@ const startRoute = createRoute({ getParentRoute: () => shellRoute, path: ROUTEN.
 const coinListeRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: ROUTEN.coinListe,
+  validateSearch: katalogSuche,
   component: CoinListeRoute,
+})
+// Geschwister von /coins (das keinen <Outlet> hat). Statische Segmente gehen vor Parametern: /coins/neu ist nie eine
+// Detailseite (katalog-seiten, AK-7).
+const coinNeuRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: ROUTEN.coinNeu,
+  beforeLoad: async ({ context, location }) => {
+    erfordertBerechtigung('coins.write')(await context.schutz(), location.href)
+  },
+  component: CoinAnlegenRoute,
+})
+const coinDetailRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: ROUTEN.coinDetail,
+  component: CoinDetailRoute,
 })
 const abgemeldetRoute = createRoute({
   getParentRoute: () => shellRoute,
@@ -64,11 +83,14 @@ const abgemeldetRoute = createRoute({
 const keinZugriffRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: ROUTEN.keinZugriff,
-  beforeLoad: async ({ context, location }) => {
+  validateSearch: keinZugriffSuche,
+  beforeLoad: async ({ context, location, search }) => {
     const schutz = await context.schutz()
     erfordertAnmeldung(schutz, location.href)
-    // Nur ohne Rolle (AK-29) oder deaktiviert (AK-32); alle anderen haben hier nichts zu sehen.
-    if (!schutz.deaktiviert && schutz.benutzer?.rolle !== 'keine') throw redirect({ to: ROUTEN.start, replace: true })
+    // Ohne Rolle (AK-29), deaktiviert (AK-32) oder mit Rolle nach einer Weiterleitung wegen fehlender Berechtigung
+    // (katalog-seiten, AK-10); alle anderen haben hier nichts zu sehen.
+    const ohneZugriff = schutz.deaktiviert || schutz.benutzer?.rolle === 'keine'
+    if (!ohneZugriff && search.grund !== 'berechtigung') throw redirect({ to: ROUTEN.start, replace: true })
   },
   component: KeinZugriffRoute,
 })
@@ -83,7 +105,15 @@ const benutzerverwaltungRoute = createRoute({
 
 const routenBaum = wurzel.addChildren([
   rueckrufRoute,
-  shellRoute.addChildren([startRoute, coinListeRoute, abgemeldetRoute, keinZugriffRoute, benutzerverwaltungRoute]),
+  shellRoute.addChildren([
+    startRoute,
+    coinListeRoute,
+    coinNeuRoute,
+    coinDetailRoute,
+    abgemeldetRoute,
+    keinZugriffRoute,
+    benutzerverwaltungRoute,
+  ]),
 ])
 
 /** Erzeugt den Router; Tests übergeben eine Memory-History. Den Anmeldezustand setzt App über den Kontext. */
@@ -102,5 +132,9 @@ export type AppRouter = ReturnType<typeof erstelleRouter>
 declare module '@tanstack/react-router' {
   interface Register {
     router: AppRouter
+  }
+  interface HistoryState {
+    /** Meldung für die Detailseite direkt nach dem Anlegen (katalog-seiten, AK-22/AK-23); wird einmal verbraucht. */
+    coinAngelegt?: 'mitBild' | 'ohneBild'
   }
 }

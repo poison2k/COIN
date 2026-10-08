@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AuditTabelle, ladeAuditLog, type AuditEintrag } from '@/entities/audit'
 import type { ApiErgebnis, Seite } from '@/shared/api'
+import { useFokusBeiLadefehler } from '@/shared/lib/hooks'
 import { Blaettern, seitenAnzahl } from '@/shared/ui/blaettern'
 
 const GROESSE = 25
@@ -26,28 +27,47 @@ export function AuditLog() {
   }, [seite])
 
   const ergebnis = geladen?.seite === seite ? geladen.ergebnis : null
+  // Beim Nachladen bleibt die vorige Seite stehen, bis die Antwort da ist (Tabelle und Blättern nicht aushängen).
+  const anzeige = ergebnis ?? (geladen?.ergebnis.art === 'ok' ? geladen.ergebnis : null)
+  const laedt = ergebnis === null
+  const fehlgeschlagen = ergebnis !== null && ergebnis.art !== 'ok'
+  // Ein Ladefehler hängt das Blättern aus; lag der Fokus darin, wandert er auf den Alarm statt auf body (WCAG 2.4.3).
+  const { bereichRef: blaetternRef, alarmRef, merkeFokus } = useFokusBeiLadefehler(!laedt, fehlgeschlagen)
+
+  function blaettern(neu: number) {
+    merkeFokus()
+    setSeite(neu)
+  }
 
   return (
     <div className="grid min-w-0 gap-4">
-      {ergebnis === null && (
+      {laedt && (
         <p role="status" className="text-sm text-muted-foreground">
           Audit-Log wird geladen …
         </p>
       )}
-      {ergebnis !== null && ergebnis.art !== 'ok' && (
-        <p role="alert" className="text-destructive">
+      {fehlgeschlagen && (
+        <p
+          ref={alarmRef}
+          role="alert"
+          tabIndex={-1}
+          className="rounded-md text-destructive outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
           Audit-Log konnte nicht geladen werden. Bitte später erneut versuchen.
         </p>
       )}
-      {ergebnis?.art === 'ok' && ergebnis.daten.eintraege.length === 0 && <p>Noch keine Einträge.</p>}
-      {ergebnis?.art === 'ok' && ergebnis.daten.eintraege.length > 0 && (
+      {anzeige?.art === 'ok' && anzeige.daten.eintraege.length === 0 && <p>Noch keine Einträge.</p>}
+      {anzeige?.art === 'ok' && anzeige.daten.eintraege.length > 0 && (
         <>
-          <AuditTabelle eintraege={ergebnis.daten.eintraege} />
-          <Blaettern
-            seite={ergebnis.daten.seite}
-            seiten={seitenAnzahl(ergebnis.daten.gesamt, ergebnis.daten.groesse)}
-            onSeite={setSeite}
-          />
+          <AuditTabelle eintraege={anzeige.daten.eintraege} />
+          <div ref={blaetternRef}>
+            <Blaettern
+              seite={anzeige.daten.seite}
+              seiten={seitenAnzahl(anzeige.daten.gesamt, anzeige.daten.groesse)}
+              onSeite={blaettern}
+              laedt={laedt}
+            />
+          </div>
         </>
       )}
     </div>

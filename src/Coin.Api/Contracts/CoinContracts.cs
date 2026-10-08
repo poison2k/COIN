@@ -32,3 +32,18 @@ public sealed record CoinResponse(
             ? $"/api/coins/{coin.Id}/bild?v={sha[..VersionsLaenge]}"
             : null);
 }
+
+/// <summary>
+/// Query von <c>GET /api/coins</c> (katalog-seiten, AK-1 bis AK-4). <see cref="ToString"/> gibt bewusst keine Werte
+/// aus, damit der Suchbegriff nicht in Logs landet (AK-5; MVC protokolliert Argumente auf Trace).
+/// </summary>
+public sealed class CoinSucheAnfrage
+{
+    public string? Suche { get; init; }
+
+    public int? Seite { get; init; }
+
+    public int? Groesse { get; init; }
+
+    public override string ToString() => nameof(CoinSucheAnfrage);
+}

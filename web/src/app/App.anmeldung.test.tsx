@@ -22,9 +22,13 @@ import { erstelleRouter, type AppRouter } from './router/router'
 // Erweitert durch rollen-benutzerverwaltung Rev. 3, AK-41 bis AK-45 (Abschnitt am Dateiende).
 // Echter UserManager (In-Memory-Speicher), Weiterleitungen werden nur aufgezeichnet (test/anmeldung.tsx).
 
+// Feature katalog-seiten (AK-12, AK-13): Der Abschnitt „Neuen Coin erfassen“ mit Anmeldehinweis bzw. Hinweis
+// „Coins erfassen können nur …“ entfällt; /coins zeigt nur mit coins.write den Link „Coin hinzufügen“, das Formular
+// liegt auf /coins/neu.
 const TEXTE = {
-  anmeldenHinweis: 'Zum Erfassen von Coins melden Sie sich bitte an.',
-  keineBerechtigung: 'Coins erfassen können nur Administratoren und Sachbearbeiter.',
+  leereListe: 'Noch keine Coins erfasst.',
+  entfallenAnmelden: 'Zum Erfassen von Coins melden Sie sich bitte an.',
+  entfallenKeineBerechtigung: 'Coins erfassen können nur Administratoren und Sachbearbeiter.',
   nichtKonfiguriert: 'Anmeldung ist nicht konfiguriert.',
   rueckrufLaeuft: 'Anmeldung wird abgeschlossen …',
   pruefungFehlgeschlagen: 'Ihre Anmeldung konnte nicht geprüft werden.',
@@ -114,36 +118,41 @@ describe('anonym', () => {
     expect(anmeldung.signinRedirect).not.toHaveBeenCalled()
   })
 
-  it('zeigt unter /coins den Anmeldehinweis statt des Formulars', async () => {
+  // katalog-seiten, AK-12/AK-13: bisher Anmeldehinweis und Abschnitt „Neuen Coin erfassen“.
+  it('zeigt unter /coins weder Formular noch „Coin hinzufügen“', async () => {
     zeigeApp('/coins', { zustand: 'anonym' })
+    await screen.findByText(TEXTE.leereListe)
 
-    expect(await screen.findByText(TEXTE.anmeldenHinweis)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Coin anlegen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Coin hinzufügen' })).not.toBeInTheDocument()
   })
 
-  it('behält unter /coins die Überschrift „Neuen Coin erfassen“', async () => {
+  it('zeigt unter /coins weder den Abschnitt „Neuen Coin erfassen“ noch den Anmeldehinweis', async () => {
     zeigeApp('/coins', { zustand: 'anonym' })
+    await screen.findByText(TEXTE.leereListe)
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'Neuen Coin erfassen' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Neuen Coin erfassen' })).not.toBeInTheDocument()
+    expect(document.body.textContent).not.toContain(TEXTE.entfallenAnmelden)
   })
 
-  it('zeigt im Erfassen-Abschnitt einen Button „Anmelden“', async () => {
+  it('bietet „Anmelden“ nur in der Kopfzeile an', async () => {
     zeigeApp('/coins', { zustand: 'anonym' })
-    const abschnitt = (await screen.findByText(TEXTE.anmeldenHinweis)).closest('section') as HTMLElement
+    await screen.findByText(TEXTE.leereListe)
 
-    expect(within(abschnitt).getByRole('button', { name: 'Anmelden' })).toBeInTheDocument()
+    expect(within(screen.getByRole('main')).queryByRole('button', { name: 'Anmelden' })).not.toBeInTheDocument()
+    expect(within(await kopfzeileGerendert()).getByRole('button', { name: 'Anmelden' })).toBeInTheDocument()
   })
 
   it('ruft /api/me nicht auf', async () => {
     zeigeApp('/coins', { zustand: 'anonym' })
-    await screen.findByText(TEXTE.anmeldenHinweis)
+    await screen.findByText(TEXTE.leereListe)
 
     expect(meAufrufe()).toBe(0)
   })
 
   it('sendet beim Laden der Liste keinen Authorization-Header', async () => {
     zeigeApp('/coins', { zustand: 'anonym' })
-    await screen.findByText(TEXTE.anmeldenHinweis)
+    await screen.findByText(TEXTE.leereListe)
 
     expect(api.anfragenMit('GET', /^\/api\/coins$/)[0].headers.has('Authorization')).toBe(false)
   })
@@ -219,6 +228,7 @@ describe('Kopfzeile', () => {
 
     expect(await screen.findByText('Noch keine Coins erfasst.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Coin anlegen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Coin hinzufügen' })).not.toBeInTheDocument()
   })
 })
 
@@ -249,14 +259,12 @@ describe('Anmelden', () => {
     expect(url.searchParams.has('client_secret')).toBe(false)
   })
 
-  it('startet die Anmeldung auch über den Button im Erfassen-Abschnitt', async () => {
-    const { user, anmeldung } = zeigeApp('/coins', { zustand: 'anonym' })
-    const abschnitt = (await screen.findByText(TEXTE.anmeldenHinweis)).closest('section') as HTMLElement
-
-    await user.click(within(abschnitt).getByRole('button', { name: 'Anmelden' }))
+  // katalog-seiten, AK-9 (Entscheidung F2): ersetzt den Button im entfallenen Erfassen-Abschnitt.
+  it('startet für /coins/neu ohne Sitzung die Anmeldung mit Rückkehrziel /coins/neu', async () => {
+    const { anmeldung } = zeigeApp('/coins/neu', { zustand: 'anonym' })
 
     await waitFor(() => expect(anmeldung.signinRedirect).toHaveBeenCalledTimes(1))
-    expect(zielAus(anmeldung)).toBe('/coins')
+    expect(zielAus(anmeldung)).toBe('/coins/neu')
   })
 
   it('ist per Tastatur auslösbar', async () => {
@@ -420,8 +428,9 @@ describe('/kein-zugriff', () => {
 
     await user.click(within(screen.getByRole('main')).getByRole('link', { name: 'Zum Coin-Katalog' }))
 
-    expect(await screen.findByText(TEXTE.keineBerechtigung)).toBeInTheDocument()
+    expect(await screen.findByText(TEXTE.leereListe)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Coin anlegen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Coin hinzufügen' })).not.toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/coins')
   })
 
@@ -441,28 +450,42 @@ describe('/kein-zugriff', () => {
   })
 })
 
-// ---------- AK-33: Formular nach Rolle ----------
+// ---------- AK-33, ersetzt durch katalog-seiten AK-13: Link „Coin hinzufügen“ nach Berechtigung ----------
 
-describe('Formular „Neuen Coin erfassen“ nach Rolle', () => {
-  it.each(['admin', 'sachbearbeiter'] as const)('zeigt %s das Formular', async (als) => {
+describe('Link „Coin hinzufügen“ nach Rolle', () => {
+  it.each(['admin', 'sachbearbeiter'] as const)('zeigt %s den Link „Coin hinzufügen“', async (als) => {
     zeigeApp('/coins', { als })
 
-    expect(await screen.findByRole('button', { name: 'Coin anlegen' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Coin hinzufügen' })).toHaveAttribute('href', '/coins/neu')
   })
 
-  it.each(['betrachter', 'keine'] as const)('zeigt %s den Hinweis statt des Formulars', async (als) => {
+  it.each(['betrachter', 'keine'] as const)('zeigt %s keinen Link „Coin hinzufügen“', async (als) => {
     zeigeApp('/coins', { als })
+    await within(await kopfzeileGerendert()).findByRole('button', { name: 'Abmelden' })
+    await screen.findByText(TEXTE.leereListe)
 
-    expect(await screen.findByText(TEXTE.keineBerechtigung)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Coin anlegen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Coin hinzufügen' })).not.toBeInTheDocument()
+    expect(document.body.textContent).not.toContain(TEXTE.entfallenKeineBerechtigung)
   })
 
-  it('blendet das Formular aus, solange /api/me fehlschlägt', async () => {
+  it('blendet den Link aus, solange /api/me fehlschlägt', async () => {
     zeigeApp('/coins', { vorbereiten: () => api.einmal('GET', /^\/api\/me$/, problemAntwort(500)) })
 
     await screen.findByText(TEXTE.pruefungFehlgeschlagen)
-    expect(screen.queryByRole('button', { name: 'Coin anlegen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Coin hinzufügen' })).not.toBeInTheDocument()
     expect(screen.getByText('Noch keine Coins erfasst.')).toBeInTheDocument()
+  })
+
+  it('blendet den Link aus, solange /api/me lädt', async () => {
+    const offen = offeneAntwort()
+    zeigeApp('/coins', { vorbereiten: () => api.einmal('GET', /^\/api\/me$/, () => offen.promise) })
+
+    await screen.findByText(TEXTE.leereListe)
+    expect(screen.queryByRole('link', { name: 'Coin hinzufügen' })).not.toBeInTheDocument()
+    offen.aufloesen(
+      new Response(JSON.stringify(ME.admin), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    )
+    expect(await screen.findByRole('link', { name: 'Coin hinzufügen' })).toBeInTheDocument()
   })
 })
 
@@ -470,7 +493,7 @@ describe('Formular „Neuen Coin erfassen“ nach Rolle', () => {
 
 describe('API-Aufrufe angemeldet', () => {
   it('sendet beim Anlegen Authorization: Bearer mit dem Access-Token', async () => {
-    const { user } = zeigeApp('/coins')
+    const { user } = zeigeApp('/coins/neu')
     await screen.findByRole('button', { name: 'Coin anlegen' })
     await fuelleAus(user, { name: 'Coin Alpha', herausgeber: 'Herausgeber Beta' })
 
@@ -506,8 +529,9 @@ describe('API-Aufrufe angemeldet', () => {
     expect(api.anfragen.some((a) => a.pfad.endsWith('/bild') && a.methode === 'GET')).toBe(false)
   })
 
-  it('entfernt bei 401 auf das Anlegen den User und startet die Anmeldung mit Rückkehr auf /coins', async () => {
-    const { user, anmeldung } = zeigeApp('/coins')
+  // katalog-seiten (AK-21): Das Formular liegt auf /coins/neu, die Rückkehr führt dorthin (bisher /coins).
+  it('entfernt bei 401 auf das Anlegen den User und startet die Anmeldung mit Rückkehr auf /coins/neu', async () => {
+    const { user, anmeldung } = zeigeApp('/coins/neu')
     await screen.findByRole('button', { name: 'Coin anlegen' })
     api.einmal('POST', /^\/api\/coins$/, problemAntwort(401, { title: 'Nicht angemeldet' }))
     await fuelleAus(user, { name: 'Coin Alpha', herausgeber: 'Herausgeber Beta' })
@@ -515,12 +539,12 @@ describe('API-Aufrufe angemeldet', () => {
     await user.click(formularFelder().absenden)
 
     await waitFor(() => expect(anmeldung.signinRedirect).toHaveBeenCalledTimes(1))
-    expect(zielAus(anmeldung)).toBe('/coins')
+    expect(zielAus(anmeldung)).toBe('/coins/neu')
     expect(anmeldung.hatUser()).toBe(false)
   })
 
   it('zeigt bei 403 auf das Anlegen „Sie sind nicht berechtigt, Coins zu erfassen.“', async () => {
-    const { user, anmeldung } = zeigeApp('/coins')
+    const { user, anmeldung } = zeigeApp('/coins/neu')
     await screen.findByRole('button', { name: 'Coin anlegen' })
     api.einmal('POST', /^\/api\/coins$/, problemAntwort(403, { title: 'Kein Zugriff' }))
     await fuelleAus(user, { name: 'Coin Alpha', herausgeber: 'Herausgeber Beta' })
@@ -539,8 +563,8 @@ describe('/api/me-Aufrufe', () => {
     const { user } = zeigeApp('/')
     await within(await kopfzeileGerendert()).findByRole('button', { name: 'Abmelden' })
 
-    await user.click(screen.getByRole('link', { name: 'Coin-Liste' }))
-    await screen.findByRole('heading', { level: 1, name: 'Coin-Katalog' })
+    await user.click(screen.getByRole('link', { name: 'Katalog' }))
+    await screen.findByRole('heading', { level: 1, name: 'Katalog' })
     await user.click(screen.getByRole('link', { name: 'Startseite' }))
     await screen.findByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })
 
@@ -600,7 +624,7 @@ describe('Erneuerung', () => {
   })
 
   it('sendet nach einer Erneuerung das neue Token', async () => {
-    const { user, anmeldung } = zeigeApp('/coins')
+    const { user, anmeldung } = zeigeApp('/coins/neu')
     await screen.findByRole('button', { name: 'Coin anlegen' })
 
     await act(async () => {
@@ -690,7 +714,7 @@ describe('/abgemeldet', () => {
 describe('Speicher', () => {
   it('schreibt beim Start angemeldet nichts außer coin-theme in den localStorage', async () => {
     zeigeApp('/coins')
-    await screen.findByRole('button', { name: 'Coin anlegen' })
+    await screen.findByRole('link', { name: 'Coin hinzufügen' })
 
     expect(Object.keys(localStorage).filter((k) => k !== 'coin-theme')).toEqual([])
   })

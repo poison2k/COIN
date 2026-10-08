@@ -24,4 +24,12 @@ describe('ROUTEN', () => {
     expect(ROUTEN.start).toBe('/')
     expect(ROUTEN.coinListe).toBe('/coins')
   })
+
+  it('enthält /coins/neu für „Coin hinzufügen“ (katalog-seiten, AK-7)', () => {
+    expect(ROUTEN.coinNeu).toBe('/coins/neu')
+  })
+
+  it('enthält /coins/$coinId für die Detailseite (katalog-seiten, AK-7)', () => {
+    expect(ROUTEN.coinDetail).toBe('/coins/$coinId')
+  })
 })

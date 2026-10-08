@@ -10,7 +10,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { StartSeite } from './StartSeite'
 
-// AK-13: Startseite mit Begrüßung, kurzem Einleitungstext und Link zur Coin-Liste.
+// AK-13: Startseite mit Begrüßung, kurzem Einleitungstext und Link zum Katalog (katalog-seiten, AK-25).
 // Der Link braucht einen Router-Kontext; ein minimaler Test-Router genügt (ohne App-Shell und Theme).
 
 function zeigeStartSeite() {
@@ -46,10 +46,11 @@ describe('StartSeite', () => {
     expect(absatz?.textContent?.trim().length ?? 0).toBeGreaterThan(0)
   })
 
-  it('zeigt den Link „Zur Coin-Liste“ mit Ziel /coins', async () => {
+  // katalog-seiten, AK-25 (Entscheidung F4): bisher „Zur Coin-Liste“.
+  it('zeigt den Link „Zum Katalog“ mit Ziel /coins', async () => {
     zeigeStartSeite()
 
-    expect(await screen.findByRole('link', { name: 'Zur Coin-Liste' })).toHaveAttribute('href', '/coins')
+    expect(await screen.findByRole('link', { name: 'Zum Katalog' })).toHaveAttribute('href', '/coins')
   })
 
   it('ruft keine API auf', async () => {

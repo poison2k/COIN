@@ -6,6 +6,9 @@ import assert from 'node:assert/strict'
 const MELDUNG =
   'Systemtest-Datenbank ist nicht leer bzw. nicht erreichbar – Abbruch, um keine fremde Datenbank zu verändern'
 
+// Leere Seite im Format von GET /api/coins (katalog-seiten, AK-1/F7).
+const LEERE_SEITE_JSON = JSON.stringify({ eintraege: [], gesamt: 0, seite: 1, groesse: 25 })
+
 const originalFetch = globalThis.fetch
 
 async function ladeGlobalSetup() {
@@ -23,7 +26,7 @@ describe('globalSetup', () => {
     const aufrufe = []
     globalThis.fetch = async (url) => {
       aufrufe.push(String(url))
-      return new Response('[]', { status: 200 })
+      return new Response(LEERE_SEITE_JSON, { status: 200 })
     }
     const globalSetup = await ladeGlobalSetup()
     await globalSetup({})
@@ -31,13 +34,15 @@ describe('globalSetup', () => {
   })
 
   test('läuft durch, wenn die Systemtest-Datenbank leer ist', async () => {
-    globalThis.fetch = async () => new Response('[]', { status: 200 })
+    globalThis.fetch = async () => new Response(LEERE_SEITE_JSON, { status: 200 })
     const globalSetup = await ladeGlobalSetup()
     await globalSetup({})
   })
 
   test('bricht mit der Meldung aus AK-5 ab, wenn bereits Coins vorhanden sind', async () => {
-    globalThis.fetch = async () => new Response(JSON.stringify([{ id: 1, name: 'Synthetischer Coin' }]), { status: 200 })
+    globalThis.fetch = async () => new Response(JSON.stringify({ eintraege: [{ id: 1, name: 'Synthetischer Coin' }], gesamt: 1, seite: 1, groesse: 25 }), {
+        status: 200,
+      })
     const globalSetup = await ladeGlobalSetup()
     await assert.rejects(globalSetup({}), (e) => e instanceof Error && e.message.startsWith(MELDUNG))
   })

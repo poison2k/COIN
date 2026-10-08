@@ -27,8 +27,8 @@ export function erfordertAnmeldung(kontext: SchutzKontext, ziel: string): void {
 
 /**
  * Verlangt eine Anmeldung und eine Berechtigung aus /api/me (AK-25). Deaktiviert oder ohne Rolle geht es nach
- * /kein-zugriff, mit einer Rolle ohne die Berechtigung zur Startseite. Die Rolle dient nur der Unterscheidung
- * „ohne Rolle“, das Recht selbst kommt aus `berechtigungen`.
+ * /kein-zugriff, mit einer Rolle ohne die Berechtigung nach /kein-zugriff?grund=berechtigung (katalog-seiten, AK-11).
+ * Die Rolle dient nur der Unterscheidung „ohne Rolle“, das Recht selbst kommt aus `berechtigungen`.
  */
 export function erfordertBerechtigung(berechtigung: Berechtigung) {
   return (kontext: SchutzKontext, ziel: string): void => {
@@ -36,6 +36,8 @@ export function erfordertBerechtigung(berechtigung: Berechtigung) {
     if (kontext.deaktiviert || kontext.benutzer?.rolle === 'keine') {
       throw redirect({ to: ROUTEN.keinZugriff, replace: true })
     }
-    if (!hatBerechtigung(kontext.benutzer, berechtigung)) throw redirect({ to: ROUTEN.start, replace: true })
+    if (!hatBerechtigung(kontext.benutzer, berechtigung)) {
+      throw redirect({ to: ROUTEN.keinZugriff, search: { grund: 'berechtigung' }, replace: true })
+    }
   }
 }

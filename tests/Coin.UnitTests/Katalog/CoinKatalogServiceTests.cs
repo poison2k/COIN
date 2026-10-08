@@ -1,9 +1,14 @@
+using Coin.Domain;
+using Coin.Domain.Gemeinsam;
 using Coin.Domain.Katalog;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Coin.UnitTests.Katalog;
 
-/// <summary>Use Cases des Katalogs (AK-1, AK-7, AK-8, AK-9 bis AK-11, AK-15 Duplikat-Rennen).</summary>
+/// <summary>
+/// Use Cases des Katalogs (AK-1, AK-7, AK-8, AK-9 bis AK-11, AK-15 Duplikat-Rennen). Feature katalog-seiten (AK-1 bis
+/// AK-4): <c>SuchenAsync</c> ersetzt <c>AuflistenAsync</c>.
+/// </summary>
 public class CoinKatalogServiceTests
 {
     private static readonly DateTimeOffset Startzeit = new(2026, 10, 5, 9, 15, 0, TimeSpan.Zero);
@@ -267,15 +272,119 @@ public class CoinKatalogServiceTests
 
     // ---------- Lesen ----------
 
+    // ---------- katalog-seiten, AK-1 bis AK-4: SuchenAsync ersetzt AuflistenAsync ----------
+
+    private Task<Ergebnis<Seite<CoinEintrag>>> SuchenAsync(string? suche = null, int? seite = null, int? groesse = null) =>
+        _service.SuchenAsync(suche, seite, groesse, CancellationToken.None);
+
     [Fact]
-    public async Task AuflistenAsync_liefert_alle_Coins_aus_dem_Repository()
+    public async Task SuchenAsync_ohne_Parameter_fragt_Seite_1_mit_25_Eintraegen_ab()
+    {
+        await SuchenAsync();
+
+        Assert.Equal(((string?)null, 1, 25), _repository.LetzteSuche!.Value);
+    }
+
+    [Fact]
+    public async Task SuchenAsync_reicht_Seite_und_Groesse_an_das_Repository_weiter()
+    {
+        await SuchenAsync(seite: 3, groesse: 10);
+
+        Assert.Equal(((string?)null, 3, 10), _repository.LetzteSuche!.Value);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task SuchenAsync_gibt_eine_leere_Suche_als_null_weiter(string suche)
+    {
+        await SuchenAsync(suche);
+
+        Assert.Equal(1, _repository.AnzahlSuchenAufrufe);
+        Assert.Null(_repository.LetzteSuche?.Suche);
+    }
+
+    [Fact]
+    public async Task SuchenAsync_gibt_den_Suchbegriff_getrimmt_weiter()
+    {
+        await SuchenAsync("  Alpha  ");
+
+        Assert.Equal("Alpha", _repository.LetzteSuche?.Suche);
+    }
+
+    [Fact]
+    public async Task SuchenAsync_liefert_die_Seite_des_Repositorys()
     {
         await LegeCoinAnAsync("Coin Alpha");
         await LegeCoinAnAsync("Coin Beta");
 
-        var liste = await _service.AuflistenAsync(CancellationToken.None);
+        var ergebnis = await SuchenAsync();
 
-        Assert.Equal(2, liste.Count);
+        Assert.True(ergebnis.IstErfolgreich);
+        Assert.Equal(["Coin Alpha", "Coin Beta"], ergebnis.Wert!.Eintraege.Select(c => c.Name).ToArray());
+        Assert.Equal(2, ergebnis.Wert.Gesamt);
+    }
+
+    [Fact]
+    public async Task SuchenAsync_liefert_nur_die_Treffer_zum_Suchbegriff()
+    {
+        await LegeCoinAnAsync("Coin Alpha", "Herausgeber Nord");
+        await LegeCoinAnAsync("Coin Beta", "Herausgeber Nord");
+
+        var ergebnis = await SuchenAsync("beta");
+
+        Assert.Equal(["Coin Beta"], ergebnis.Wert!.Eintraege.Select(c => c.Name).ToArray());
+    }
+
+    [Fact]
+    public async Task SuchenAsync_mit_Seite_0_liefert_einen_Fehler_an_seite()
+    {
+        var ergebnis = await SuchenAsync(seite: 0);
+
+        Assert.False(ergebnis.IstErfolgreich);
+        Assert.Equal(["Die Seite muss mindestens 1 sein."], ergebnis.Fehler["seite"]);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(101)]
+    public async Task SuchenAsync_mit_Groesse_ausserhalb_1_bis_100_liefert_einen_Fehler_an_groesse(int groesse)
+    {
+        var ergebnis = await SuchenAsync(groesse: groesse);
+
+        Assert.Equal(["Die Seitengröße muss zwischen 1 und 100 liegen."], ergebnis.Fehler["groesse"]);
+    }
+
+    [Fact]
+    public async Task SuchenAsync_mit_101_Zeichen_liefert_einen_Fehler_an_suche()
+    {
+        var ergebnis = await SuchenAsync(new string('x', 101));
+
+        Assert.Equal(["Der Suchbegriff darf höchstens 100 Zeichen lang sein."], ergebnis.Fehler["suche"]);
+    }
+
+    [Fact]
+    public async Task SuchenAsync_akzeptiert_100_Zeichen_nach_dem_Trimmen()
+    {
+        var ergebnis = await SuchenAsync($"  {new string('x', 100)}  ");
+
+        Assert.True(ergebnis.IstErfolgreich);
+    }
+
+    [Fact]
+    public async Task SuchenAsync_meldet_mehrere_Fehler_gemeinsam()
+    {
+        var ergebnis = await SuchenAsync(new string('x', 101), 0, 101);
+
+        Assert.Equal(["groesse", "seite", "suche"], ergebnis.Fehler.Keys.Order(StringComparer.Ordinal).ToArray());
+    }
+
+    [Fact]
+    public async Task SuchenAsync_fragt_bei_ungueltigen_Eingaben_das_Repository_nicht_ab()
+    {
+        await SuchenAsync(seite: 0);
+
+        Assert.Equal(0, _repository.AnzahlSuchenAufrufe);
     }
 
     [Fact]

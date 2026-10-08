@@ -4,6 +4,7 @@ import { ladeBenutzerliste, ROLLEN_ANZEIGE, StatusBadge, type BenutzerEintrag, t
 import { StatusAendern } from '@/features/benutzer-status-aendern'
 import { RolleZuweisen } from '@/features/rolle-zuweisen'
 import type { ApiErgebnis } from '@/shared/api'
+import { useFokusBeiLadefehler } from '@/shared/lib/hooks'
 import { Blaettern, seitenAnzahl } from '@/shared/ui/blaettern'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
@@ -53,6 +54,12 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
   }, [anfrage])
 
   const ergebnis = geladen?.anfrage === anfrage ? geladen.ergebnis : null
+  // Beim Nachladen bleibt die vorige Seite stehen, bis die Antwort da ist (Tabelle und Blättern nicht aushängen).
+  const anzeige = ergebnis ?? (geladen?.ergebnis.art === 'ok' ? geladen.ergebnis : null)
+  const laedt = ergebnis === null
+  const fehlgeschlagen = ergebnis !== null && ergebnis.art !== 'ok'
+  // Ein Ladefehler hängt das Blättern aus; lag der Fokus darin, wandert er auf den Alarm statt auf body (WCAG 2.4.3).
+  const { bereichRef: blaetternRef, alarmRef, merkeFokus } = useFokusBeiLadefehler(!laedt, fehlgeschlagen)
 
   function suchen(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -61,6 +68,7 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
   }
 
   function blaettern(seite: number) {
+    merkeFokus()
     setMeldung(null)
     setAnfrage((alt) => ({ ...alt, seite }))
   }
@@ -110,11 +118,16 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
       </form>
 
       <p role="status" className="text-sm text-muted-foreground">
-        {ergebnis === null && 'Benutzer werden geladen …'}
+        {laedt && 'Benutzer werden geladen …'}
         {ergebnis?.art === 'ok' && `${ergebnis.daten.gesamt} Benutzer gefunden`}
       </p>
-      {ergebnis !== null && ergebnis.art !== 'ok' && (
-        <p role="alert" className="text-destructive">
+      {fehlgeschlagen && (
+        <p
+          ref={alarmRef}
+          role="alert"
+          tabIndex={-1}
+          className="rounded-md text-destructive outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
           Benutzer konnten nicht geladen werden. Bitte später erneut versuchen.
         </p>
       )}
@@ -130,7 +143,7 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
         </p>
       )}
 
-      {ergebnis?.art === 'ok' && (
+      {anzeige?.art === 'ok' && (
         <>
           <span id={hinweisId} className="sr-only">
             {HINWEIS_EIGENES_KONTO}
@@ -147,7 +160,7 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {ergebnis.daten.eintraege.map((benutzer) => {
+              {anzeige.daten.eintraege.map((benutzer) => {
                 const eigen = benutzer.id === aktuellerBenutzerId
                 return (
                   <TableRow key={benutzer.id}>
@@ -182,11 +195,14 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
               })}
             </TableBody>
           </Table>
-          <Blaettern
-            seite={ergebnis.daten.seite}
-            seiten={seitenAnzahl(ergebnis.daten.gesamt, ergebnis.daten.groesse)}
-            onSeite={blaettern}
-          />
+          <div ref={blaetternRef}>
+            <Blaettern
+              seite={anzeige.daten.seite}
+              seiten={seitenAnzahl(anzeige.daten.gesamt, anzeige.daten.groesse)}
+              onSeite={blaettern}
+              laedt={laedt}
+            />
+          </div>
         </>
       )}
     </div>
