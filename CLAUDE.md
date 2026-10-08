@@ -45,9 +45,12 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
   Wurzel-Namespace kollidiert (CS0118). In API und UI heißt sie „Coin“.
 
 ## Aktueller Stand
-Umgesetzt: Coin-Katalog (`docs/features/coin-katalog.md`) – Coin anlegen/auflisten, Motivbild
-hochladen/abrufen; Lesen öffentlich (ADR-0014), Schreiben nur mit `coins.write`.
-Frontend-Grundgerüst mit App-Shell (Startseite `/`, Coin-Liste `/coins`, Sidebar, Hell/Dunkel).
+Umgesetzt: Coin-Katalog (`docs/features/coin-katalog.md`, `docs/features/katalog-seiten.md`) –
+Katalog `/coins` mit Suche (Name/Herausgeber) und Blättern (`GET /api/coins` liefert Seiten
+`{eintraege, gesamt, seite, groesse}`), Detailseite `/coins/{id}` (Platzhalter „Verleihungen“ ohne
+Daten), „Coin hinzufügen“ auf `/coins/neu` nur mit `coins.write`, Motivbild hochladen/abrufen;
+Lesen öffentlich (ADR-0014), Schreiben nur mit `coins.write`.
+Frontend-Grundgerüst mit App-Shell (Startseite `/`, Katalog `/coins`, Sidebar, Hell/Dunkel).
 Anmeldung über Keycloak (ADR-0012–0015). Rollen- und Benutzerverwaltung
 (`docs/features/rollen-benutzerverwaltung.md`, ADR-0016–0019): Administratoren vergeben Rollen und
 deaktivieren/reaktivieren Benutzer unter `/benutzerverwaltung`; Berechtigungen `coins.read`/
