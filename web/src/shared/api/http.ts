@@ -10,7 +10,7 @@ export type ApiErgebnis<T> =
   | { art: 'validierung'; fehler: Record<string, string[]> }
   | { art: 'nichtAngemeldet' }
   | { art: 'keinZugriff'; grund: KeinZugriffGrund }
-  | { art: 'konflikt'; code: string | null }
+  | { art: 'konflikt'; code: string | null; detail?: string }
   | { art: 'zuGross' }
   | { art: 'formatUngueltig' }
   | { art: 'nichtGefunden' }
@@ -22,6 +22,15 @@ export interface Seite<T> {
   gesamt: number
   seite: number
   groesse: number
+}
+
+/** Optionen für `sende`/`bildeAb`. */
+export interface SendeOptionen {
+  /**
+   * Bei 409 auch `detail` der ProblemDetails übernehmen (z. B. „… nicht unter 7 gesenkt …“, coin-ausgaben AK-25).
+   * Nur für Texte, die der Server ohne Personendaten formuliert.
+   */
+  konfliktDetail?: boolean
 }
 
 /** Wird bei 401 auf einen schreibenden Aufruf ausgelöst (Sitzung abgelaufen, AK-27). */
@@ -66,7 +75,11 @@ async function leseCode(antwort: Response): Promise<string | null> {
   return typeof problem?.code === 'string' ? problem.code : null
 }
 
-export async function bildeAb<T>(antwort: Response, erfolgsStatus: number[]): Promise<ApiErgebnis<T>> {
+export async function bildeAb<T>(
+  antwort: Response,
+  erfolgsStatus: number[],
+  optionen: SendeOptionen = {},
+): Promise<ApiErgebnis<T>> {
   if (erfolgsStatus.includes(antwort.status)) {
     const daten = await leseJson(antwort)
     return daten === null ? { art: 'fehler' } : { art: 'ok', daten: daten as T }
@@ -85,8 +98,14 @@ export async function bildeAb<T>(antwort: Response, erfolgsStatus: number[]): Pr
     }
     case 404:
       return { art: 'nichtGefunden' }
-    case 409:
-      return { art: 'konflikt', code: await leseCode(antwort) }
+    case 409: {
+      if (!optionen.konfliktDetail) return { art: 'konflikt', code: await leseCode(antwort) }
+      const problem = (await leseJson(antwort)) as ProblemDetails | null
+      const code = typeof problem?.code === 'string' ? problem.code : null
+      return typeof problem?.detail === 'string'
+        ? { art: 'konflikt', code, detail: problem.detail }
+        : { art: 'konflikt', code }
+    }
     case 413:
       return { art: 'zuGross' }
     case 415:
@@ -100,7 +119,12 @@ export async function bildeAb<T>(antwort: Response, erfolgsStatus: number[]): Pr
  * Sendet eine Anfrage an die API. Angemeldet mit `Authorization: Bearer` (AK-27); das Token wird bei jedem Aufruf
  * neu gelesen. Das Motivbild lädt der Browser per <img src> ohne diesen Weg (öffentlich, ADR-0014).
  */
-export async function sende<T>(url: string, init: RequestInit, erfolgsStatus: number[]): Promise<ApiErgebnis<T>> {
+export async function sende<T>(
+  url: string,
+  init: RequestInit,
+  erfolgsStatus: number[],
+  optionen: SendeOptionen = {},
+): Promise<ApiErgebnis<T>> {
   try {
     const headers = new Headers(init.headers)
     const token = await holeToken()
@@ -109,7 +133,7 @@ export async function sende<T>(url: string, init: RequestInit, erfolgsStatus: nu
     const antwort = await fetch(url, { ...init, headers })
     const methode = (init.method ?? 'GET').toUpperCase()
     if (antwort.status === 401 && !LESENDE_METHODEN.has(methode)) beiNichtAngemeldet?.()
-    const ergebnis = await bildeAb<T>(antwort, erfolgsStatus)
+    const ergebnis = await bildeAb<T>(antwort, erfolgsStatus, optionen)
     if (ergebnis.art === 'keinZugriff' && ergebnis.grund === 'deaktiviert') beiDeaktiviert?.()
     return ergebnis
   } catch {

@@ -1,6 +1,9 @@
 import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { CoinStammdaten, ladeCoin, type Coin } from '@/entities/coin'
+import type { ExemplarStatus } from '@/entities/exemplar'
+import { AusgabenHistorie } from '@/widgets/ausgaben-historie'
+import { CoinExemplare } from '@/widgets/coin-exemplare'
 import type { ApiErgebnis } from '@/shared/api'
 import { istGuid } from '@/shared/lib/guid'
 import { ROUTEN } from '@/shared/config'
@@ -9,11 +12,38 @@ import { buttonVariants } from '@/shared/ui/button'
 /** Meldung nach dem Anlegen: mit gespeichertem (oder ohne gewähltes) Bild bzw. bewusst ohne Motivbild. */
 export type CoinAngelegtMeldung = 'mitBild' | 'ohneBild'
 
+/** Meldung nach dem Erfassen einer Ausgabe; nur die Nummer, nie der Empfänger (coin-ausgaben AK-28). */
+export interface AusgabeErfasstMeldung {
+  art: 'ausgabeErfasst'
+  nummer: number
+}
+
+export type CoinDetailMeldung = CoinAngelegtMeldung | AusgabeErfasstMeldung
+
+/** Welche Abschnitte und Aktionen die Seite zeigt; abgeleitet aus den Berechtigungen (ADR-0021). */
+export interface CoinDetailBerechtigungen {
+  /** Abschnitt „Exemplare“ (coins.read). */
+  exemplare: boolean
+  /** Abschnitt „Ausgabehistorie“ (issues.read). */
+  historie: boolean
+  /** „Ausgabe erfassen“ und „Stornieren“ (issues.write). */
+  erfassen: boolean
+  /** „Auflage ändern“ (coins.write). */
+  auflage: boolean
+}
+
 export interface CoinDetailSeiteProps {
   /** Id aus der URL; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf (katalog-seiten, AK-8). */
   coinId: string
-  /** Erfolgsmeldung direkt nach dem Anlegen (AK-22/AK-23). */
-  meldung?: CoinAngelegtMeldung
+  /** Erfolgsmeldung direkt nach dem Anlegen (AK-22/AK-23) bzw. nach dem Erfassen einer Ausgabe (coin-ausgaben AK-28). */
+  meldung?: CoinDetailMeldung
+  berechtigungen: CoinDetailBerechtigungen
+  /** Filter der Exemplare aus der URL. */
+  status?: ExemplarStatus
+  /** Seite der Exemplare aus der URL. */
+  seite: number
+  onStatus: (status?: ExemplarStatus) => void
+  onSeite: (seite: number) => void
 }
 
 const MELDUNGEN: Record<CoinAngelegtMeldung, string> = {
@@ -21,15 +51,32 @@ const MELDUNGEN: Record<CoinAngelegtMeldung, string> = {
   ohneBild: 'Coin wurde ohne Motivbild angelegt.',
 }
 
+function meldungsText(meldung: CoinDetailMeldung): string {
+  return typeof meldung === 'string' ? MELDUNGEN[meldung] : `Exemplar Nr. ${meldung.nummer} wurde ausgegeben.`
+}
+
 const NICHT_GEFUNDEN: ApiErgebnis<Coin> = { art: 'nichtGefunden' }
 
 /**
- * Detailseite eines Coins (/coins/{id}, katalog-seiten AK-17 bis AK-20): Stammdaten, Motivbild und der Platzhalter
- * „Verleihungen“ (statisch, ohne Daten und ohne Request, AK-19). Rendert kein eigenes <main>.
+ * Detailseite eines Coins (/coins/{id}, katalog-seiten AK-17 bis AK-20, coin-ausgaben AK-20 bis AK-25): Stammdaten,
+ * Motivbild und je nach Berechtigung die Abschnitte „Exemplare“ und „Ausgabehistorie“. Ohne Berechtigung fehlen die
+ * Abschnitte samt Request. Rendert kein eigenes <main>.
  */
-export function CoinDetailSeite({ coinId, meldung }: CoinDetailSeiteProps) {
+export function CoinDetailSeite({
+  coinId,
+  meldung,
+  berechtigungen,
+  status,
+  seite,
+  onStatus,
+  onSeite,
+}: CoinDetailSeiteProps) {
   const gueltig = istGuid(coinId)
   const [geladen, setGeladen] = useState<{ id: string; ergebnis: ApiErgebnis<Coin> } | null>(null)
+  // Nach „Auflage ändern“: Stammdaten aus der Antwort übernehmen (gilt nur für dieselbe Id).
+  const [geaendert, setGeaendert] = useState<Coin | null>(null)
+  // Nach einem Storno die Kennzahlen neu laden.
+  const [exemplareNeuLaden, setExemplareNeuLaden] = useState(0)
   const ueberschrift = useRef<HTMLHeadingElement>(null)
   // Laufende Anfrage je Id wiederverwenden (z. B. im StrictMode), damit es genau einen Request gibt.
   const anfrage = useRef<{ id: string; ergebnis: Promise<ApiErgebnis<Coin>> } | null>(null)
@@ -47,12 +94,14 @@ export function CoinDetailSeite({ coinId, meldung }: CoinDetailSeiteProps) {
   }, [coinId, gueltig])
 
   const ergebnis = !gueltig ? NICHT_GEFUNDEN : geladen?.id === coinId ? geladen.ergebnis : null
-  const coin = ergebnis?.art === 'ok' ? ergebnis.daten : null
+  const geladenerCoin = ergebnis?.art === 'ok' ? ergebnis.daten : null
+  const coin = geladenerCoin && geaendert?.id === geladenerCoin.id ? geaendert : geladenerCoin
 
   // Nach dem Anlegen den Fokus auf die Überschrift setzen, damit Screenreader die neue Seite ansagen (AK-22).
+  const coinDa = coin !== null
   useEffect(() => {
-    if (coin && meldung) ueberschrift.current?.focus()
-  }, [coin, meldung])
+    if (coinDa && meldung) ueberschrift.current?.focus()
+  }, [coinDa, meldung])
 
   if (ergebnis === null) {
     return (
@@ -94,19 +143,34 @@ export function CoinDetailSeite({ coinId, meldung }: CoinDetailSeiteProps) {
         </h1>
         {meldung && (
           <p role="status" className="text-success">
-            {MELDUNGEN[meldung]}
+            {meldungsText(meldung)}
           </p>
         )}
       </div>
 
       <CoinStammdaten coin={coin} />
 
-      <section aria-labelledby="ueberschrift-verleihungen" className="grid gap-2">
-        <h2 id="ueberschrift-verleihungen" className="text-lg font-semibold">
-          Verleihungen
-        </h2>
-        <p className="text-muted-foreground">Dieser Bereich wird in einer späteren Version ergänzt.</p>
-      </section>
+      {berechtigungen.exemplare && (
+        <CoinExemplare
+          coinId={coin.id}
+          status={status}
+          seite={seite}
+          neuLaden={exemplareNeuLaden}
+          darfErfassen={berechtigungen.erfassen}
+          darfAuflageAendern={berechtigungen.auflage}
+          onStatus={onStatus}
+          onSeite={onSeite}
+          onAuflageGeaendert={setGeaendert}
+        />
+      )}
+
+      {berechtigungen.historie && (
+        <AusgabenHistorie
+          coinId={coin.id}
+          darfStornieren={berechtigungen.erfassen}
+          onGeaendert={() => setExemplareNeuLaden((n) => n + 1)}
+        />
+      )}
 
       <Link to={ROUTEN.coinListe} className={buttonVariants({ variant: 'outline', className: 'justify-self-start' })}>
         Zurück zum Katalog

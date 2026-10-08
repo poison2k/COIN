@@ -96,7 +96,8 @@ test('Coin ohne Auflage und ohne Bild: Detailseite und Liste zeigen „unbekannt
   await page.getByRole('button', { name: 'Coin anlegen' }).click()
 
   await expect(page).toHaveURL(DETAIL_URL)
-  await expect(page.locator('dl')).toContainText('unbekannt')
+  // coin-ausgaben: Die Detailseite kann eine zweite Beschreibungsliste (Kennzahlen) enthalten; Stammdaten stehen zuerst.
+  await expect(page.locator('dl').first()).toContainText('unbekannt')
   await expect(page.getByText('Kein Motivbild vorhanden.')).toBeVisible()
 
   await sucheImKatalog(page, name)

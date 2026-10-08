@@ -22,6 +22,158 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.AusgabeAuditDatensatz", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AkteurId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("akteur_id");
+
+                    b.Property<string>("Art")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("art");
+
+                    b.Property<Guid>("AusgabeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ausgabe_id");
+
+                    b.Property<Guid>("CoinId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("coin_id");
+
+                    b.Property<int>("ExemplarNummer")
+                        .HasColumnType("integer")
+                        .HasColumnName("exemplar_nummer");
+
+                    b.Property<string>("Grund")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("grund");
+
+                    b.Property<DateTimeOffset>("Zeitpunkt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("zeitpunkt");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ausgabe_audit");
+
+                    b.HasIndex("AkteurId")
+                        .HasDatabaseName("ix_ausgabe_audit_akteur_id");
+
+                    b.HasIndex("AusgabeId")
+                        .HasDatabaseName("ix_ausgabe_audit_ausgabe");
+
+                    b.ToTable("ausgabe_audit", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_ausgabe_audit_art", "(art = 'Erfasst' AND grund IS NULL) OR (art = 'Storniert' AND grund IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.AusgabeDatensatz", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AusgebendeStelle")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("ausgebende_stelle");
+
+                    b.Property<string>("Begruendung")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("begruendung");
+
+                    b.Property<Guid>("CoinId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("coin_id");
+
+                    b.Property<DateOnly>("Datum")
+                        .HasColumnType("date")
+                        .HasColumnName("datum");
+
+                    b.Property<string>("EmpfaengerDienstgrad")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("empfaenger_dienstgrad");
+
+                    b.Property<string>("EmpfaengerDienststelle")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("empfaenger_dienststelle");
+
+                    b.Property<string>("EmpfaengerName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("empfaenger_name");
+
+                    b.Property<DateTimeOffset>("ErfasstAm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("erfasst_am");
+
+                    b.Property<Guid>("ErfasstVon")
+                        .HasColumnType("uuid")
+                        .HasColumnName("erfasst_von");
+
+                    b.Property<int>("ExemplarNummer")
+                        .HasColumnType("integer")
+                        .HasColumnName("exemplar_nummer");
+
+                    b.Property<string>("Gelegenheit")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("gelegenheit");
+
+                    b.Property<DateTimeOffset?>("StorniertAm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("storniert_am");
+
+                    b.Property<Guid?>("StorniertVon")
+                        .HasColumnType("uuid")
+                        .HasColumnName("storniert_von");
+
+                    b.Property<string>("StornoGrund")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("storno_grund");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ausgabe");
+
+                    b.HasIndex("ErfasstVon")
+                        .HasDatabaseName("ix_ausgabe_erfasst_von");
+
+                    b.HasIndex("StorniertVon")
+                        .HasDatabaseName("ix_ausgabe_storniert_von");
+
+                    b.HasIndex("CoinId", "ErfasstAm", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("ix_ausgabe_coin_erfasst");
+
+                    b.HasIndex(new[] { "CoinId", "ExemplarNummer" }, "ix_ausgabe_exemplar")
+                        .HasDatabaseName("ix_ausgabe_exemplar");
+
+                    b.HasIndex(new[] { "CoinId", "ExemplarNummer" }, "ux_ausgabe_exemplar_aktiv")
+                        .IsUnique()
+                        .HasDatabaseName("ux_ausgabe_exemplar_aktiv")
+                        .HasFilter("storniert_am IS NULL");
+
+                    b.ToTable("ausgabe", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_ausgabe_storno", "(storniert_am IS NULL AND storniert_von IS NULL AND storno_grund IS NULL) OR (storniert_am IS NOT NULL AND storniert_von IS NOT NULL AND storno_grund IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Coin.Infrastructure.Persistenz.BenutzerAuditDatensatz", b =>
                 {
                     b.Property<Guid>("Id")
@@ -218,6 +370,69 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                         });
                 });
 
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.ExemplarDatensatz", b =>
+                {
+                    b.Property<Guid>("CoinId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("coin_id");
+
+                    b.Property<int>("Nummer")
+                        .HasColumnType("integer")
+                        .HasColumnName("nummer");
+
+                    b.HasKey("CoinId", "Nummer")
+                        .HasName("pk_exemplar");
+
+                    b.ToTable("exemplar", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_exemplar_nummer", "nummer >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.AusgabeAuditDatensatz", b =>
+                {
+                    b.HasOne("Coin.Infrastructure.Persistenz.BenutzerDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("AkteurId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ausgabe_audit_benutzer_akteur_id");
+
+                    b.HasOne("Coin.Infrastructure.Persistenz.AusgabeDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("AusgabeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ausgabe_audit_ausgabe_ausgabe_id");
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.AusgabeDatensatz", b =>
+                {
+                    b.HasOne("Coin.Infrastructure.Persistenz.BenutzerDatensatz", "Erfasser")
+                        .WithMany()
+                        .HasForeignKey("ErfasstVon")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ausgabe_benutzer_erfasst_von");
+
+                    b.HasOne("Coin.Infrastructure.Persistenz.BenutzerDatensatz", "Stornierer")
+                        .WithMany()
+                        .HasForeignKey("StorniertVon")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_ausgabe_benutzer_storniert_von");
+
+                    b.HasOne("Coin.Infrastructure.Persistenz.ExemplarDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("CoinId", "ExemplarNummer")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ausgabe_exemplar_coin_id_exemplar_nummer");
+
+                    b.Navigation("Erfasser");
+
+                    b.Navigation("Stornierer");
+                });
+
             modelBuilder.Entity("Coin.Infrastructure.Persistenz.BenutzerAuditDatensatz", b =>
                 {
                     b.HasOne("Coin.Infrastructure.Persistenz.BenutzerDatensatz", "Akteur")
@@ -246,6 +461,16 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_coin_bild_coin_typ_coin_id");
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.ExemplarDatensatz", b =>
+                {
+                    b.HasOne("Coin.Infrastructure.Persistenz.CoinTypDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("CoinId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_exemplar_coin_typ_coin_id");
                 });
 
             modelBuilder.Entity("Coin.Infrastructure.Persistenz.CoinTypDatensatz", b =>

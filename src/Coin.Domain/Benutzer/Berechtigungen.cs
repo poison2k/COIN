@@ -5,11 +5,17 @@ namespace Coin.Domain.Benutzer;
 /// <summary>Feste Berechtigungen (ADR-0016). Nicht konfigurierbar; jede hat eine gleichnamige Policy in der API.</summary>
 public static class Berechtigungen
 {
-    /// <summary>Katalog lesen. Definiert, aber nicht durchgesetzt, solange der Katalog öffentlich ist (ADR-0014).</summary>
+    /// <summary>Exemplare und Kennzahlen lesen; die übrigen Katalog-Endpunkte bleiben öffentlich (ADR-0014, ADR-0021).</summary>
     public const string CoinsRead = "coins.read";
 
-    /// <summary>Coins anlegen, Motivbild hochladen.</summary>
+    /// <summary>Coins anlegen, Motivbild hochladen, Auflage ändern.</summary>
     public const string CoinsWrite = "coins.write";
+
+    /// <summary>Ausgaben mit Empfängerdaten lesen (ADR-0021).</summary>
+    public const string IssuesRead = "issues.read";
+
+    /// <summary>Ausgaben erfassen und stornieren (ADR-0021).</summary>
+    public const string IssuesWrite = "issues.write";
 
     /// <summary>Benutzer auflisten, Rolle und Status ändern.</summary>
     public const string UsersManage = "users.manage";
@@ -17,7 +23,7 @@ public static class Berechtigungen
     /// <summary>Audit-Log lesen.</summary>
     public const string AuditRead = "audit.read";
 
-    public static IReadOnlyList<string> Alle { get; } = [CoinsRead, CoinsWrite, UsersManage, AuditRead];
+    public static IReadOnlyList<string> Alle { get; } = [CoinsRead, CoinsWrite, IssuesRead, IssuesWrite, UsersManage, AuditRead];
 }
 
 /// <summary>Rechtematrix Rolle → Berechtigungen (ADR-0016, <c>docs/berechtigungen.md</c>). Unveränderlich.</summary>
@@ -27,8 +33,15 @@ public static class Rechtematrix
 
     private static readonly FrozenDictionary<Rolle, IReadOnlySet<string>> Matrix = new Dictionary<Rolle, IReadOnlySet<string>>
     {
-        [Rolle.Administrator] = Menge(Berechtigungen.CoinsRead, Berechtigungen.CoinsWrite, Berechtigungen.UsersManage, Berechtigungen.AuditRead),
-        [Rolle.Sachbearbeiter] = Menge(Berechtigungen.CoinsRead, Berechtigungen.CoinsWrite),
+        [Rolle.Administrator] = Menge(
+            Berechtigungen.CoinsRead,
+            Berechtigungen.CoinsWrite,
+            Berechtigungen.IssuesRead,
+            Berechtigungen.IssuesWrite,
+            Berechtigungen.UsersManage,
+            Berechtigungen.AuditRead),
+        [Rolle.Sachbearbeiter] = Menge(
+            Berechtigungen.CoinsRead, Berechtigungen.CoinsWrite, Berechtigungen.IssuesRead, Berechtigungen.IssuesWrite),
         [Rolle.Betrachter] = Menge(Berechtigungen.CoinsRead),
     }.ToFrozenDictionary();
 

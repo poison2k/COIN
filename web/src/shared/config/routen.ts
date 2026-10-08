@@ -6,6 +6,8 @@ export const ROUTEN = {
   coinNeu: '/coins/neu',
   /** Detailseite eines Coins (katalog-seiten, AK-17). */
   coinDetail: '/coins/$coinId',
+  /** Ausgabe erfassen, nur mit issues.write (coin-ausgaben, AK-26). */
+  coinAusgabeNeu: '/coins/$coinId/ausgaben/neu',
   /** Rückkehr vom Identitätsanbieter (Redirect-URI, AK-24). */
   anmeldungRueckruf: '/anmeldung/rueckruf',
   /** Ziel nach dem Abmelden (Post-Logout-URI, AK-31). */

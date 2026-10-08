@@ -28,6 +28,21 @@ export function katalogSuche(roh: Record<string, unknown>): KatalogSuche {
   }
 }
 
+/** Suchparameter der Detailseite: Filter und Seite der Exemplare (coin-ausgaben AK-20). */
+export interface CoinDetailSuche {
+  status?: 'verfuegbar' | 'ausgegeben'
+  seite?: number
+}
+
+/** Ungültiger Status gilt als „Alle“, ungültige Seite als Seite 1 (AK-20); wirft nie. */
+export function coinDetailSuche(roh: Record<string, unknown>): CoinDetailSuche {
+  const zahl = typeof roh.seite === 'string' && /^\d+$/.test(roh.seite) ? Number(roh.seite) : roh.seite
+  return {
+    status: roh.status === 'verfuegbar' || roh.status === 'ausgegeben' ? roh.status : undefined,
+    seite: typeof zahl === 'number' && Number.isInteger(zahl) && zahl > 1 && zahl <= SEITE_MAX ? zahl : undefined,
+  }
+}
+
 export function keinZugriffSuche(roh: Record<string, unknown>): KeinZugriffSuche {
   return { grund: roh.grund === 'berechtigung' ? 'berechtigung' : undefined }
 }

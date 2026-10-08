@@ -299,11 +299,20 @@ describe('/kein-zugriff?grund=berechtigung', () => {
 // ---------- AK-7, AK-8, AK-17 bis AK-20: Detailseite ----------
 
 describe('/coins/{id}', () => {
+  // Geändert durch coin-ausgaben (AK-20, AK-22): Der Standardbenutzer (Administrator) lädt zusätzlich Exemplare und
+  // Ausgabehistorie; diese Requests werden hier ausdrücklich erwartet (anonym: siehe „sendet anonym keinen weiteren Request“).
   it('zeigt den Coin mit seinem Namen als Überschrift', async () => {
     zeigeApp(`/coins/${ALPHA.id}`, { coins: [ALPHA] })
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Coin Alpha' })).toBeInTheDocument()
-    expect(api.anfragenMit('GET', /^\/api\/coins\//).map((a) => a.pfad)).toEqual([`/api/coins/${ALPHA.id}`])
+    await waitFor(() =>
+      expect(
+        api
+          .anfragenMit('GET', /^\/api\/coins\//)
+          .map((a) => a.pfad)
+          .sort(),
+      ).toEqual([`/api/coins/${ALPHA.id}`, `/api/coins/${ALPHA.id}/ausgaben`, `/api/coins/${ALPHA.id}/exemplare`]),
+    )
   })
 
   it('zeigt für /coins/abc „Coin nicht gefunden“ ohne API-Aufruf', async () => {
@@ -320,33 +329,48 @@ describe('/coins/{id}', () => {
     expect(screen.getByRole('link', { name: 'Zum Katalog' })).toHaveAttribute('href', '/coins')
   })
 
-  it('ist anonym lesbar und zeigt den Abschnitt „Verleihungen“', async () => {
+  // Geändert durch coin-ausgaben (AK-20, AK-21, F1/F2): Der Platzhalter „Verleihungen“ entfällt; anonym gibt es keine
+  // Abschnitte „Exemplare“/„Ausgabehistorie“ und keine Requests dafür.
+  it('ist anonym lesbar und zeigt keine Abschnitte „Exemplare“ oder „Ausgabehistorie“', async () => {
     const { anmeldung } = zeigeApp(`/coins/${ALPHA.id}`, { coins: [ALPHA], zustand: 'anonym' })
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Coin Alpha' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 2, name: 'Verleihungen' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2, name: 'Exemplare' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2, name: 'Ausgabehistorie' })).not.toBeInTheDocument()
     expect(anmeldung.signinRedirect).not.toHaveBeenCalled()
   })
 
-  it('sendet anonym keinen weiteren Request für „Verleihungen“', async () => {
+  it('sendet anonym keinen weiteren Request (keine Exemplare, keine Ausgaben)', async () => {
     zeigeApp(`/coins/${ALPHA.id}`, { coins: [ALPHA], zustand: 'anonym' })
-    await screen.findByRole('heading', { level: 2, name: 'Verleihungen' })
+    await screen.findByRole('heading', { level: 1, name: 'Coin Alpha' })
     await new Promise((resolve) => setTimeout(resolve, 20))
 
     expect(api.anfragen.map((a) => `${a.methode} ${a.pfad}`)).toEqual([`GET /api/coins/${ALPHA.id}`])
   })
 
-  it('zeigt auch mit coins.write keine Bearbeiten-, Löschen- oder Upload-Elemente', async () => {
+  // Geändert durch coin-ausgaben (F3, AK-25): „Auflage ändern“ ist die einzige erlaubte Änderung am Coin.
+  it('zeigt mit coins.write außer „Auflage ändern“ keine Bearbeiten-, Löschen- oder Upload-Elemente', async () => {
     zeigeApp(`/coins/${ALPHA.id}`, { coins: [ALPHA] })
     await screen.findByRole('heading', { level: 1, name: 'Coin Alpha' })
     await angemeldetGeladen()
+    await screen.findByRole('button', { name: 'Auflage ändern' })
+    // Exemplare (Filter-Auswahl) und Ausgabehistorie haben eigene Bedienelemente; geprüft werden nur die Stammdaten.
+    const ausgenommen = [
+      await screen.findByRole('region', { name: 'Exemplare' }),
+      await screen.findByRole('region', { name: 'Ausgabehistorie' }),
+    ]
 
     const main = screen.getByRole('main')
-    expect(main.querySelectorAll('form, input, textarea, select')).toHaveLength(0)
-    const namen = [...within(main).queryAllByRole('button'), ...within(main).queryAllByRole('link')].map(
-      (el) => el.textContent ?? '',
+    const eingabeElemente = [...main.querySelectorAll('form, input, textarea, select')].filter(
+      (el) => !ausgenommen.some((abschnitt) => abschnitt.contains(el)),
     )
-    expect(namen.filter((n) => /bearbeiten|ändern|löschen|hochladen|Bild/i.test(n))).toEqual([])
+    expect(eingabeElemente).toEqual([])
+    const namen = [...within(main).queryAllByRole('button'), ...within(main).queryAllByRole('link')].map(
+      (el) => el.textContent?.trim() ?? '',
+    )
+    expect(namen.filter((n) => n !== 'Auflage ändern' && /bearbeiten|ändern|löschen|hochladen|Bild/i.test(n))).toEqual(
+      [],
+    )
   })
 
   it('führt über „Zurück zum Katalog“ zu /coins', async () => {
@@ -829,10 +853,11 @@ describe('Barrierefreiheit und deutsche Texte', () => {
     expect(erreicht).toBe(true)
   })
 
-  it('verwendet den Begriff „Ausgaben“ auf der Detailseite nicht', async () => {
+  // Geändert durch coin-ausgaben (F1): Fachbegriff ist jetzt „Ausgabe“, „Verleihung“ kommt nicht mehr vor.
+  it('verwendet den Begriff „Verleihung“ auf der Detailseite nicht', async () => {
     zeigeApp(`/coins/${ALPHA.id}`, { coins: [ALPHA] })
-    await screen.findByRole('heading', { level: 2, name: 'Verleihungen' })
+    await screen.findByRole('heading', { level: 2, name: 'Ausgabehistorie' })
 
-    expect(alleTexte()).not.toMatch(/Ausgabe/i)
+    expect(alleTexte()).not.toMatch(/Verleihung/i)
   })
 })

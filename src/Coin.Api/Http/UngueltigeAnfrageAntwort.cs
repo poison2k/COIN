@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -18,9 +19,10 @@ public static class UngueltigeAnfrageAntwort
     public static IActionResult Erstellen(ActionContext context)
     {
         var bereinigt = new ModelStateDictionary();
+        var syntaxfehler = context.ModelState.Values.Any(e => e.Errors.Any(f => IstSyntaxfehler(f.Exception)));
         foreach (var (schluessel, eintrag) in context.ModelState)
         {
-            if (eintrag.Errors.Count > 0 && Feldname(schluessel) is { } feld && !bereinigt.ContainsKey(feld))
+            if (!syntaxfehler && eintrag.Errors.Count > 0 && Feldname(schluessel) is { } feld && !bereinigt.ContainsKey(feld))
             {
                 bereinigt.AddModelError(feld, "Ungültiger Wert für dieses Feld.");
             }
@@ -37,6 +39,14 @@ public static class UngueltigeAnfrageAntwort
 
         return new BadRequestObjectResult(problem) { ContentTypes = { "application/problem+json" } };
     }
+
+    /// <summary>
+    /// Kein gültiges JSON (z. B. abgeschnitten): Der Leser scheitert, nicht die Umwandlung eines Werts. Dann gilt der
+    /// Fehler der ganzen Anfrage (<c>errors.anfrage</c>), nicht dem Feld, an dem der Leser stand (coin-ausgaben AK-7).
+    /// Umwandlungsfehler (Text statt Zahl, ungültiges Datum) tragen eine Nicht-JSON-Ausnahme als Ursache.
+    /// </summary>
+    private static bool IstSyntaxfehler(Exception? fehler) =>
+        fehler is JsonException { InnerException: null or JsonException };
 
     /// <summary>
     /// <c>$.auflage</c> → <c>auflage</c>; Query-Parameter (<c>Seite</c>, <c>benutzerId</c>) → camelCase;

@@ -81,3 +81,75 @@ public sealed class BenutzerAuditDatensatz
 
     public string Neu { get; set; } = string.Empty;
 }
+
+/// <summary>Persistenzmodell der Tabelle <c>exemplar</c> (ADR-0020 Punkt 1). Erzeugt und gelöscht nur per SQL.</summary>
+public sealed class ExemplarDatensatz
+{
+    public Guid CoinId { get; set; }
+
+    public int Nummer { get; set; }
+}
+
+/// <summary>
+/// Persistenzmodell der Tabelle <c>ausgabe</c> (ADR-0020 Punkt 4). Geschrieben nur per SQL; ein Trigger verhindert
+/// DELETE und erlaubt als UPDATE nur das einmalige Storno.
+/// </summary>
+public sealed class AusgabeDatensatz
+{
+    public Guid Id { get; set; }
+
+    public Guid CoinId { get; set; }
+
+    public int ExemplarNummer { get; set; }
+
+    public string EmpfaengerName { get; set; } = string.Empty;
+
+    public string? EmpfaengerDienstgrad { get; set; }
+
+    public string? EmpfaengerDienststelle { get; set; }
+
+    public DateOnly Datum { get; set; }
+
+    public string Gelegenheit { get; set; } = string.Empty;
+
+    public string Begruendung { get; set; } = string.Empty;
+
+    public string AusgebendeStelle { get; set; } = string.Empty;
+
+    public DateTimeOffset ErfasstAm { get; set; }
+
+    public Guid ErfasstVon { get; set; }
+
+    public BenutzerDatensatz Erfasser { get; set; } = null!;
+
+    public DateTimeOffset? StorniertAm { get; set; }
+
+    public Guid? StorniertVon { get; set; }
+
+    public BenutzerDatensatz? Stornierer { get; set; }
+
+    public string? StornoGrund { get; set; }
+}
+
+/// <summary>
+/// Persistenzmodell der Tabelle <c>ausgabe_audit</c> (ADR-0020 Punkt 10): ohne Empfängerdaten, nur per SQL-INSERT,
+/// unveränderlich per Trigger.
+/// </summary>
+public sealed class AusgabeAuditDatensatz
+{
+    public Guid Id { get; set; }
+
+    public DateTimeOffset Zeitpunkt { get; set; }
+
+    public Guid AkteurId { get; set; }
+
+    public Guid AusgabeId { get; set; }
+
+    public Guid CoinId { get; set; }
+
+    public int ExemplarNummer { get; set; }
+
+    public string Art { get; set; } = string.Empty;
+
+    public string? Grund { get; set; }
+}

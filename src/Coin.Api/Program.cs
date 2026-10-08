@@ -1,5 +1,6 @@
 using Coin.Api.Authentifizierung;
 using Coin.Api.Http;
+using Coin.Domain.Ausgaben;
 using Coin.Domain.Benutzer;
 using Coin.Domain.Katalog;
 using Coin.Infrastructure;
@@ -15,11 +16,12 @@ builder.Services
     .AddJsonOptions(options => options.AllowInputFormatterExceptionMessages = false)
     .ConfigureApiBehaviorOptions(options =>
         options.InvalidModelStateResponseFactory = UngueltigeAnfrageAntwort.Erstellen);
-builder.Services.AddProblemDetails();
+builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = ProblemTitel.Setzen);
 builder.Services.AddOpenApi();
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CoinKatalogService>();
+builder.Services.AddScoped<AusgabeService>();
 builder.Services.AddScoped<BenutzerverwaltungService>();
 builder.Services.AddUrlsNichtProtokollieren();
 builder.Services.AddInfrastruktur(builder.Configuration);

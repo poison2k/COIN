@@ -82,6 +82,22 @@ public partial class EndpunktInventarTests(PostgresFixture fixture) : Integratio
         Assert.Null(endpunkt.Metadata.GetMetadata<IAllowAnonymous>());
     }
 
+    [Theory]
+    [InlineData("PUT /api/coins/{id}/auflage", "coins.write")]
+    [InlineData("GET /api/coins/{id}/exemplare", "coins.read")]
+    [InlineData("GET /api/coins/{id}/ausgaben", "issues.read")]
+    [InlineData("POST /api/coins/{id}/ausgaben", "issues.write")]
+    [InlineData("POST /api/coins/{id}/ausgaben/{ausgabeId}/storno", "issues.write")]
+    public void Endpunkte_der_Coin_Ausgaben_verlangen_ihre_Policy_und_sind_nicht_anonym(string name, string policy)
+    {
+        // coin-ausgaben AK-15, AK-32 (ADR-0021 Punkt 2 und 5).
+        var endpunkt = Assert.Single(Endpunkte(Fixture.Factory), e => e.Name == name).Endpunkt;
+
+        var authorize = endpunkt.Metadata.GetOrderedMetadata<IAuthorizeData>();
+        Assert.Contains(authorize, a => a.Policy == policy);
+        Assert.Null(endpunkt.Metadata.GetMetadata<IAllowAnonymous>());
+    }
+
     [Fact]
     public void Api_me_ist_nicht_anonym_erreichbar()
     {
@@ -104,7 +120,8 @@ public partial class EndpunktInventarTests(PostgresFixture fixture) : Integratio
         foreach (var name in geschuetzt)
         {
             var (methode, muster) = (name.Split(' ')[0], name.Split(' ')[1]);
-            var url = muster.Replace("{id}", Guid.NewGuid().ToString());
+            // coin-ausgaben: mehrere Routenparameter ({id}, {ausgabeId}) – jeder wird durch eine GUID ersetzt.
+            var url = RoutenParameter().Replace(muster, _ => Guid.NewGuid().ToString());
             using var anfrage = new HttpRequestMessage(new HttpMethod(methode == "*" ? "GET" : methode), url);
             using var antwort = await Anonym.SendAsync(anfrage);
             ergebnisse.Add($"{name} -> {(int)antwort.StatusCode}");

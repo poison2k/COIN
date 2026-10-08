@@ -37,7 +37,8 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         using var scope = Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CoinDbContext>();
-        await db.Database.ExecuteSqlRawAsync("TRUNCATE coin_typ, benutzer CASCADE");
+        // coin-ausgaben (Abschnitt 4): die neuen Tabellen ausdrücklich mit aufgeführt.
+        await db.Database.ExecuteSqlRawAsync("TRUNCATE ausgabe_audit, ausgabe, exemplar, coin_typ, benutzer CASCADE");
     }
 
     public async Task DisposeAsync()

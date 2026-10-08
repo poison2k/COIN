@@ -133,4 +133,66 @@ public class KonfigurationsdateienTests
 
         Assert.Empty(treffer);
     }
+
+    /// <summary>
+    /// coin-ausgaben, QA-Review Runde 1 (Hinweis, analog zu <c>EnableSensitiveDataLogging</c>): <c>Include Error Detail</c>
+    /// würde Parameterwerte (Empfängerdaten) in PostgreSQL-Fehlermeldungen und damit in Logs bringen.
+    /// Geprüft in jeder Schreibweise (Groß/klein, mit oder ohne Leer-/Unterstriche). Durchsucht werden appsettings*.json,
+    /// launchSettings.json, .env*, *.yaml/*.yml unter src/, infra/, e2e/ und im Wurzelverzeichnis.
+    /// </summary>
+    [Fact]
+    public void Keine_Konfigurationsdatei_aktiviert_Include_Error_Detail()
+    {
+        var verzeichnisse = new[] { "src", "infra", "e2e" }
+            .Select(v => Path.Combine(Wurzel, v))
+            .Where(Directory.Exists);
+        var dateien = verzeichnisse
+            .SelectMany(v => Directory.EnumerateFiles(v, "*", SearchOption.AllDirectories))
+            .Where(d => !IstErzeugtOderAbhaengigkeit(d))
+            .Where(IstKonfigurationsdatei)
+            .Concat(Directory.EnumerateFiles(Wurzel, "*", SearchOption.TopDirectoryOnly).Where(IstKonfigurationsdatei));
+
+        var treffer = dateien
+            .Where(d => EnthaeltIncludeErrorDetail(File.ReadAllText(d)))
+            .Select(d => Path.GetRelativePath(Wurzel, d))
+            .ToList();
+
+        Assert.Empty(treffer);
+    }
+
+    [Fact]
+    public void Im_Backend_Code_wird_Npgsql_Include_Error_Detail_nicht_aktiviert()
+    {
+        var treffer = Directory.EnumerateFiles(Path.Combine(Wurzel, "src"), "*.cs", SearchOption.AllDirectories)
+            .Where(d => !IstErzeugtOderAbhaengigkeit(d))
+            .Where(d => EnthaeltIncludeErrorDetail(File.ReadAllText(d)))
+            .Select(d => Path.GetRelativePath(Wurzel, d))
+            .ToList();
+
+        Assert.Empty(treffer);
+    }
+
+    private static bool IstErzeugtOderAbhaengigkeit(string datei)
+    {
+        var s = Path.DirectorySeparatorChar;
+        return datei.Contains($"{s}obj{s}") || datei.Contains($"{s}bin{s}") || datei.Contains($"{s}node_modules{s}");
+    }
+
+    private static bool IstKonfigurationsdatei(string datei)
+    {
+        var name = Path.GetFileName(datei);
+        return (name.StartsWith("appsettings", StringComparison.OrdinalIgnoreCase) && name.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            || name.Equals("launchSettings.json", StringComparison.OrdinalIgnoreCase)
+            || name.StartsWith(".env", StringComparison.OrdinalIgnoreCase)
+            || name.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase)
+            || name.EndsWith(".yml", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Npgsql-Schlüssel <c>Include Error Detail</c> bzw. <c>IncludeErrorDetail</c> in jeder Schreibweise (Groß/klein,
+    /// mit Leer-, Unter- oder Bindestrichen). Nicht gemeint ist JwtBearers <c>IncludeErrorDetails</c> (Plural).
+    /// </summary>
+    private static bool EnthaeltIncludeErrorDetail(string text) =>
+        System.Text.RegularExpressions.Regex.IsMatch(text, @"include[\s_-]*error[\s_-]*detail(?!s)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 }

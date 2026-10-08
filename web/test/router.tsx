@@ -13,7 +13,8 @@ import type { ReactNode } from 'react'
 // Testhilfe (katalog-seiten): Seiten und Komponenten mit Router-Links ohne App rendern. Ein minimaler Router mit der
 // getesteten Komponente unter `pfad` und Platzhalter-Zielen für die übrigen Pfade, die den erreichten Pfad anzeigen.
 
-const ZIELE = ['/', '/coins', '/coins/neu', '/coins/$coinId', '/kein-zugriff'] as const
+// coin-ausgaben: Ziel des Links „Ausgabe erfassen“ (AK-23).
+const ZIELE = ['/', '/coins', '/coins/neu', '/coins/$coinId', '/coins/$coinId/ausgaben/neu', '/kein-zugriff'] as const
 
 export interface MitRouterOptionen {
   /** Routen-Pfad der getesteten Komponente (Standard /test). */

@@ -23,8 +23,12 @@ public partial class EndpunktTabelleTests(PostgresFixture fixture) : Integration
     private const string Oeffentlich = "öffentlich";
     private const string Angemeldet = "angemeldet";
 
-    /// <summary>Die Berechtigungen laut AK-1 (bewusst als Literale, unabhängig vom Produktivcode).</summary>
-    private static readonly string[] AlleBerechtigungen = ["audit.read", "coins.read", "coins.write", "users.manage"];
+    /// <summary>
+    /// Die Berechtigungen laut AK-1 (bewusst als Literale, unabhängig vom Produktivcode). Ergänzt durch coin-ausgaben
+    /// (AK-16, ADR-0021): <c>issues.read</c>, <c>issues.write</c>.
+    /// </summary>
+    private static readonly string[] AlleBerechtigungen =
+        ["audit.read", "coins.read", "coins.write", "issues.read", "issues.write", "users.manage"];
 
     /// <summary>Name des Requirements laut Entwurf 5.5 (per Reflexion geprüft, um nicht vom Typ abzuhängen).</summary>
     private const string AnforderungTyp = "BerechtigungAnforderung";
@@ -185,6 +189,8 @@ public partial class EndpunktTabelleTests(PostgresFixture fixture) : Integration
     [InlineData("coins.write")]
     [InlineData("users.manage")]
     [InlineData("audit.read")]
+    [InlineData("issues.read")]
+    [InlineData("issues.write")]
     public void Fuer_jede_Berechtigung_gibt_es_eine_Policy_gleichen_Namens(string berechtigung)
     {
         Assert.NotNull(Optionen(Fixture.Factory).GetPolicy(berechtigung));
@@ -195,6 +201,8 @@ public partial class EndpunktTabelleTests(PostgresFixture fixture) : Integration
     [InlineData("coins.write")]
     [InlineData("users.manage")]
     [InlineData("audit.read")]
+    [InlineData("issues.read")]
+    [InlineData("issues.write")]
     public void Die_Policy_verlangt_Anmeldung_und_genau_ihre_Berechtigung(string berechtigung)
     {
         var policy = Optionen(Fixture.Factory).GetPolicy(berechtigung);
@@ -213,6 +221,7 @@ public partial class EndpunktTabelleTests(PostgresFixture fixture) : Integration
     [Theory]
     [InlineData("POST /api/coins")]
     [InlineData("PUT /api/coins/{id}/bild")]
+    [InlineData("PUT /api/coins/{id}/auflage")]
     public void Schreibende_Katalog_Endpunkte_verlangen_coins_write(string name)
     {
         var endpunkt = Assert.Single(Endpunkte(), e => e.Name == name).Endpunkt;
@@ -226,6 +235,10 @@ public partial class EndpunktTabelleTests(PostgresFixture fixture) : Integration
     [InlineData("PUT /api/benutzer/{id}/status", "users.manage")]
     [InlineData("GET /api/audit", "audit.read")]
     [InlineData("GET /api/me", Angemeldet)]
+    [InlineData("GET /api/coins/{id}/exemplare", "coins.read")]
+    [InlineData("GET /api/coins/{id}/ausgaben", "issues.read")]
+    [InlineData("POST /api/coins/{id}/ausgaben", "issues.write")]
+    [InlineData("POST /api/coins/{id}/ausgaben/{ausgabeId}/storno", "issues.write")]
     public void Neue_Endpunkte_verlangen_die_Berechtigung_laut_Entwurf(string name, string zugriff)
     {
         var endpunkt = Assert.Single(Endpunkte(), e => e.Name == name).Endpunkt;

@@ -10,7 +10,6 @@ const BETRACHTER_EMAIL = 'betrachter@test.local'
 const BETRACHTER_NAME = 'Test Betrachter'
 const TEXT_KEINE_BERECHTIGUNG =
   'Ihr Benutzerkonto ist für diese Seite nicht berechtigt. Den Coin-Katalog können Sie weiterhin ansehen. Wenden Sie sich bei Fragen an einen Administrator.'
-const PLATZHALTER = 'Dieser Bereich wird in einer späteren Version ergänzt.'
 const DETAIL_URL = new RegExp(`^${WEB}/coins/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 function eindeutig(praefix: string): string {
@@ -77,7 +76,9 @@ test('(1)+(2) Admin legt über „Coin hinzufügen“ einen Coin an, landet auf 
   const name = eindeutig('Systemtest Katalogseiten')
   await meldeAn(page, 'admin@test.local')
 
-  // 1. Katalog → „Coin hinzufügen“ → Formular → Detailseite mit Meldung, Stammdaten und „Verleihungen“.
+  // 1. Katalog → „Coin hinzufügen“ → Formular → Detailseite mit Meldung und Stammdaten.
+  // Geändert durch coin-ausgaben (F1, AK-20): statt des Platzhalters „Verleihungen“ der Abschnitt „Exemplare“; die
+  // Stammdaten sind die erste Beschreibungsliste (die zweite enthält die Kennzahlen).
   await page.goto('/coins')
   await expect(page.getByRole('heading', { level: 1, name: 'Katalog' })).toBeVisible()
   await page.getByRole('link', { name: 'Coin hinzufügen' }).click()
@@ -91,11 +92,11 @@ test('(1)+(2) Admin legt über „Coin hinzufügen“ einen Coin an, landet auf 
   const detailPfad = new URL(page.url()).pathname
   await expect(page.getByRole('status').filter({ hasText: 'Coin wurde angelegt.' })).toBeVisible()
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
-  await expect(page.locator('dl')).toContainText('Systemtest Herausgeber')
-  await expect(page.locator('dl')).toContainText('1.250')
+  await expect(page.locator('dl').first()).toContainText('Systemtest Herausgeber')
+  await expect(page.locator('dl').first()).toContainText('1.250')
   await expect(page.getByText('Kein Motivbild vorhanden.')).toBeVisible()
-  const verleihungen = page.locator('section').filter({ has: page.getByRole('heading', { level: 2, name: 'Verleihungen' }) })
-  await expect(verleihungen).toContainText(PLATZHALTER)
+  await expect(page.getByRole('heading', { level: 2, name: 'Exemplare' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: 'Verleihungen' })).toHaveCount(0)
 
   // 2. Die Suche im Katalog findet genau diesen Coin; ein Klick auf den Namen öffnet die Detailseite.
   await sucheImKatalog(page, name)
@@ -158,9 +159,10 @@ test('(4) anonym zeigt /coins die Liste ohne „Coin hinzufügen“, die Details
     await expect(anonym).toHaveURL(`${WEB}${detailPfad}`)
     await expect(anonym.getByRole('heading', { level: 1, name })).toBeVisible()
     await expect(anonym.locator('dl')).toContainText('Systemtest Herausgeber')
-    await expect(
-      anonym.locator('section').filter({ has: anonym.getByRole('heading', { level: 2, name: 'Verleihungen' }) }),
-    ).toContainText(PLATZHALTER)
+    // Geändert durch coin-ausgaben (AK-21): anonym weder „Verleihungen“ noch „Exemplare“/„Ausgabehistorie“.
+    await expect(anonym.getByRole('heading', { level: 2, name: 'Verleihungen' })).toHaveCount(0)
+    await expect(anonym.getByRole('heading', { level: 2, name: 'Exemplare' })).toHaveCount(0)
+    await expect(anonym.getByRole('heading', { level: 2, name: 'Ausgabehistorie' })).toHaveCount(0)
   } finally {
     await anonymKontext.close()
   }

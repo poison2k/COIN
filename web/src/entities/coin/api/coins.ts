@@ -52,3 +52,24 @@ export function ladeBildHoch(id: string, datei: File): Promise<ApiErgebnis<Coin>
   formData.append('datei', datei)
   return sende<Coin>(`${COINS_URL}/${encodeURIComponent(id)}/bild`, { method: 'PUT', body: formData }, [200])
 }
+
+/**
+ * PUT /api/coins/{id}/auflage – Auflage ändern (coin-ausgaben AK-17, nur coins.write). Mit `konfliktDetail` enthält
+ * ein 409 (`auflage_zu_klein`) auch den Text des Servers.
+ */
+export function aendereAuflage(
+  id: string,
+  auflage: number,
+  optionen: { konfliktDetail?: boolean } = {},
+): Promise<ApiErgebnis<Coin>> {
+  return sende<Coin>(
+    `${COINS_URL}/${encodeURIComponent(id)}/auflage`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ auflage }),
+    },
+    [200],
+    optionen,
+  )
+}

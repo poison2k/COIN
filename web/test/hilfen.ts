@@ -45,6 +45,16 @@ export async function fuelleAus(user: UserEvent, eingaben: Eingaben): Promise<vo
   if (eingaben.bild) await user.upload(felder.motivbild, eingaben.bild)
 }
 
+/**
+ * Gibt einen Text schnell in ein Feld ein: Klick (Fokus) und Einfügen in einem Schritt statt Taste für Taste.
+ * Für längere Texte, bei denen das Tippen selbst nicht geprüft wird (vermeidet langsame Tests und Eingaben,
+ * die nach einem Timeout in den nächsten Test laufen). Wird vollständig abgewartet.
+ */
+export async function gibEin(user: UserEvent, feld: HTMLElement, text: string): Promise<void> {
+  await user.click(feld)
+  await user.paste(text)
+}
+
 /** Sucht eine Meldung mit role="status" oder role="alert", die den Text enthält. */
 export function meldungMit(text: string): HTMLElement | undefined {
   const kandidaten = [...screen.queryAllByRole('status'), ...screen.queryAllByRole('alert')]

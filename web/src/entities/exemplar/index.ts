@@ -1,0 +1,5 @@
+export type { Exemplar, ExemplarSeite, ExemplarStatus, Kennzahlen as KennzahlenDaten } from './model/types'
+export { EXEMPLARE_JE_SEITE, ladeExemplare, type ExemplareAnfrage } from './api/exemplare'
+export { ExemplarStatusBadge, type ExemplarStatusBadgeProps } from './ui/ExemplarStatusBadge'
+export { ExemplarTabelle, type ExemplarTabelleProps } from './ui/ExemplarTabelle'
+export { Kennzahlen, type KennzahlenProps } from './ui/Kennzahlen'

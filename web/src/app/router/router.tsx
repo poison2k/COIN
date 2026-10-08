@@ -12,6 +12,7 @@ import { StartSeite } from '@/pages/start'
 import { ROUTEN } from '@/shared/config'
 import { Fehler, NichtGefunden } from './Fehlerseiten'
 import {
+  AusgabeErfassenRoute,
   BenutzerverwaltungRoute,
   CoinAnlegenRoute,
   CoinDetailRoute,
@@ -22,7 +23,7 @@ import {
   ShellLayout,
 } from './routen-komponenten'
 import { erfordertAnmeldung, erfordertBerechtigung, type SchutzKontext } from './schutz'
-import { katalogSuche, keinZugriffSuche } from './suchparameter'
+import { coinDetailSuche, katalogSuche, keinZugriffSuche } from './suchparameter'
 
 // Code-basierter Routenbaum (ADR-0010). Seiten bleiben frei von Router-Hooks; Anmelde- und Benutzerdaten
 // kommen als Props aus app (anmeldung-keycloak, Abschnitt 5.5).
@@ -73,7 +74,17 @@ const coinNeuRoute = createRoute({
 const coinDetailRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: ROUTEN.coinDetail,
+  validateSearch: coinDetailSuche,
   component: CoinDetailRoute,
+})
+// Geschwister der Detailseite (die keinen <Outlet> hat), nur mit issues.write (coin-ausgaben, AK-26).
+const coinAusgabeNeuRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: ROUTEN.coinAusgabeNeu,
+  beforeLoad: async ({ context, location }) => {
+    erfordertBerechtigung('issues.write')(await context.schutz(), location.href)
+  },
+  component: AusgabeErfassenRoute,
 })
 const abgemeldetRoute = createRoute({
   getParentRoute: () => shellRoute,
@@ -110,6 +121,7 @@ const routenBaum = wurzel.addChildren([
     coinListeRoute,
     coinNeuRoute,
     coinDetailRoute,
+    coinAusgabeNeuRoute,
     abgemeldetRoute,
     keinZugriffRoute,
     benutzerverwaltungRoute,
@@ -136,5 +148,7 @@ declare module '@tanstack/react-router' {
   interface HistoryState {
     /** Meldung für die Detailseite direkt nach dem Anlegen (katalog-seiten, AK-22/AK-23); wird einmal verbraucht. */
     coinAngelegt?: 'mitBild' | 'ohneBild'
+    /** Meldung nach dem Erfassen einer Ausgabe, nur mit der Nummer (coin-ausgaben, AK-28); wird einmal verbraucht. */
+    ausgabeErfasst?: { nummer: number }
   }
 }

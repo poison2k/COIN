@@ -4,7 +4,7 @@ import type { Seite } from '@/shared/api'
 export type Rolle = 'Administrator' | 'Sachbearbeiter' | 'Betrachter' | 'keine'
 
 /** Feste Berechtigungen (ADR-0016). Das Frontend leitet Sichtbarkeit nur aus ihnen ab, nie aus der Rolle. */
-export type Berechtigung = 'coins.read' | 'coins.write' | 'users.manage' | 'audit.read'
+export type Berechtigung = 'coins.read' | 'coins.write' | 'issues.read' | 'issues.write' | 'users.manage' | 'audit.read'
 
 /** Der angemeldete Benutzer laut GET /api/me (AK-20, rollen-benutzerverwaltung AK-10). `id` ist nicht `sub`. */
 export interface Benutzer {

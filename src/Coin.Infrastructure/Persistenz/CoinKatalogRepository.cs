@@ -35,16 +35,26 @@ internal sealed class CoinKatalogRepository(CoinDbContext db) : ICoinKatalogRepo
         }
 
         db.Coins.Add(datensatz);
+
+        // Coin und Exemplare 1 bis Auflage in derselben Transaktion (coin-ausgaben AK-1, ADR-0020 Punkt 2).
+        await using var transaktion = await db.Database.BeginTransactionAsync(ct);
         try
         {
             await db.SaveChangesAsync(ct);
-            return true;
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
             db.ChangeTracker.Clear();
             return false;
         }
+
+        if (coin.Auflage is { } auflage)
+        {
+            await AusgabeRepository.ExemplareErzeugenAsync(db, coin.Id, 1, auflage, ct);
+        }
+
+        await transaktion.CommitAsync(ct);
+        return true;
     }
 
     public async Task<Seite<CoinEintrag>> SuchenAsync(string? suche, int seite, int groesse, CancellationToken ct)

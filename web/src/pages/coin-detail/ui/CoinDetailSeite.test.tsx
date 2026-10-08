@@ -9,9 +9,11 @@ import { CoinDetailSeite, type CoinDetailSeiteProps } from '../index'
 
 // Feature katalog-seiten, AK-17 bis AK-20, AK-22, AK-26: Detailseite /coins/{id}.
 // Die Seite bekommt coinId (und nach dem Anlegen die Meldung) als Props von der Route; sie nutzt keine Router-Hooks.
+// Geändert durch coin-ausgaben (AK-20 bis AK-25, AK-28): Der Platzhalter „Verleihungen“ (katalog-seiten AK-19) entfällt;
+// neue Props berechtigungen { exemplare, historie, erfassen, auflage }, status, seite, onStatus, onSeite und die
+// Meldung { art: 'ausgabeErfasst', nummer }. Ohne Berechtigungen (anonym) sieht die Seite aus wie bisher.
 
 const ID = '0199a1b2-0000-7000-8000-0000000000d1'
-const PLATZHALTER = 'Dieser Bereich wird in einer späteren Version ergänzt.'
 const TEXTE = {
   laden: 'Coin wird geladen …',
   nichtGefunden: 'Diesen Coin gibt es nicht im Katalog.',
@@ -33,12 +35,38 @@ beforeEach(() => {
   starte()
 })
 
+const KEINE_RECHTE: CoinDetailSeiteProps['berechtigungen'] = {
+  exemplare: false,
+  historie: false,
+  erfassen: false,
+  auflage: false,
+}
+
+/** Berechtigungsstufen laut Rechtematrix (ADR-0021): anonym/ohne Rolle, Betrachter, Sachbearbeiter/Administrator. */
+const STUFEN = {
+  anonym: KEINE_RECHTE,
+  betrachter: { exemplare: true, historie: false, erfassen: false, auflage: false },
+  sachbearbeiter: { exemplare: true, historie: true, erfassen: true, auflage: true },
+} satisfies Record<string, CoinDetailSeiteProps['berechtigungen']>
+
 function zeige(props: Partial<CoinDetailSeiteProps> = {}) {
   const user = userEvent.setup()
-  const { router } = zeigeMitRouter(() => <CoinDetailSeite coinId={ID} {...props} />, {
-    pfad: '/coins/$coinId',
-    start: `/coins/${props.coinId ?? ID}`,
-  })
+  const { router } = zeigeMitRouter(
+    () => (
+      <CoinDetailSeite
+        coinId={ID}
+        berechtigungen={KEINE_RECHTE}
+        seite={1}
+        onStatus={() => {}}
+        onSeite={() => {}}
+        {...props}
+      />
+    ),
+    {
+      pfad: '/coins/$coinId',
+      start: `/coins/${props.coinId ?? ID}`,
+    },
+  )
   return { user, router }
 }
 
@@ -54,13 +82,6 @@ function wertZu(begriff: string): HTMLElement {
   while (dd && dd.tagName !== 'DD') dd = dd.nextElementSibling
   expect(dd).not.toBeNull()
   return dd as HTMLElement
-}
-
-function verleihungen(): HTMLElement {
-  const h2 = screen.getByRole('heading', { level: 2, name: 'Verleihungen' })
-  const abschnitt = h2.closest('section')
-  expect(abschnitt).not.toBeNull()
-  return abschnitt as HTMLElement
 }
 
 // ---------- AK-17: Laden, 404, Fehler ----------
@@ -123,12 +144,13 @@ describe('404', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 
-  it('zeigt keinen Fehleralarm und keinen Abschnitt „Verleihungen“', async () => {
-    zeige()
+  it('zeigt keinen Fehleralarm und keine Abschnitte „Exemplare“ oder „Ausgabehistorie“', async () => {
+    zeige({ berechtigungen: STUFEN.sachbearbeiter })
     await ueberschrift('Coin nicht gefunden')
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Verleihungen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Exemplare' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Ausgabehistorie' })).not.toBeInTheDocument()
   })
 })
 
@@ -335,65 +357,183 @@ describe('Motivbild', () => {
   })
 })
 
-// ---------- AK-19 (Entscheidung F5): Platzhalter „Verleihungen“ ----------
+// ---------- coin-ausgaben, AK-20 bis AK-23 (ersetzt katalog-seiten AK-19, Platzhalter „Verleihungen“) ----------
 
-describe('Platzhalter „Verleihungen“', () => {
-  it('hat einen Abschnitt mit der Überschrift „Verleihungen“ (Ebene 2)', async () => {
-    zeige()
+const EXEMPLARE = /^\/api\/coins\/[^/]+\/exemplare$/
+const AUSGABEN = /^\/api\/coins\/[^/]+\/ausgaben$/
+
+describe('Platzhalter „Verleihungen“ entfällt (F1)', () => {
+  it.each(Object.entries(STUFEN))('zeigt für %s keinen Abschnitt „Verleihungen“', async (_, berechtigungen) => {
+    zeige({ berechtigungen })
     await ueberschrift('Coin Alpha')
 
-    expect(verleihungen()).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Verleihungen' })).not.toBeInTheDocument()
+    expect(seitentext()).not.toContain('Dieser Bereich wird in einer späteren Version ergänzt.')
   })
+})
 
-  it('enthält genau den Platzhaltertext', async () => {
-    zeige()
+describe('anonym, ohne Rolle oder deaktiviert (AK-21)', () => {
+  it('zeigt keine Abschnitte „Exemplare“ und „Ausgabehistorie“', async () => {
+    zeige({ berechtigungen: STUFEN.anonym })
     await ueberschrift('Coin Alpha')
 
-    const abschnitt = verleihungen()
-    const ohneUeberschrift = (abschnitt.textContent ?? '').replace('Verleihungen', '').replace(/\s+/g, ' ').trim()
-    expect(ohneUeberschrift).toBe(PLATZHALTER)
+    expect(screen.queryByRole('heading', { name: 'Exemplare' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Ausgabehistorie' })).not.toBeInTheDocument()
   })
 
-  it('enthält keine Ziffern (keine Anzahl)', async () => {
-    starte(testCoin({ id: ID, auflage: 250 }))
-    zeige()
-    await ueberschrift('Coin Alpha')
-
-    expect(verleihungen().textContent).not.toMatch(/\d/)
-  })
-
-  it('enthält keine Bedienelemente, Links, Listen oder Tabellen', async () => {
-    zeige()
-    await ueberschrift('Coin Alpha')
-
-    const abschnitt = verleihungen()
-    expect(abschnitt.querySelectorAll('a, button, input, table, ul, ol, dl')).toHaveLength(0)
-  })
-
-  it('enthält keine Formulierungen über Personen oder Empfänger', async () => {
-    zeige()
-    await ueberschrift('Coin Alpha')
-
-    expect(verleihungen().textContent).not.toMatch(/Person|Empfänger|Inhaber|verliehen an|erhalten|Name/i)
-  })
-
-  it('sendet dafür keinen Request (nur GET /api/coins/{id})', async () => {
-    zeige()
+  it('sendet nur GET /api/coins/{id}, keinen Request auf …/exemplare oder …/ausgaben', async () => {
+    zeige({ berechtigungen: STUFEN.anonym })
     await ueberschrift('Coin Alpha')
     await new Promise((resolve) => setTimeout(resolve, 20))
 
-    expect(api.anfragen).toHaveLength(1)
-    expect(api.anfragen.some((a) => /verleih/i.test(a.pfad))).toBe(false)
+    expect(api.anfragen.map((a) => `${a.methode} ${a.pfad}`)).toEqual([`GET /api/coins/${ID}`])
   })
 
-  it('verwendet den Begriff „Ausgaben“ nirgends', async () => {
-    zeige()
+  it('zeigt Stammdaten wie bisher', async () => {
+    zeige({ berechtigungen: STUFEN.anonym })
     await ueberschrift('Coin Alpha')
 
-    const attribute = [...document.body.querySelectorAll('*')].flatMap((el) =>
-      ['aria-label', 'title', 'alt'].map((a) => el.getAttribute(a) ?? ''),
+    expect(wertZu('Auflage')).toHaveTextContent('250')
+  })
+})
+
+describe('Betrachter (coins.read ohne issues.read, AK-20, AK-22)', () => {
+  it('zeigt den Abschnitt „Exemplare“ mit den Kennzahlen', async () => {
+    zeige({ berechtigungen: STUFEN.betrachter })
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Exemplare' })).toBeInTheDocument()
+    expect(await screen.findByRole('table', { name: 'Exemplare' })).toBeInTheDocument()
+  })
+
+  it('zeigt keinen Abschnitt „Ausgabehistorie“', async () => {
+    zeige({ berechtigungen: STUFEN.betrachter })
+    await screen.findByRole('table', { name: 'Exemplare' })
+
+    expect(screen.queryByRole('heading', { name: 'Ausgabehistorie' })).not.toBeInTheDocument()
+  })
+
+  it('sendet keinen Request auf …/ausgaben', async () => {
+    zeige({ berechtigungen: STUFEN.betrachter })
+    await screen.findByRole('table', { name: 'Exemplare' })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(api.anfragenMit('GET', AUSGABEN)).toHaveLength(0)
+    expect(api.anfragenMit('GET', EXEMPLARE)).toHaveLength(1)
+  })
+
+  it('zeigt weder „Ausgabe erfassen“ noch „Auflage ändern“', async () => {
+    zeige({ berechtigungen: STUFEN.betrachter })
+    await screen.findByRole('table', { name: 'Exemplare' })
+
+    expect(screen.queryByRole('link', { name: 'Ausgabe erfassen' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Auflage ändern' })).not.toBeInTheDocument()
+  })
+})
+
+describe('Sachbearbeiter (alle Rechte, AK-22 bis AK-25)', () => {
+  it('zeigt „Exemplare“ und „Ausgabehistorie“ als Überschriften der Ebene 2', async () => {
+    zeige({ berechtigungen: STUFEN.sachbearbeiter })
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Exemplare' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 2, name: 'Ausgabehistorie' })).toBeInTheDocument()
+  })
+
+  it('lädt Exemplare und Historie je genau einmal', async () => {
+    zeige({ berechtigungen: STUFEN.sachbearbeiter })
+    await screen.findByRole('table', { name: 'Exemplare' })
+    await screen.findByText('Für diesen Coin wurden noch keine Ausgaben erfasst.')
+
+    expect(api.anfragenMit('GET', EXEMPLARE)).toHaveLength(1)
+    expect(api.anfragenMit('GET', AUSGABEN)).toHaveLength(1)
+  })
+
+  it('zeigt den Link „Ausgabe erfassen“ auf /coins/{id}/ausgaben/neu', async () => {
+    zeige({ berechtigungen: STUFEN.sachbearbeiter })
+
+    expect(await screen.findByRole('link', { name: 'Ausgabe erfassen' })).toHaveAttribute(
+      'href',
+      `/coins/${ID}/ausgaben/neu`,
     )
-    expect([seitentext(), ...attribute].join(' ')).not.toMatch(/Ausgabe/i)
+  })
+
+  it('zeigt den Button „Auflage ändern“', async () => {
+    zeige({ berechtigungen: STUFEN.sachbearbeiter })
+
+    expect(await screen.findByRole('button', { name: 'Auflage ändern' })).toBeInTheDocument()
+  })
+
+  it('reicht Status und Seite an die Exemplare weiter', async () => {
+    starte(testCoin({ id: ID, auflage: 60 }))
+    zeige({ berechtigungen: STUFEN.betrachter, status: 'verfuegbar', seite: 2 })
+    await screen.findByRole('table', { name: 'Exemplare' })
+
+    const abruf = api.anfragenMit('GET', EXEMPLARE)[0]
+    expect([abruf.query.get('status'), abruf.query.get('seite')]).toEqual(['verfuegbar', '2'])
+  })
+
+  it('meldet die Filterwahl über onStatus', async () => {
+    const onStatus = vi.fn()
+    const { user } = zeige({ berechtigungen: STUFEN.betrachter, onStatus })
+    await screen.findByRole('table', { name: 'Exemplare' })
+
+    await user.click(screen.getByRole('combobox', { name: 'Status' }))
+    await user.click(await screen.findByRole('option', { name: 'Ausgegeben' }))
+
+    expect(onStatus).toHaveBeenCalledWith('ausgegeben')
+  })
+
+  it('hat weiterhin genau eine Überschrift der Ebene 1', async () => {
+    zeige({ berechtigungen: STUFEN.sachbearbeiter })
+    await screen.findByRole('table', { name: 'Exemplare' })
+
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+  })
+})
+
+describe('Auflage ändern auf der Detailseite (AK-25)', () => {
+  it('lädt nach dem Speichern Stammdaten und Kennzahlen neu und meldet „Auflage wurde geändert.“', async () => {
+    starte(testCoin({ id: ID, auflage: 150 }))
+    const { user } = zeige({ berechtigungen: STUFEN.sachbearbeiter })
+    await screen.findByRole('table', { name: 'Exemplare' })
+
+    await user.click(screen.getByRole('button', { name: 'Auflage ändern' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Auflage ändern' })
+    const feld = within(dialog).getByLabelText(/^Auflage/)
+    await user.clear(feld)
+    await user.type(feld, '200')
+    await user.click(within(dialog).getByRole('button', { name: 'Speichern' }))
+
+    await waitFor(() => expect(meldungMit('Auflage wurde geändert.')?.getAttribute('role')).toBe('status'))
+    await waitFor(() => expect(wertZu('Auflage')).toHaveTextContent(/^200$/))
+    await waitFor(() => expect(api.anfragenMit('GET', EXEMPLARE).length).toBeGreaterThanOrEqual(2))
+  })
+})
+
+describe('Meldung nach dem Erfassen (AK-28)', () => {
+  it('meldet „Exemplar Nr. {n} wurde ausgegeben.“ als Status', async () => {
+    zeige({ berechtigungen: STUFEN.sachbearbeiter, meldung: { art: 'ausgabeErfasst', nummer: 12 } })
+    await ueberschrift('Coin Alpha')
+
+    await waitFor(() => expect(meldungMit('Exemplar Nr. 12 wurde ausgegeben.')?.getAttribute('role')).toBe('status'))
+  })
+
+  it('setzt den Fokus auf die Überschrift', async () => {
+    zeige({ berechtigungen: STUFEN.sachbearbeiter, meldung: { art: 'ausgabeErfasst', nummer: 12 } })
+    const h1 = await ueberschrift('Coin Alpha')
+
+    await waitFor(() => expect(h1).toHaveFocus())
+  })
+
+  it('nennt in der Meldung keinen Empfänger', async () => {
+    zeige({ berechtigungen: STUFEN.sachbearbeiter, meldung: { art: 'ausgabeErfasst', nummer: 12 } })
+    await ueberschrift('Coin Alpha')
+
+    const meldung = await waitFor(() => {
+      const el = meldungMit('Exemplar Nr. 12 wurde ausgegeben.')
+      expect(el).toBeDefined()
+      return el as HTMLElement
+    })
+    expect(meldung.textContent?.trim()).toBe('Exemplar Nr. 12 wurde ausgegeben.')
   })
 })
 
@@ -466,6 +606,14 @@ describe('deutsche Texte', () => {
     )
     return [seitentext(), ...attribute].join(' ')
   }
+
+  it('enthält mit allen Berechtigungen keine englischen Texte', async () => {
+    zeige({ berechtigungen: STUFEN.sachbearbeiter })
+    await screen.findByRole('table', { name: 'Exemplare' })
+    await screen.findByText('Für diesen Coin wurden noch keine Ausgaben erfasst.')
+
+    expect(alleTexte()).not.toMatch(ENGLISCH)
+  })
 
   it('enthält mit Bild und Meldung keine englischen Texte', async () => {
     starte(testCoin({ id: ID, bildUrl: `/api/coins/${ID}/bild?v=1`, auflage: null }))

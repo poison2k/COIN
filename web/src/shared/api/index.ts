@@ -6,6 +6,7 @@ export {
   setzeBeiNichtAngemeldet,
   type ApiErgebnis,
   type KeinZugriffGrund,
+  type SendeOptionen,
   type Seite,
 } from './http'
 export type { ProblemDetails } from './problem-details'

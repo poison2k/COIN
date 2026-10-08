@@ -13,6 +13,8 @@ public class RechtematrixTests
     private const string CoinsWrite = "coins.write";
     private const string UsersManage = "users.manage";
     private const string AuditRead = "audit.read";
+    private const string IssuesRead = "issues.read";
+    private const string IssuesWrite = "issues.write";
 
     private static readonly DateTimeOffset Zeit = new(2026, 10, 5, 9, 0, 0, TimeSpan.Zero);
 
@@ -30,9 +32,12 @@ public class RechtematrixTests
     // ---------- Berechtigungen ----------
 
     [Fact]
-    public void Berechtigungen_Alle_enthaelt_genau_die_vier_Berechtigungen()
+    public void Berechtigungen_Alle_enthaelt_genau_die_sechs_Berechtigungen()
     {
-        Assert.Equal([AuditRead, CoinsRead, CoinsWrite, UsersManage], Berechtigungen.Alle.Order(StringComparer.Ordinal));
+        // coin-ausgaben AK-16 (ADR-0021 Punkt 1): issues.read und issues.write kommen hinzu.
+        Assert.Equal(
+            [AuditRead, CoinsRead, CoinsWrite, IssuesRead, IssuesWrite, UsersManage],
+            Berechtigungen.Alle.Order(StringComparer.Ordinal));
     }
 
     [Fact]
@@ -46,6 +51,8 @@ public class RechtematrixTests
     [InlineData(nameof(Berechtigungen.CoinsWrite), CoinsWrite)]
     [InlineData(nameof(Berechtigungen.UsersManage), UsersManage)]
     [InlineData(nameof(Berechtigungen.AuditRead), AuditRead)]
+    [InlineData("IssuesRead", IssuesRead)]
+    [InlineData("IssuesWrite", IssuesWrite)]
     public void Konstante_hat_den_festgelegten_Wert(string konstante, string wert)
     {
         var feld = typeof(Berechtigungen).GetField(konstante);
@@ -62,18 +69,26 @@ public class RechtematrixTests
         { Rolle.Administrator, CoinsWrite, true },
         { Rolle.Administrator, UsersManage, true },
         { Rolle.Administrator, AuditRead, true },
+        { Rolle.Administrator, IssuesRead, true },
+        { Rolle.Administrator, IssuesWrite, true },
         { Rolle.Sachbearbeiter, CoinsRead, true },
         { Rolle.Sachbearbeiter, CoinsWrite, true },
         { Rolle.Sachbearbeiter, UsersManage, false },
         { Rolle.Sachbearbeiter, AuditRead, false },
+        { Rolle.Sachbearbeiter, IssuesRead, true },
+        { Rolle.Sachbearbeiter, IssuesWrite, true },
         { Rolle.Betrachter, CoinsRead, true },
         { Rolle.Betrachter, CoinsWrite, false },
         { Rolle.Betrachter, UsersManage, false },
         { Rolle.Betrachter, AuditRead, false },
+        { Rolle.Betrachter, IssuesRead, false },
+        { Rolle.Betrachter, IssuesWrite, false },
         { null, CoinsRead, false },
         { null, CoinsWrite, false },
         { null, UsersManage, false },
         { null, AuditRead, false },
+        { null, IssuesRead, false },
+        { null, IssuesWrite, false },
     };
 
     [Theory]
@@ -90,8 +105,8 @@ public class RechtematrixTests
     }
 
     [Theory]
-    [InlineData(Rolle.Administrator, 4)]
-    [InlineData(Rolle.Sachbearbeiter, 2)]
+    [InlineData(Rolle.Administrator, 6)]
+    [InlineData(Rolle.Sachbearbeiter, 4)]
     [InlineData(Rolle.Betrachter, 1)]
     public void Von_liefert_keine_weiteren_Berechtigungen(Rolle rolle, int anzahl)
     {
@@ -117,6 +132,24 @@ public class RechtematrixTests
     }
 
     [Fact]
+    public void Issues_read_und_issues_write_haben_genau_Administrator_und_Sachbearbeiter()
+    {
+        // coin-ausgaben AK-15/AK-16: Betrachter erhalten keine Empfängerdaten.
+        var mitLeserecht = Enum.GetValues<Rolle>().Where(r => Rechtematrix.Von(r).Contains(IssuesRead)).Order();
+        var mitSchreibrecht = Enum.GetValues<Rolle>().Where(r => Rechtematrix.Von(r).Contains(IssuesWrite)).Order();
+
+        Assert.Equal([Rolle.Administrator, Rolle.Sachbearbeiter], mitLeserecht);
+        Assert.Equal([Rolle.Administrator, Rolle.Sachbearbeiter], mitSchreibrecht);
+    }
+
+    [Fact]
+    public void Die_vorgemerkte_Berechtigung_verleihungen_read_gibt_es_nicht()
+    {
+        // coin-ausgaben F1: „Ausgabe“ ersetzt „Verleihung“, verleihungen.read entfällt.
+        Assert.DoesNotContain("verleihungen.read", Berechtigungen.Alle);
+    }
+
+    [Fact]
     public void Von_liefert_eine_unveraenderliche_Menge()
     {
         var menge = Rechtematrix.Von(Rolle.Betrachter);
@@ -138,6 +171,8 @@ public class RechtematrixTests
     [InlineData(CoinsWrite)]
     [InlineData(UsersManage)]
     [InlineData(AuditRead)]
+    [InlineData(IssuesRead)]
+    [InlineData(IssuesWrite)]
     public void Hat_liefert_fuer_einen_deaktivierten_Administrator_false(string berechtigung)
     {
         Assert.False(Rechtematrix.Hat(Benutzer(Rolle.Administrator, aktiv: false), berechtigung));

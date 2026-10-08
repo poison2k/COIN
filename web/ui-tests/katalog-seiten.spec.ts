@@ -34,14 +34,14 @@ const ADMIN: Me = {
   name: 'Test Administrator',
   email: 'admin@test.local',
   rolle: 'Administrator',
-  berechtigungen: ['audit.read', 'coins.read', 'coins.write', 'users.manage'],
+  berechtigungen: ['audit.read', 'coins.read', 'coins.write', 'issues.read', 'issues.write', 'users.manage'],
 }
 const SACHBEARBEITER: Me = {
   id: '0199a1b2-0000-7000-8000-00000000a002',
   name: 'Test Sachbearbeiter',
   email: 'sachbearbeiter@test.local',
   rolle: 'Sachbearbeiter',
-  berechtigungen: ['coins.read', 'coins.write'],
+  berechtigungen: ['coins.read', 'coins.write', 'issues.read', 'issues.write'],
 }
 const BETRACHTER: Me = {
   id: '0199a1b2-0000-7000-8000-00000000a003',
@@ -57,7 +57,6 @@ const TEXTE = {
   angelegt: 'Coin wurde angelegt.',
   ohneBild: 'Coin wurde ohne Motivbild angelegt.',
   teilerfolg: 'Coin wurde angelegt, das Bild konnte nicht gespeichert werden:',
-  platzhalter: 'Dieser Bereich wird in einer späteren Version ergänzt.',
 } as const
 
 const ENGLISCH =
@@ -227,6 +226,29 @@ async function mockeCoinApi(page: Page): Promise<void> {
       return coin
         ? json(route, 200, coin)
         : json(route, 404, { title: 'Coin nicht gefunden', status: 404 }, 'application/problem+json')
+    },
+  )
+  // coin-ausgaben (AK-20, AK-22): Die Detailseite lädt mit coins.read die Exemplare und mit issues.read die Historie.
+  // Hier ohne Ausgaben: alle Exemplare verfügbar, Historie leer. Nicht in apiAufrufe, damit die Prüfungen dieses
+  // Features (Katalog- und Detailabruf) unverändert bleiben.
+  await page.route(
+    (url) => /^\/api\/coins\/[^/]+\/(exemplare|ausgaben)$/.test(url.pathname),
+    async (route) => {
+      const url = new URL(route.request().url())
+      const coin = coins.find((c) => c.id === url.pathname.split('/')[3])
+      if (!coin) return json(route, 404, { title: 'Coin nicht gefunden', status: 404 }, 'application/problem+json')
+      const seite = Number(url.searchParams.get('seite') ?? '1')
+      if (url.pathname.endsWith('/ausgaben')) return json(route, 200, { eintraege: [], gesamt: 0, seite, groesse: 25 })
+      const status = url.searchParams.get('status')
+      const alle = Array.from({ length: coin.auflage ?? 0 }, (_, i) => ({ nummer: i + 1, status: 'verfuegbar' }))
+      const gefiltert = status === 'ausgegeben' ? [] : alle
+      return json(route, 200, {
+        kennzahlen: { auflage: coin.auflage, ausgegeben: 0, verfuegbar: coin.auflage ?? 0 },
+        eintraege: gefiltert.slice((seite - 1) * 25, seite * 25),
+        gesamt: gefiltert.length,
+        seite,
+        groesse: 25,
+      })
     },
   )
   await page.route(
@@ -507,7 +529,9 @@ test('anonym: Direktaufruf von /coins/neu startet die Anmeldung und kehrt danach
   await expect(page.getByRole('heading', { level: 1, name: 'Coin hinzufügen' })).toBeVisible()
 })
 
-test('anonym: Katalog ohne „Coin hinzufügen“, Detailseite lesbar, „Verleihungen“ ohne zusätzlichen Request', async ({
+// Geändert durch coin-ausgaben (AK-21, F1/F2): Platzhalter „Verleihungen“ entfällt; anonym keine Abschnitte „Exemplare“
+// und „Ausgabehistorie“ und kein zusätzlicher Request.
+test('anonym: Katalog ohne „Coin hinzufügen“, Detailseite lesbar, ohne Exemplare und ohne zusätzlichen Request', async ({
   page,
 }) => {
   coins = [coinNr(1, { name: 'Coin Anonym' })]
@@ -520,11 +544,10 @@ test('anonym: Katalog ohne „Coin hinzufügen“, Detailseite lesbar, „Verlei
   await page.getByRole('link', { name: 'Coin Anonym' }).click()
 
   await expect(page.getByRole('heading', { level: 1, name: 'Coin Anonym' })).toBeVisible()
-  const abschnitt = page
-    .locator('section')
-    .filter({ has: page.getByRole('heading', { level: 2, name: 'Verleihungen' }) })
-  await expect(abschnitt).toContainText(TEXTE.platzhalter)
   await page.waitForTimeout(200)
+  await expect(page.getByRole('heading', { level: 2, name: 'Verleihungen' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { level: 2, name: 'Exemplare' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { level: 2, name: 'Ausgabehistorie' })).toHaveCount(0)
   expect(apiAufrufe).toEqual([`GET /api/coins/${coins[0].id}`])
 })
 
@@ -953,10 +976,11 @@ test('Katalog, „Coin hinzufügen“ und Detailseite enthalten keine englischen
   await expect(page.getByRole('heading', { level: 1, name: 'Coin hinzufügen' })).toBeVisible()
   expect(await alleTexte(page)).not.toMatch(ENGLISCH)
 
+  // Geändert durch coin-ausgaben (F1): statt „Verleihungen“ die Abschnitte „Exemplare“ und „Ausgabehistorie“.
   await page.goto(`/coins/${coins[0].id}`)
-  await expect(page.getByRole('heading', { level: 2, name: 'Verleihungen' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: 'Ausgabehistorie' })).toBeVisible()
   expect(await alleTexte(page)).not.toMatch(ENGLISCH)
-  expect(await alleTexte(page)).not.toMatch(/Ausgabe/i)
+  expect(await alleTexte(page)).not.toMatch(/Verleihung/i)
 })
 
 test('schmaler Bildschirm: Überschrift, „Coin hinzufügen“ und Suche sind erreichbar, kein waagerechtes Scrollen', async ({

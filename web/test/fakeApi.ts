@@ -1,5 +1,6 @@
 import { vi } from 'vitest'
 import type { AuditEintrag } from '@/entities/audit'
+import type { Ausgabe } from '@/entities/ausgabe'
 import type { Benutzer, BenutzerEintrag, Rolle } from '@/entities/benutzer'
 import type { Coin } from '@/entities/coin'
 
@@ -92,6 +93,34 @@ export function testAuditEintrag(teil: Partial<AuditEintrag> = {}): AuditEintrag
   }
 }
 
+/**
+ * Synthetische Ausgabe (coin-ausgaben, Abschnitt 5.2; keine echten Personendaten). Ohne Angabe aktiv, Exemplar Nr. 1.
+ */
+export function testAusgabe(teil: Partial<Ausgabe> = {}): Ausgabe {
+  return {
+    id: '0199a1b2-0000-7000-8000-00000000e001',
+    exemplarNummer: 1,
+    empfaenger: { name: 'Max Beispiel', dienstgrad: 'Hauptmann', dienststelle: 'Beispielbataillon 1' },
+    datum: '2026-10-01',
+    gelegenheit: 'Truppenbesuch',
+    begruendung: 'Herausragende Leistung',
+    ausgebendeStelle: 'Kommandeur Beispielbataillon 1',
+    erfasstAm: '2026-10-08T09:00:00.123456+00:00',
+    erfasstVon: { id: '0199a1b2-0000-7000-8000-00000000a002', name: 'Test Sachbearbeiter' },
+    storno: null,
+    ...teil,
+  }
+}
+
+/** Antwort 409 beim Erfassen, Stornieren oder Ändern der Auflage (coin-ausgaben, AK-8, AK-12, AK-17). */
+export function ausgabeKonfliktAntwort(
+  code: 'auflage_unbekannt' | 'exemplar_ausgegeben' | 'kein_exemplar_frei' | 'bereits_storniert' | 'auflage_zu_klein',
+  detail = 'Konflikt',
+): Response {
+  const title = code === 'auflage_zu_klein' ? 'Änderung nicht möglich' : 'Ausgabe nicht möglich'
+  return problemAntwort(409, { title, code, detail })
+}
+
 /** Antwort 403 laut AK-6 (ProblemDetails mit code). */
 export function keinZugriffAntwort(code: 'benutzer_deaktiviert' | 'keine_berechtigung'): Response {
   return problemAntwort(403, {
@@ -139,16 +168,27 @@ function bodyVon(init: RequestInit | undefined): unknown {
  * GET /api/coins/{id} → Coin bzw. 404, POST /api/coins → 201,
  * PUT /api/coins/{id}/bild → 200 mit gesetzter bildUrl bzw. 404,
  * GET /api/me → 200 mit `optionen.me` bzw. 401 ohne angemeldeten Benutzer (anmeldung-keycloak).
+ * coin-ausgaben: GET …/exemplare (Kennzahlen aus Auflage und aktiven Ausgaben), GET/POST …/ausgaben,
+ * POST …/ausgaben/{id}/storno, PUT …/auflage mit den 409-Fällen aus AK-8, AK-12 und AK-17.
  * Mit `einmal(...)` lässt sich die nächste passende Antwort überschreiben.
  */
 export function erstelleFakeApi(
   startCoins: Coin[] = [],
-  optionen: { me?: Benutzer | null | 'deaktiviert'; benutzer?: BenutzerEintrag[]; audit?: AuditEintrag[] } = {},
+  optionen: {
+    me?: Benutzer | null | 'deaktiviert'
+    benutzer?: BenutzerEintrag[]
+    audit?: AuditEintrag[]
+    /** Ausgaben je Coin-Id, neueste zuerst (coin-ausgaben). */
+    ausgaben?: Record<string, Ausgabe[]>
+  } = {},
 ) {
   const coins: Coin[] = [...startCoins]
   let me: Benutzer | null | 'deaktiviert' = optionen.me ?? null
   const benutzer: BenutzerEintrag[] = [...(optionen.benutzer ?? [])]
   const audit: AuditEintrag[] = [...(optionen.audit ?? [])]
+  const ausgaben: Record<string, Ausgabe[]> = Object.fromEntries(
+    Object.entries(optionen.ausgaben ?? {}).map(([id, liste]) => [id, [...liste]]),
+  )
   const anfragen: Anfrage[] = []
   const ueberschreibungen: Array<{ methode: string; pfad: RegExp; antwort: Antwortgeber }> = []
   let zaehler = 0
@@ -198,6 +238,99 @@ export function erstelleFakeApi(
         .filter((c) => !suche || c.name.toLowerCase().includes(suche) || c.herausgeber.toLowerCase().includes(suche))
         .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()) || a.id.localeCompare(b.id))
       return jsonAntwort(200, seiteVon(treffer, anfrage.query))
+    }
+    // coin-ausgaben (Abschnitt 5): Exemplare, Historie, Erfassen, Storno, Auflage ändern.
+    const ausgabenPfad = /^\/api\/coins\/([^/]+)\/(exemplare|ausgaben|auflage)$/.exec(anfrage.pfad)
+    const stornoPfad = /^\/api\/coins\/([^/]+)\/ausgaben\/([^/]+)\/storno$/.exec(anfrage.pfad)
+    const coinPfad = ausgabenPfad ?? stornoPfad
+    if (coinPfad) {
+      const coinId = decodeURIComponent(coinPfad[1])
+      const coin = coins.find((c) => c.id === coinId)
+      if (!coin) return problemAntwort(404, { title: stornoPfad ? 'Ausgabe nicht gefunden' : 'Coin nicht gefunden' })
+      const liste = (ausgaben[coinId] ??= [])
+      const aktiv = (nr: number) => liste.some((a) => a.exemplarNummer === nr && a.storno === null)
+      const akteur = me && me !== 'deaktiviert' ? { id: me.id, name: me.name } : { id: 'unbekannt', name: 'Unbekannt' }
+      if (stornoPfad) {
+        if (anfrage.methode !== 'POST') return problemAntwort(404)
+        const ausgabe = liste.find((a) => a.id === decodeURIComponent(stornoPfad[2]))
+        if (!ausgabe) return problemAntwort(404, { title: 'Ausgabe nicht gefunden' })
+        if (ausgabe.storno) return ausgabeKonfliktAntwort('bereits_storniert', 'Diese Ausgabe ist bereits storniert.')
+        const grund = String((anfrage.body as { grund?: string } | null)?.grund ?? '').trim()
+        ausgabe.storno = { am: '2026-10-08T10:00:00+00:00', von: akteur, grund }
+        return jsonAntwort(200, structuredClone(ausgabe))
+      }
+      const art = coinPfad[2]
+      if (art === 'exemplare' && anfrage.methode === 'GET') {
+        const status = anfrage.query.get('status')
+        const auflage = coin.auflage ?? 0
+        const alle = Array.from({ length: auflage }, (_, i) => ({
+          nummer: i + 1,
+          status: aktiv(i + 1) ? ('ausgegeben' as const) : ('verfuegbar' as const),
+        }))
+        const ausgegeben = alle.filter((e) => e.status === 'ausgegeben').length
+        const gefiltert = status ? alle.filter((e) => e.status === status) : alle
+        return jsonAntwort(200, {
+          kennzahlen: { auflage: coin.auflage, ausgegeben, verfuegbar: auflage - ausgegeben },
+          ...seiteVon(gefiltert, anfrage.query),
+        })
+      }
+      if (art === 'ausgaben' && anfrage.methode === 'GET') {
+        const status = anfrage.query.get('status')
+        const gefiltert = liste.filter((a) => !status || (status === 'aktiv') === (a.storno === null))
+        return jsonAntwort(200, seiteVon(structuredClone(gefiltert), anfrage.query))
+      }
+      if (art === 'ausgaben' && anfrage.methode === 'POST') {
+        const daten = (anfrage.body ?? {}) as Record<string, unknown>
+        if (coin.auflage === null) return ausgabeKonfliktAntwort('auflage_unbekannt')
+        let nummer = typeof daten.exemplarNummer === 'number' ? daten.exemplarNummer : null
+        if (nummer === null) {
+          nummer = Array.from({ length: coin.auflage }, (_, i) => i + 1).find((nr) => !aktiv(nr)) ?? null
+          if (nummer === null) return ausgabeKonfliktAntwort('kein_exemplar_frei')
+        } else if (nummer < 1 || nummer > coin.auflage) {
+          return problemAntwort(400, {
+            title: 'Eingaben ungültig',
+            errors: { exemplarNummer: [`Exemplar-Nummer muss zwischen 1 und ${coin.auflage} liegen.`] },
+          })
+        } else if (aktiv(nummer)) {
+          return ausgabeKonfliktAntwort('exemplar_ausgegeben', `Exemplar Nr. ${nummer} ist bereits ausgegeben.`)
+        }
+        zaehler++
+        const text = (wert: unknown) => (typeof wert === 'string' && wert.trim() !== '' ? wert.trim() : null)
+        const ausgabe: Ausgabe = {
+          id: `0199a1b2-0000-7000-8000-${String(zaehler).padStart(12, 'e')}`,
+          exemplarNummer: nummer,
+          empfaenger: {
+            name: text(daten.empfaengerName) ?? '',
+            dienstgrad: text(daten.empfaengerDienstgrad),
+            dienststelle: text(daten.empfaengerDienststelle),
+          },
+          datum: String(daten.datum),
+          gelegenheit: text(daten.gelegenheit) ?? '',
+          begruendung: text(daten.begruendung) ?? '',
+          ausgebendeStelle: text(daten.ausgebendeStelle) ?? '',
+          erfasstAm: '2026-10-08T09:30:00+00:00',
+          erfasstVon: akteur,
+          storno: null,
+        }
+        liste.unshift(ausgabe)
+        return jsonAntwort(201, structuredClone(ausgabe))
+      }
+      if (art === 'auflage' && anfrage.methode === 'PUT') {
+        const neu = (anfrage.body as { auflage?: number | null } | null)?.auflage ?? null
+        if (neu === null) {
+          return problemAntwort(400, { title: 'Eingaben ungültig', errors: { auflage: ['Auflage ist erforderlich.'] } })
+        }
+        const hoechste = Math.max(0, ...liste.map((a) => a.exemplarNummer))
+        if (neu < hoechste) {
+          return ausgabeKonfliktAntwort(
+            'auflage_zu_klein',
+            `Die Auflage kann nicht unter ${hoechste} gesenkt werden, weil Exemplar Nr. ${hoechste} ausgegeben wurde.`,
+          )
+        }
+        coin.auflage = neu
+        return jsonAntwort(200, { ...coin })
+      }
+      return problemAntwort(404)
     }
     const einzeln = /^\/api\/coins\/([^/]+)$/.exec(anfrage.pfad)
     if (anfrage.methode === 'GET' && einzeln) {
@@ -263,6 +396,8 @@ export function erstelleFakeApi(
     benutzer,
     /** Audit-Einträge, neueste zuerst; PUT auf Rolle/Status fügt vorne an. */
     audit,
+    /** Ausgaben je Coin-Id, neueste zuerst; POST …/ausgaben fügt vorne an, Storno ändert den Eintrag. */
+    ausgaben,
     anfragen,
     /** Überschreibt die nächste Antwort für Methode und Pfad (einmalig). */
     einmal(methode: string, pfad: RegExp, antwort: Antwortgeber | Promise<Response> | Response) {

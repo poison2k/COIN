@@ -51,11 +51,14 @@ public class MeTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
     {
         using var antwort = await Client.GetAsync(MeUrl);
 
-        Assert.Equal(["audit.read", "coins.read", "coins.write", "users.manage"], Berechtigungen(await JsonAsync(antwort)));
+        // coin-ausgaben AK-16: zusätzlich issues.read und issues.write (ordinal sortiert).
+        Assert.Equal(
+            ["audit.read", "coins.read", "coins.write", "issues.read", "issues.write", "users.manage"],
+            Berechtigungen(await JsonAsync(antwort)));
     }
 
     [Theory]
-    [InlineData("Sachbearbeiter", new[] { "coins.read", "coins.write" })]
+    [InlineData("Sachbearbeiter", new[] { "coins.read", "coins.write", "issues.read", "issues.write" })]
     [InlineData("Betrachter", new[] { "coins.read" })]
     public async Task Me_liefert_die_Berechtigungen_der_Rolle(string rolle, string[] erwartet)
     {

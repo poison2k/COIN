@@ -37,6 +37,23 @@ describe('hatBerechtigung', () => {
     },
   )
 
+  // coin-ausgaben, AK-16 und AK-22/AK-23: issues.read/issues.write nur für Administrator und Sachbearbeiter.
+  it.each(['issues.read', 'issues.write'] as const)('liefert true für %s beim Administrator', (berechtigung) => {
+    expect(hatBerechtigung(ME.admin, berechtigung)).toBe(true)
+  })
+
+  it.each(['issues.read', 'issues.write'] as const)('liefert true für %s beim Sachbearbeiter', (berechtigung) => {
+    expect(hatBerechtigung(ME.sachbearbeiter, berechtigung)).toBe(true)
+  })
+
+  it.each(['issues.read', 'issues.write'] as const)('liefert false für %s beim Betrachter', (berechtigung) => {
+    expect(hatBerechtigung(ME.betrachter, berechtigung)).toBe(false)
+  })
+
+  it.each(['issues.read', 'issues.write'] as const)('liefert false für %s ohne Rolle', (berechtigung) => {
+    expect(hatBerechtigung(ME.keine, berechtigung)).toBe(false)
+  })
+
   it('richtet sich nach berechtigungen und nicht nach der Rolle', () => {
     const betrachterMitSchreibrecht: Benutzer = { ...ME.betrachter, berechtigungen: ['coins.read', 'coins.write'] }
     const adminOhneRechte: Benutzer = { ...ME.admin, berechtigungen: [] }

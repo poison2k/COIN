@@ -81,6 +81,8 @@ describe('ladeAngemeldetenBenutzer bei deaktiviertem Konto (AK-32, AK-34)', () =
       'audit.read',
       'coins.read',
       'coins.write',
+      'issues.read',
+      'issues.write',
       'users.manage',
     ])
   })
