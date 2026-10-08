@@ -12,7 +12,8 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
 ## Fachbegriffe
 - **Coin**: ein Coin-Typ im Katalog (Motiv, Herausgeber, Auflage, Beschreibung)
 - **Exemplar**: ein einzelner, nummerierter Coin eines Typs (Seriennummer)
-- **Verleihung**: Übergabe eines Exemplars an eine Person (wer, wann, wofür, durch wen)
+- **Ausgabe**: Übergabe eines Exemplars an eine Person (wer, wann, Gelegenheit, Begründung, ausgebende
+  Stelle); wird nie geändert oder gelöscht, nur mit Grund storniert. Früher „Verleihung“.
 - **Zertifikat**: signierter Echtheitsnachweis für ein Exemplar, öffentlich prüfbar
 
 ## Technik
@@ -47,18 +48,20 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
 ## Aktueller Stand
 Umgesetzt: Coin-Katalog (`docs/features/coin-katalog.md`, `docs/features/katalog-seiten.md`) –
 Katalog `/coins` mit Suche (Name/Herausgeber) und Blättern (`GET /api/coins` liefert Seiten
-`{eintraege, gesamt, seite, groesse}`), Detailseite `/coins/{id}` (Platzhalter „Verleihungen“ ohne
-Daten), „Coin hinzufügen“ auf `/coins/neu` nur mit `coins.write`, Motivbild hochladen/abrufen;
+`{eintraege, gesamt, seite, groesse}`), Detailseite `/coins/{id}`, „Coin hinzufügen“ auf `/coins/neu` nur mit `coins.write`, Motivbild hochladen/abrufen;
 Lesen öffentlich (ADR-0014), Schreiben nur mit `coins.write`.
 Frontend-Grundgerüst mit App-Shell (Startseite `/`, Katalog `/coins`, Sidebar, Hell/Dunkel).
 Anmeldung über Keycloak (ADR-0012–0015). Rollen- und Benutzerverwaltung
 (`docs/features/rollen-benutzerverwaltung.md`, ADR-0016–0019): Administratoren vergeben Rollen und
 deaktivieren/reaktivieren Benutzer unter `/benutzerverwaltung`; Berechtigungen `coins.read`/
-`coins.write`/`users.manage`/`audit.read` aus der festen Rechtematrix im Code
+`coins.write`/`users.manage`/`audit.read`/`issues.read`/`issues.write` aus der festen Rechtematrix im Code
 (`docs/berechtigungen.md`); Audit-Log für Rollen- und Statusänderungen (`benutzer_audit`,
 unveränderlich per Trigger, unbegrenzt aufbewahrt). Der erste Administrator kommt per
-`Bootstrap:AdminEmails`. Noch nicht vorhanden: Exemplare, Verleihungen, Zertifikate, Löschkonzept
-für das Audit-Log.
+`Bootstrap:AdminEmails`. Exemplare und Ausgaben (`docs/features/coin-ausgaben.md`, ADR-0020/0021):
+Exemplare 1 bis Auflage, Kennzahlen/Status mit `coins.read`, Historie mit `issues.read`, Erfassen
+und Stornieren mit `issues.write`, Auflage ändern mit `coins.write`; `ausgabe` und `ausgabe_audit`
+unveränderlich per Trigger. Noch nicht vorhanden: Zertifikate, Löschkonzept für Audit und
+Empfängerdaten.
 Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup im `README.md`.
 `dotnet build` ohne Warnungen ist Pflicht, `TreatWarningsAsErrors` ist aber (noch) nicht gesetzt.
 
@@ -94,7 +97,8 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
 - Keine Secrets, Schlüssel oder echten Personendaten im Repository
 
 ## Sicherheit und Datenschutz
-- Verleihungen enthalten Personendaten und gelten als schutzbedürftig. Zugriff nur nach Rolle.
+- Ausgaben enthalten Personendaten (Empfänger) und gelten als schutzbedürftig. Zugriff nur mit
+  `issues.read`; Empfängerdaten nie in Logs, Audit oder Fehlermeldungen.
 - Zertifikate werden mit einem privaten Schlüssel signiert, der nie im Repo liegt (Konfiguration/Secret Store).
 - Die öffentliche Zertifikatsprüfung zeigt nur das Nötige und keine Personendaten.
 - Alle Endpunkte sind standardmäßig geschützt (FallbackPolicy). Öffentlich nur ausdrücklich per
