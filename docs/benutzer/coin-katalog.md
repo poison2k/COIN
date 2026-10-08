@@ -3,8 +3,9 @@
 Im Katalog suchen und blättern Sie in allen erfassten Coins und öffnen die Detailseite eines Coins.
 Neue Coins legen Sie auf der eigenen Seite **Coin hinzufügen** an.
 
-Den Katalog und die Detailseiten kann jeder ohne Anmeldung ansehen. **Coins hinzufügen** können nur
-angemeldete Benutzer mit der Rolle Administrator oder Sachbearbeiter. Wie Sie sich anmelden, steht in
+Den Katalog und die Detailseiten kann jeder ohne Anmeldung ansehen; Exemplare und Ausgaben sehen
+nur angemeldete Benutzer mit Rolle (siehe [Exemplare und Ausgaben](ausgaben.md)). **Coins
+hinzufügen** können nur angemeldete Benutzer mit der Rolle Administrator oder Sachbearbeiter. Wie Sie sich anmelden, steht in
 der [Anleitung zur Anmeldung](anmeldung.md).
 
 ## Navigation
@@ -91,12 +92,14 @@ Die Detailseite (`/coins/…`) zeigt als Überschrift den Namen des Coins und da
 - das Motivbild oder „Kein Motivbild vorhanden.“,
 - **Herausgeber**, **Auflage** (oder „unbekannt“), **Erfasst am** und **Beschreibung** (mit den
   eingegebenen Zeilenumbrüchen, sonst „Keine Beschreibung“),
-- den Abschnitt **Verleihungen** mit dem Hinweis „Dieser Bereich wird in einer späteren Version
-  ergänzt.“ Er enthält noch keine Daten.
+- angemeldet mit Rolle den Abschnitt **Exemplare** (Kennzahlen und Status der Exemplare) und als
+  Sachbearbeiter oder Administrator zusätzlich die **Ausgabehistorie**. Beides beschreibt die
+  [Anleitung zu Exemplaren und Ausgaben](ausgaben.md).
 
 Mit **Zurück zum Katalog** geht es zur ersten Seite des Katalogs ohne Suche.
 
-Bearbeiten oder Löschen ist auf der Detailseite nicht möglich. Gibt es den Coin nicht (z. B. bei
+Außer der Auflage (**Auflage ändern**, siehe [Ausgaben](ausgaben.md#auflage-ändern)) lässt sich ein
+Coin auf der Detailseite weder bearbeiten noch löschen. Gibt es den Coin nicht (z. B. bei
 einer falsch abgetippten Adresse), erscheint „Coin nicht gefunden“ mit dem Link **Zum Katalog**.
 Kann der Coin nicht geladen werden, erscheint „Der Coin konnte nicht geladen werden. Bitte später
 erneut versuchen.“
@@ -135,8 +138,11 @@ Formular.
 
 Mit **Abbrechen** kehren Sie ohne Speichern zum Katalog zurück.
 
-Ein angelegter Coin kann in dieser Version weder bearbeitet noch gelöscht werden. Prüfen Sie Ihre
-Eingaben deshalb vor dem Speichern.
+Ein angelegter Coin kann in dieser Version weder bearbeitet noch gelöscht werden; nur die Auflage
+lässt sich später ändern. Prüfen Sie Ihre Eingaben deshalb vor dem Speichern.
+
+Mit einer Auflage legt C.O.I.N. gleich die Exemplare 1 bis zur Auflage an. Bei sehr großen Auflagen
+dauert das Speichern spürbar länger.
 
 ## Motivbild
 

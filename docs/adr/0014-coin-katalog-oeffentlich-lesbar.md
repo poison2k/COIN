@@ -25,6 +25,6 @@ Mit ADR-0012 sind alle Endpunkte standardmäßig geschützt. In `docs/requiremen
 
 ## Folgen
 - Jeder mit Netzzugriff kann Katalog und Motivbilder lesen. Ob die Anwendung im Intranet oder im Internet läuft, ist weiter offen (`docs/requirements.md`, Betrieb). Diese Frage betrifft auch die Reichweite der Veröffentlichung.
-- Die Rolle Betrachter hat vorerst keine zusätzlichen Rechte gegenüber Anonymen. Ihre Berechtigung `coins.read` ist definiert, wird aber nicht durchgesetzt, solange der Katalog öffentlich ist (ADR-0016). Sie wird mit geschützten Funktionen wie Verleihungen relevant.
+- Die drei Katalog-Endpunkte bleiben öffentlich. Seit coin-ausgaben (ADR-0021) gilt `coins.read` für den zusätzlichen Endpunkt `GET /api/coins/{id}/exemplare`; Betrachter sehen damit Kennzahlen und Exemplar-Status, Anonyme nicht.
 - Die Öffentlichkeit des Katalogs gilt auch für deaktivierte Benutzer: Mit ihrem Token erhalten sie auf den drei Lese-Endpunkten dieselbe Antwort wie anonyme Besucher (Entscheidung des Auftraggebers vom 2026-10-05, ADR-0016 Punkt 8).
 - Soll der Katalog wieder eingeschränkt werden, ist das nur eine Attributänderung (`[AllowAnonymous]` → Policy `coins.read`). Dann wird dieses ADR abgelöst.

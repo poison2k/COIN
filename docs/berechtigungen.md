@@ -18,8 +18,10 @@ nicht verändern.
 <!-- rechtematrix:start -->
 | Berechtigung | Bedeutung | Administrator | Sachbearbeiter | Betrachter | keine Rolle |
 |---|---|---|---|---|---|
-| `coins.read` | Katalog lesen (zurzeit öffentlich, nicht durchgesetzt) | ✓ | ✓ | ✓ | – |
-| `coins.write` | Coins anlegen, Motivbild hochladen | ✓ | ✓ | – | – |
+| `coins.read` | Exemplare und Kennzahlen lesen (Katalog selbst ist öffentlich) | ✓ | ✓ | ✓ | – |
+| `coins.write` | Coins anlegen, Motivbild hochladen, Auflage ändern | ✓ | ✓ | – | – |
+| `issues.read` | Ausgaben mit Empfängerdaten lesen | ✓ | ✓ | – | – |
+| `issues.write` | Ausgaben erfassen und stornieren | ✓ | ✓ | – | – |
 | `users.manage` | Benutzer auflisten, Rolle und Status ändern | ✓ | – | – | – |
 | `audit.read` | Audit-Log lesen | ✓ | – | – | – |
 <!-- rechtematrix:ende -->
@@ -27,8 +29,13 @@ nicht verändern.
 Deaktivierte Benutzer haben unabhängig von ihrer Rolle keine Berechtigung, lesen aber wie alle
 anderen die öffentlichen Endpunkte. Anonyme Besucher lesen nur die öffentlichen Endpunkte.
 
-`coins.read` ist definiert, wird aber nicht durchgesetzt, solange der Katalog öffentlich lesbar ist
-(ADR-0014).
+`coins.read` gilt für `GET /api/coins/{id}/exemplare` und wird damit erstmals durchgesetzt; die
+übrigen Katalog-Endpunkte bleiben öffentlich (ADR-0014, ADR-0021).
+
+Exemplare und Ausgaben haben getrennte Lese-Endpunkte (ADR-0021): `GET …/exemplare` (`coins.read`)
+liefert nur Nummer, Status und Kennzahlen, Empfängerdaten gibt es nur über `GET …/ausgaben`
+(`issues.read`) und in den Antworten der schreibenden Ausgabe-Endpunkte (`issues.write`). Der
+Betrachter erhält deshalb nie Empfängerdaten.
 
 ## Endpunkte
 
@@ -43,7 +50,10 @@ Endpunkte ohne eigene Angabe fallen unter die Fallback-Policy (angemeldet und ak
 | Endpunkt | Zugriff |
 |---|---|
 | `GET /api/coins`, `GET /api/coins/{id}`, `GET /api/coins/{id}/bild` | öffentlich |
-| `POST /api/coins`, `PUT /api/coins/{id}/bild` | `coins.write` |
+| `POST /api/coins`, `PUT /api/coins/{id}/bild`, `PUT /api/coins/{id}/auflage` | `coins.write` |
+| `GET /api/coins/{id}/exemplare` | `coins.read` |
+| `GET /api/coins/{id}/ausgaben` | `issues.read` |
+| `POST /api/coins/{id}/ausgaben`, `POST /api/coins/{id}/ausgaben/{ausgabeId}/storno` | `issues.write` |
 | `GET /api/me` | angemeldet |
 | `GET /api/benutzer`, `PUT /api/benutzer/{id}/rolle`, `PUT /api/benutzer/{id}/status` | `users.manage` |
 | `GET /api/audit` | `audit.read` |

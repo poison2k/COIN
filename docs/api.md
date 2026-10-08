@@ -10,13 +10,18 @@ In der Umgebung `Development` liefert `GET /openapi/v1.json` das OpenAPI-Dokumen
 | `GET` | `/api/coins/{id}/bild` | Motivbild abrufen | öffentlich |
 | `POST` | `/api/coins` | Coin anlegen | `coins.write` |
 | `PUT` | `/api/coins/{id}/bild` | Motivbild hochladen oder ersetzen | `coins.write` |
+| `PUT` | `/api/coins/{id}/auflage` | Auflage ändern (Exemplare erzeugen oder löschen) | `coins.write` |
+| `GET` | `/api/coins/{id}/exemplare` | Kennzahlen und Exemplare mit Status | `coins.read` |
+| `GET` | `/api/coins/{id}/ausgaben` | Ausgabehistorie mit Empfängerdaten | `issues.read` |
+| `POST` | `/api/coins/{id}/ausgaben` | Ausgabe erfassen | `issues.write` |
+| `POST` | `/api/coins/{id}/ausgaben/{ausgabeId}/storno` | Ausgabe stornieren | `issues.write` |
 | `GET` | `/api/me` | Angemeldeten Benutzer abrufen | angemeldet |
 | `GET` | `/api/benutzer` | Benutzer suchen und auflisten | `users.manage` |
 | `PUT` | `/api/benutzer/{id}/rolle` | Rolle zuweisen oder entziehen | `users.manage` |
 | `PUT` | `/api/benutzer/{id}/status` | Benutzer deaktivieren oder reaktivieren | `users.manage` |
 | `GET` | `/api/audit` | Audit-Log der Rollen- und Statusänderungen | `audit.read` |
 
-`{id}` ist eine GUID. Pfade mit einer `id`, die keine GUID ist, liefern `404`. Welche Rolle welche
+`{id}` und `{ausgabeId}` sind GUIDs. Pfade mit einer Id, die keine GUID ist, liefern `404`. Welche Rolle welche
 Berechtigung hat, steht in [berechtigungen.md](berechtigungen.md).
 
 ## Authentifizierung und Autorisierung
@@ -33,8 +38,9 @@ Grundlage: [ADR-0012](adr/0012-anmeldung-keycloak-oidc.md), [ADR-0013](adr/0013-
   sind nur die drei `GET`-Endpunkte des Katalogs (und `/openapi/v1.json` in Development). Ihre
   Antworten hängen nicht vom Token ab: Ein ungültiges oder abgelaufenes Token führt dort zu keinem
   `401`, das Token eines deaktivierten Benutzers zu keinem `403`.
-- Endpunkte verlangen eine **Berechtigung** (`coins.write`, `users.manage`, `audit.read`), nie eine
-  Rolle. `coins.read` ist definiert, wird aber nicht verlangt, solange der Katalog öffentlich ist.
+- Endpunkte verlangen eine **Berechtigung** (`coins.read`, `coins.write`, `issues.read`,
+  `issues.write`, `users.manage`, `audit.read`), nie eine Rolle. `coins.read` wird nur für
+  `GET /api/coins/{id}/exemplare` verlangt; die drei Katalog-GETs bleiben öffentlich (ADR-0021).
 - Rollen (`Administrator`, `Sachbearbeiter`, `Betrachter`) und den Status (aktiv/deaktiviert) führt
   C.O.I.N. in der eigenen Datenbank. Rollen-Claims im Token werden ignoriert. Neue Benutzer haben
   keine Rolle. Rollen vergeben Administratoren über `PUT /api/benutzer/{id}/rolle`; zusätzlich
@@ -55,7 +61,10 @@ Grundlage: [ADR-0012](adr/0012-anmeldung-keycloak-oidc.md), [ADR-0013](adr/0013-
 
 | Berechtigung | `detail` |
 |---|---|
+| `coins.read` | „Ihr Benutzerkonto ist nicht berechtigt, die Exemplare einzusehen.“ |
 | `coins.write` | „Ihr Benutzerkonto ist nicht berechtigt, den Coin-Katalog zu ändern.“ |
+| `issues.read` | „Ihr Benutzerkonto ist nicht berechtigt, Ausgaben einzusehen.“ |
+| `issues.write` | „Ihr Benutzerkonto ist nicht berechtigt, Ausgaben zu erfassen oder zu stornieren.“ |
 | `users.manage` | „Ihr Benutzerkonto ist nicht berechtigt, Benutzer zu verwalten.“ |
 | `audit.read` | „Ihr Benutzerkonto ist nicht berechtigt, das Audit-Log einzusehen.“ |
 
@@ -101,7 +110,7 @@ aktiven Benutzer, keine Berechtigung. Antwort-Header `Cache-Control: no-store`.
   "name": "Test Administrator",
   "email": "admin@test.local",
   "rolle": "Administrator",
-  "berechtigungen": ["audit.read", "coins.read", "coins.write", "users.manage"]
+  "berechtigungen": ["audit.read", "coins.read", "coins.write", "issues.read", "issues.write", "users.manage"]
 }
 ```
 
@@ -156,7 +165,8 @@ Benutzer entstehen nur bei ihrem ersten Aufruf mit Token. Anlegen oder Löschen 
 
 ### Seiten
 
-Listen (`/api/benutzer`, `/api/audit` und `/api/coins`) werden seitenweise geliefert:
+Listen (`/api/benutzer`, `/api/audit`, `/api/coins`, `…/exemplare` und `…/ausgaben`) werden
+seitenweise geliefert (`…/exemplare` zusätzlich mit `kennzahlen`):
 
 ```json
 { "eintraege": [ ... ], "gesamt": 42, "seite": 1, "groesse": 25 }
@@ -318,14 +328,56 @@ Objekt `errors` (Schlüssel → Liste deutscher Meldungen). Mehrere ungültige F
 | Schlüssel | Wann |
 |---|---|
 | `name`, `herausgeber`, `auflage`, `beschreibung` | Feldregel verletzt, oder der JSON-Wert dieses Felds ist nicht lesbar (z. B. falscher Typ) |
-| `anfrage` | Body ist kein gültiges JSON und der Fehler lässt sich keinem Feld zuordnen (Meldung „Die Anfrage enthält kein gültiges JSON.“) |
+| `anfrage` | alle Endpunkte mit JSON-Body: Body ist syntaktisch kein gültiges JSON (z. B. abgeschnitten) oder der Fehler lässt sich keinem Feld zuordnen. Dann gibt es nur diesen Schlüssel, Meldung „Die Anfrage enthält kein gültiges JSON.“ |
 | `datei` | Bild-Upload: Formular fehlerhaft, keine/mehrere Dateien, leere Datei |
 | `rolle`, `aktiv` | Benutzerverwaltung: Body-Feld fehlt oder ungültig |
-| `suche`, `seite`, `groesse` | Coin-Liste, Benutzerliste und Audit-Log (ohne `suche`): Query-Parameter ungültig |
+| `suche`, `seite`, `groesse` | Coin-Liste, Benutzerliste, Audit-Log (ohne `suche`), Exemplare und Ausgaben (ohne `suche`): Query-Parameter ungültig |
+| `status` | Exemplare und Ausgaben: unbekannter Filterwert |
 | `benutzerId` | Audit-Log: Query-Parameter ungültig |
+| `exemplarNummer`, `empfaengerName`, `empfaengerDienstgrad`, `empfaengerDienststelle`, `datum`, `gelegenheit`, `begruendung`, `ausgebendeStelle` | Ausgabe erfassen |
+| `grund` | Storno |
 
-ProblemDetails mit fachlichem Fehlergrund (`403`, `409` der Benutzerverwaltung) tragen zusätzlich
-die Erweiterung `code` (z. B. `keine_berechtigung`, `letzter_administrator`).
+ProblemDetails mit fachlichem Fehlergrund (`403`, `409`) tragen zusätzlich die Erweiterung `code`
+(z. B. `keine_berechtigung`, `letzter_administrator`, `exemplar_ausgegeben`).
+
+### Titel
+
+Fachliche Titel (z. B. „Coin nicht gefunden“, „Ausgabe nicht möglich“, „Kein Zugriff“) setzt der
+jeweilige Endpunkt. Fehlt ein fachlicher Titel oder ist es ein englischer Standardtitel von ASP.NET
+Core (z. B. bei unbekannten Routen, falscher Methode, `415` oder unbehandelten Ausnahmen), ersetzt
+`ProblemTitel.Setzen` (`src/Coin.Api/Http/ProblemTitel.cs`) ihn durch einen deutschen Titel:
+
+| Status | Titel |
+|---|---|
+| `400` | „Ungültige Anfrage“ |
+| `401` | „Nicht angemeldet“ |
+| `403` | „Zugriff verweigert“ |
+| `404` | „Nicht gefunden“ |
+| `405` | „Methode nicht erlaubt“ |
+| `406` | „Nicht akzeptables Antwortformat“ |
+| `408` | „Zeitüberschreitung der Anfrage“ |
+| `409` | „Konflikt“ |
+| `410` | „Nicht mehr vorhanden“ |
+| `411` | „Längenangabe erforderlich“ |
+| `412` | „Vorbedingung nicht erfüllt“ |
+| `413` | „Anfrage zu groß“ |
+| `414` | „Adresse zu lang“ |
+| `415` | „Nicht unterstützter Inhaltstyp“ |
+| `422` | „Anfrage nicht verarbeitbar“ |
+| `426` | „Protokollwechsel erforderlich“ |
+| `428` | „Vorbedingung erforderlich“ |
+| `429` | „Zu viele Anfragen“ |
+| `431` | „Kopfzeilen zu groß“ |
+| `500` | „Ein unerwarteter Fehler ist aufgetreten.“ |
+| `501` | „Nicht umgesetzt“ |
+| `502` | „Fehlerhafte Antwort eines vorgelagerten Dienstes“ |
+| `503` | „Dienst nicht verfügbar“ |
+| `504` | „Zeitüberschreitung eines vorgelagerten Dienstes“ |
+| anderer 4xx | „Fehlerhafte Anfrage“ |
+| anderer 5xx | „Ein unerwarteter Fehler ist aufgetreten.“ |
+
+Eingabefehler der Endpunkte tragen immer „Eingaben ungültig“; „Ungültige Anfrage“ erscheint nur bei
+einem `400` ohne fachlichen Titel. `403` trägt immer den fachlichen Titel „Kein Zugriff“.
 
 Beispiel:
 
@@ -373,6 +425,8 @@ Regeln:
   Trimmen) ist ein Duplikat. Gleicher Name bei anderem Herausgeber ist erlaubt. Ein eindeutiger
   Datenbankindex sichert das auch bei gleichzeitigen Anfragen.
 - Mitgesendete Felder `id`, `erstelltAm` und `bildUrl` werden ignoriert.
+- Mit `auflage: N` entstehen in derselben Transaktion die Exemplare 1 bis N (alle verfügbar), mit
+  `auflage: null` keine. Bei großen Auflagen (bis 1.000.000) dauert das Anlegen spürbar länger.
 
 | Status | Wann | Body |
 |---|---|---|
@@ -511,9 +565,211 @@ Antwort-Header bei `200`:
 | `304 Not Modified` | `If-None-Match` passt zum aktuellen ETag | leer |
 | `404 Not Found` | Coin unbekannt oder ohne Bild | ProblemDetails, `title` „Bild nicht gefunden“ |
 
+## Exemplare und Ausgaben
+
+Grundlage: [ADR-0020](adr/0020-exemplare-und-ausgaben-datenmodell.md),
+[ADR-0021](adr/0021-rechte-fuer-exemplare-und-ausgaben.md), Feature
+[coin-ausgaben](features/coin-ausgaben.md).
+
+- Ein **Exemplar** ist ein nummeriertes Stück eines Coins (Nr. 1 bis Auflage). Sein Status
+  (`verfuegbar`/`ausgegeben`) wird aus der aktiven Ausgabe abgeleitet.
+- Eine **Ausgabe** dokumentiert, welches Exemplar an wen, wann, wobei und wofür ausgegeben wurde.
+  Sie wird nie geändert oder gelöscht, sondern höchstens einmal storniert. Danach ist das Exemplar
+  wieder verfügbar; die stornierte Ausgabe bleibt in der Historie.
+- Alle fünf Endpunkte tragen `Cache-Control: no-store`. `401`/`403` kommen vor allen fachlichen
+  Prüfungen; ohne Berechtigung gibt es also auch für eine unbekannte Coin-Id `403`, nie `404`.
+- Schreibende Endpunkte verlangen `Content-Type: application/json` (sonst `415`). Erfassen, Storno
+  und Auflage ändern laufen je Coin nacheinander (Sperre der Coin-Zeile). Bei jedem Fehler wird
+  nichts gespeichert.
+- Personendaten (Empfänger, Gelegenheit, Begründung, ausgebende Stelle, Storno-Grund) gibt es nur
+  über `GET …/ausgaben` und in den Antworten von `POST …/ausgaben` und `…/storno`. Fehlermeldungen
+  nennen höchstens Exemplar-Nummern. `GET /api/coins` und `GET /api/coins/{id}` bleiben unverändert.
+- Jedes Erfassen und jedes Storno schreibt in derselben Transaktion einen unveränderlichen
+  Audit-Eintrag (Tabelle `ausgabe_audit`, ohne Empfängerdaten). Einen Lese-Endpunkt dafür gibt es nicht.
+
+### GET /api/coins/{id}/exemplare
+
+`GET /api/coins/{id}/exemplare?status=ausgegeben&seite=1&groesse=25` (alle Parameter optional).
+Verlangt `coins.read` (Administrator, Sachbearbeiter, Betrachter).
+
+- `status`: `verfuegbar` oder `ausgegeben`; fehlend = alle. Sortierung nach `nummer`.
+- Paging wie unter [Seiten](#seiten). `gesamt` zählt die Exemplare im Filter, `kennzahlen` gelten
+  immer für alle Exemplare des Coins.
+- Coin ohne Auflage: `kennzahlen` `{ "auflage": null, "ausgegeben": 0, "verfuegbar": 0 }`, keine Einträge.
+- Die Antwort enthält nur diese Felder, für jede Rolle gleich: keine Empfänger, keine Ausgabe-Ids, kein Datum.
+
+```json
+{
+  "kennzahlen": { "auflage": 150, "ausgegeben": 3, "verfuegbar": 147 },
+  "eintraege": [
+    { "nummer": 1, "status": "ausgegeben" },
+    { "nummer": 2, "status": "verfuegbar" }
+  ],
+  "gesamt": 150,
+  "seite": 1,
+  "groesse": 25
+}
+```
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | gültige Parameter | siehe oben |
+| `400 Bad Request` | `status` unbekannt: `errors.status` „Bitte einen gültigen Status wählen.“; `seite`/`groesse` wie unter [Seiten](#seiten) | ValidationProblemDetails |
+| `401` / `403` | wie oben (`coins.read`) | ProblemDetails |
+| `404 Not Found` | Coin unbekannt | ProblemDetails, `title` „Coin nicht gefunden“ |
+
+### GET /api/coins/{id}/ausgaben
+
+`GET /api/coins/{id}/ausgaben?status=aktiv&seite=1&groesse=25` (alle Parameter optional).
+Verlangt `issues.read` (Administrator, Sachbearbeiter). Betrachter erhalten `403`.
+
+- `status`: `aktiv` oder `storniert`; fehlend = alle.
+- Sortierung: neueste zuerst (`erfasstAm` absteigend, dann `id` absteigend). Paging wie unter [Seiten](#seiten).
+- Einträge im [Ausgabe-Format](#datenformat-ausgabe).
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | gültige Parameter | Seite mit Ausgaben |
+| `400 Bad Request` | `status` unbekannt („Bitte einen gültigen Status wählen.“), `seite`/`groesse` ungültig | ValidationProblemDetails |
+| `401` / `403` | wie oben (`issues.read`) | ProblemDetails |
+| `404 Not Found` | Coin unbekannt | ProblemDetails, `title` „Coin nicht gefunden“ |
+
+### Datenformat Ausgabe
+
+```json
+{
+  "id": "0199c1a2-3b4c-7d5e-8f60-718293a4b5c6",
+  "exemplarNummer": 12,
+  "empfaenger": { "name": "Max Beispiel", "dienstgrad": "Hauptmann", "dienststelle": "Beispielbataillon 1" },
+  "datum": "2026-10-01",
+  "gelegenheit": "Truppenbesuch",
+  "begruendung": "Herausragende Leistung",
+  "ausgebendeStelle": "Kommandeur Beispielbataillon 1",
+  "erfasstAm": "2026-10-08T09:00:00.123456+00:00",
+  "erfasstVon": { "id": "0199b3c4-9f00-7a1b-8c2d-3e4f5a6b7c8d", "name": "Test Sachbearbeiter" },
+  "storno": null
+}
+```
+
+| Feld | Bedeutung |
+|---|---|
+| `id` | GUID der Ausgabe (für das Storno) |
+| `exemplarNummer` | Nummer des ausgegebenen Exemplars |
+| `empfaenger` | `name` (Pflicht), `dienstgrad` und `dienststelle` (je `null`, wenn leer) |
+| `datum` | Tag der Ausgabe, `JJJJ-MM-TT` ohne Uhrzeit |
+| `gelegenheit`, `begruendung`, `ausgebendeStelle` | Freitext |
+| `erfasstAm` | Serverzeit (UTC, Mikrosekunden) |
+| `erfasstVon` | angemeldeter Benutzer beim Erfassen (`id`, aktueller Anzeigename) |
+| `storno` | `null` oder `{ "am": "…", "von": { "id": "…", "name": "…" }, "grund": "…" }` |
+
+### POST /api/coins/{id}/ausgaben
+
+Erfasst eine Ausgabe. Verlangt `issues.write`. `Content-Type: application/json`.
+
+```json
+{
+  "exemplarNummer": null,
+  "empfaengerName": "Max Beispiel",
+  "empfaengerDienstgrad": "Hauptmann",
+  "empfaengerDienststelle": "Beispielbataillon 1",
+  "datum": "2026-10-01",
+  "gelegenheit": "Truppenbesuch",
+  "begruendung": "Herausragende Leistung",
+  "ausgebendeStelle": "Kommandeur Beispielbataillon 1"
+}
+```
+
+- `exemplarNummer` fehlend oder `null`: die kleinste Nummer ohne aktive Ausgabe (auch eine nach
+  einem Storno wieder frei gewordene).
+- Texte werden getrimmt; leere optionale Texte werden `null`. Mitgesendete Felder `id`,
+  `erfasstVon`, `erfasstAm` und `storno` werden ignoriert; Erfasser und Zeit setzt der Server.
+- Ein Exemplar ist höchstens einmal aktiv ausgegeben. Das sichert ein eindeutiger Datenbankindex auch
+  bei gleichzeitigen Anfragen; eine Verletzung ergibt `409 exemplar_ausgegeben`, nie `500`.
+
+Feldregeln (`400`, Schlüssel = Feldname):
+
+| Feld | Meldung |
+|---|---|
+| `empfaengerName` | „Name des Empfängers ist erforderlich.“ / „Name des Empfängers darf höchstens 200 Zeichen lang sein.“ |
+| `empfaengerDienstgrad` | „Dienstgrad darf höchstens 100 Zeichen lang sein.“ |
+| `empfaengerDienststelle` | „Dienststelle darf höchstens 200 Zeichen lang sein.“ |
+| `datum` | „Datum ist erforderlich.“ / „Das Datum darf nicht in der Zukunft liegen.“ (heute nach Europe/Berlin) |
+| `gelegenheit` | „Gelegenheit ist erforderlich.“ / „Gelegenheit darf höchstens 200 Zeichen lang sein.“ |
+| `begruendung` | „Begründung ist erforderlich.“ / „Begründung darf höchstens 2000 Zeichen lang sein.“ |
+| `ausgebendeStelle` | „Ausgebende Stelle ist erforderlich.“ / „Ausgebende Stelle darf höchstens 200 Zeichen lang sein.“ |
+| `exemplarNummer` | „Exemplar-Nummer muss zwischen 1 und {Auflage} liegen.“ (erst nach Coin- und Auflageprüfung) |
+| Feld mit nicht lesbarem Wert (z. B. `"datum": "gestern"`) | „Ungültiger Wert für dieses Feld.“ |
+
+| Status | Wann | Body |
+|---|---|---|
+| `201 Created` | erfasst | Ausgabe (ohne `Location`, es gibt keinen Einzelabruf) |
+| `400 Bad Request` | Feldregel verletzt, `exemplarNummer` außerhalb der Auflage, kein gültiges JSON (`errors.anfrage`) | ValidationProblemDetails |
+| `401` / `403` | wie oben (`issues.write`) | ProblemDetails |
+| `404 Not Found` | Coin unbekannt | ProblemDetails, `title` „Coin nicht gefunden“ |
+| `409 Conflict` | Coin ohne Auflage | `title` „Ausgabe nicht möglich“, `code` `auflage_unbekannt`, `detail` „Für diesen Coin ist keine Auflage erfasst. Ausgaben sind erst nach dem Festlegen der Auflage möglich.“ |
+| `409 Conflict` | gewähltes Exemplar ist aktiv ausgegeben | `title` „Ausgabe nicht möglich“, `code` `exemplar_ausgegeben`, `detail` „Exemplar Nr. {n} ist bereits ausgegeben.“ |
+| `409 Conflict` | „nächstes freies“, aber alle ausgegeben | `title` „Ausgabe nicht möglich“, `code` `kein_exemplar_frei`, `detail` „Alle Exemplare dieses Coins sind ausgegeben.“ |
+| `415 Unsupported Media Type` | Content-Type nicht `application/json` | ProblemDetails |
+
+Prüfreihenfolge: `401` → `403` → `415` → `400` (Body) → `404` → `409 auflage_unbekannt` →
+`400 exemplarNummer` → `409 exemplar_ausgegeben`/`kein_exemplar_frei`.
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://localhost:5172/api/coins/<id>/ausgaben `
+  -Headers @{ Authorization = "Bearer <access-token>" } -ContentType application/json `
+  -Body '{"empfaengerName":"Max Beispiel","datum":"2026-10-01","gelegenheit":"Truppenbesuch","begruendung":"Herausragende Leistung","ausgebendeStelle":"Kommandeur Beispielbataillon 1"}'
+```
+
+### POST /api/coins/{id}/ausgaben/{ausgabeId}/storno
+
+Storniert eine aktive Ausgabe. Verlangt `issues.write`. `Content-Type: application/json`.
+
+```json
+{ "grund": "Falsches Exemplar erfasst" }
+```
+
+`grund` wird getrimmt und ist Pflicht (höchstens 500 Zeichen). Er steht auch im Audit; er soll keine
+Personendaten enthalten.
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | storniert | Ausgabe mit gefülltem `storno` |
+| `400 Bad Request` | `errors.grund`: „Bitte einen Grund für das Storno angeben.“ / „Der Grund darf höchstens 500 Zeichen lang sein.“; kein gültiges JSON: `errors.anfrage` | ValidationProblemDetails |
+| `401` / `403` | wie oben (`issues.write`) | ProblemDetails |
+| `404 Not Found` | Coin oder Ausgabe unbekannt, oder die Ausgabe gehört zu einem anderen Coin | ProblemDetails, `title` „Ausgabe nicht gefunden“ |
+| `409 Conflict` | schon storniert | `title` „Storno nicht möglich“, `code` `bereits_storniert`, `detail` „Diese Ausgabe ist bereits storniert.“ |
+| `415 Unsupported Media Type` | Content-Type nicht `application/json` | ProblemDetails |
+
+Prüfreihenfolge nach `401`/`403`/`415`: `400` → `404` → `409`. Von zwei gleichzeitigen Stornos
+derselben Ausgabe gelingt genau eines.
+
+### PUT /api/coins/{id}/auflage
+
+Ändert die Auflage. Verlangt `coins.write`. `Content-Type: application/json`.
+
+```json
+{ "auflage": 200 }
+```
+
+- Pflicht, 1–1.000.000. Zurück auf „unbekannt“ (`null`) geht nicht.
+- Erhöhung erzeugt die Exemplare alt+1 bis N (bei bisher unbekannter Auflage 1 bis N).
+- Senkung löscht die Exemplare N+1 bis alt. Sie ist nur bis zur höchsten Nummer möglich, die **je**
+  ausgegeben wurde (aktiv oder storniert).
+- Gleicher Wert: `200` ohne Änderung.
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | geändert oder unverändert | Coin ([Coin-Format](#datenformat-coin)) |
+| `400 Bad Request` | `errors.auflage`: „Auflage ist erforderlich.“ / „Auflage muss zwischen 1 und 1000000 liegen.“ / „Ungültiger Wert für dieses Feld.“; kein gültiges JSON: `errors.anfrage` | ValidationProblemDetails |
+| `401` / `403` | wie oben (`coins.write`) | ProblemDetails |
+| `404 Not Found` | Coin unbekannt | ProblemDetails, `title` „Coin nicht gefunden“ |
+| `409 Conflict` | Senkung unter die höchste je ausgegebene Nummer {m} | `title` „Änderung nicht möglich“, `code` `auflage_zu_klein`, `detail` „Die Auflage kann nicht unter {m} gesenkt werden, weil Exemplar Nr. {m} ausgegeben wurde.“ |
+| `415 Unsupported Media Type` | Content-Type nicht `application/json` | ProblemDetails |
+
 ## Allgemein
 
-Unerwartete Serverfehler liefern `500` als ProblemDetails ohne interne Details.
+Unerwartete Serverfehler liefern `500` als ProblemDetails ohne interne Details, Titel „Ein
+unerwarteter Fehler ist aufgetreten.“
 
 ## Protokollierung
 

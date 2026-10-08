@@ -16,15 +16,16 @@ Klick oder mit den Pfeiltasten, wenn ein Reiter den Fokus hat.
 
 ## Rollen und Rechte
 
-| Rolle | Coin-Katalog ansehen | Coins hinzufügen | Benutzerverwaltung und Audit-Log |
-|---|---|---|---|
-| Administrator | ja | ja | ja |
-| Sachbearbeiter | ja | ja | nein |
-| Betrachter | ja | nein | nein |
-| Keine Rolle | ja | nein | nein |
+| Rolle | Coin-Katalog ansehen | Exemplare und Kennzahlen | Coins hinzufügen, Auflage ändern | Ausgaben sehen, erfassen, stornieren | Benutzerverwaltung und Audit-Log |
+|---|---|---|---|---|---|
+| Administrator | ja | ja | ja | ja | ja |
+| Sachbearbeiter | ja | ja | ja | ja | nein |
+| Betrachter | ja | ja | nein | nein | nein |
+| Keine Rolle | ja | nein | nein | nein | nein |
 
-Den Coin-Katalog kann jeder ansehen, auch ohne Anmeldung. Ein Betrachter sieht heute also nicht
-mehr als ein Besucher ohne Anmeldung; die Rolle wird mit späteren Funktionen wichtig.
+Den Coin-Katalog kann jeder ansehen, auch ohne Anmeldung. Ein Betrachter sieht zusätzlich die
+Kennzahlen und den Status der Exemplare, aber keine Ausgaben und keine Empfängerdaten (siehe
+[Exemplare und Ausgaben](ausgaben.md)).
 
 ## Benutzer finden
 

@@ -1,6 +1,6 @@
 # ADR-0016: Berechtigungen im Code, Policies je Berechtigung, deaktivierte Benutzer
 
-Status: Angenommen (umgesetzt) · Datum: 2026-10-05 · Feature: rollen-benutzerverwaltung · Ändert: [ADR-0013](0013-benutzer-und-rollen-in-eigener-datenbank.md) (Punkt 4 letzter Satz und Punkt 5) · Bestätigt: [ADR-0014](0014-coin-katalog-oeffentlich-lesbar.md)
+Status: Angenommen (umgesetzt; Punkte 1, 2 und 4 geändert durch [ADR-0021](0021-rechte-fuer-exemplare-und-ausgaben.md): `issues.read`/`issues.write` neu, `coins.read` für `GET /api/coins/{id}/exemplare` durchgesetzt) · Datum: 2026-10-05 · Feature: rollen-benutzerverwaltung · Ändert: [ADR-0013](0013-benutzer-und-rollen-in-eigener-datenbank.md) (Punkt 4 letzter Satz und Punkt 5) · Bestätigt: [ADR-0014](0014-coin-katalog-oeffentlich-lesbar.md)
 
 ## Kontext
 Der Keycloak ist nur lesend nutzbar, Rollen führt C.O.I.N. selbst (ADR-0013). Bisher gab es nur die Policy `KatalogSchreiben` mit einer Rollenliste. Die Vorgabe verlangt feste Rollen (Administrator, Sachbearbeiter, Betrachter), deren Rechte als Berechtigungen im Code definiert und über Autorisierungsrichtlinien durchgesetzt werden. Administratoren vergeben Rollen und deaktivieren Benutzer in der App. Deaktivierte Benutzer erhalten `403`, auch mit gültigem Token. Rechte sind nicht frei konfigurierbar.

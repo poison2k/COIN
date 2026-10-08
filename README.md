@@ -10,15 +10,23 @@ Webanwendung zur Verwaltung militärischer Gedenk-Coins der Bundeswehr. Umgesetz
   legt `Bootstrap:AdminEmails` fest.
 - **Rollen- und Benutzerverwaltung**: Administratoren vergeben in der App die Rollen Administrator,
   Sachbearbeiter und Betrachter und deaktivieren oder reaktivieren Benutzer. Endpunkte prüfen
-  Berechtigungen (`coins.write`, `users.manage`, `audit.read`) aus einer festen Rechtematrix im Code
-  ([docs/berechtigungen.md](docs/berechtigungen.md), ADR-0016). Jede Rollen- und Statusänderung steht
-  unveränderlich im Audit-Log (ADR-0017). Der letzte aktive Administrator ist geschützt (ADR-0018).
+  Berechtigungen (`coins.read`, `coins.write`, `issues.read`, `issues.write`, `users.manage`,
+  `audit.read`) aus einer festen Rechtematrix im Code
+  ([docs/berechtigungen.md](docs/berechtigungen.md), ADR-0016, ADR-0021). Jede Rollen- und
+  Statusänderung steht unveränderlich im Audit-Log (ADR-0017). Der letzte aktive Administrator ist
+  geschützt (ADR-0018).
+- **Exemplare und Ausgaben**: Jeder Coin mit Auflage hat die Exemplare 1 bis Auflage. Auf der
+  Detailseite sehen angemeldete Benutzer mit Rolle Kennzahlen und Status der Exemplare;
+  Sachbearbeiter und Administratoren erfassen Ausgaben (wer, wann, Gelegenheit, Begründung,
+  ausgebende Stelle), stornieren sie mit Grund und ändern die Auflage. Ausgaben und ihr Audit sind
+  unveränderlich (ADR-0020, ADR-0021).
 
-Exemplare, Verleihungen und Zertifikate folgen später.
+Zertifikate folgen später.
 
 - API: [docs/api.md](docs/api.md), Berechtigungen: [docs/berechtigungen.md](docs/berechtigungen.md)
 - Anleitung für Anwender: [docs/benutzer/anmeldung.md](docs/benutzer/anmeldung.md),
   [docs/benutzer/coin-katalog.md](docs/benutzer/coin-katalog.md),
+  [docs/benutzer/ausgaben.md](docs/benutzer/ausgaben.md),
   [docs/benutzer/benutzerverwaltung.md](docs/benutzer/benutzerverwaltung.md)
 - Architekturentscheidungen: [docs/adr/](docs/adr/)
 - Anforderungen: [docs/requirements.md](docs/requirements.md)
@@ -34,7 +42,7 @@ Exemplare, Verleihungen und Zertifikate folgen später.
 
 | Ordner | Inhalt |
 |---|---|
-| `src/Coin.Domain` | Fachlogik, Entitäten, Validierung (u. a. `Katalog/`, `Benutzer/`) |
+| `src/Coin.Domain` | Fachlogik, Entitäten, Validierung (u. a. `Katalog/`, `Ausgaben/`, `Benutzer/`) |
 | `src/Coin.Infrastructure` | EF Core, PostgreSQL, Migrationen (`Persistenz/Migrationen`) |
 | `src/Coin.Api` | ASP.NET Core Web API (Controller, DTOs, `Authentifizierung/`) |
 | `tests/Coin.UnitTests`, `tests/Coin.IntegrationTests` | xUnit-Tests |
@@ -134,6 +142,19 @@ angewendet. In Development ist das OpenAPI-Dokument unter `/openapi/v1.json` abr
   `trg_benutzer_audit_unveraenderlich` bricht jedes `UPDATE` und `DELETE` ab; `TRUNCATE` ist
   bewusst nicht gesperrt (Tests, Betrieb). Die Einträge werden vorerst unbegrenzt aufbewahrt, ein
   Löschkonzept folgt als eigenes Feature (ADR-0017).
+- **Ausgaben** (Tabellen `ausgabe`, `ausgabe_audit`, ADR-0020): Der Trigger `trg_ausgabe_nur_storno`
+  verbietet `DELETE` und jedes `UPDATE` außer dem einmaligen Storno, `trg_ausgabe_audit_unveraenderlich`
+  jedes `UPDATE` und `DELETE` im Audit; `TRUNCATE` bleibt möglich. Ausgaben samt Empfängerdaten und
+  Audit werden vorerst unbegrenzt aufbewahrt (F10), ein Löschkonzept folgt als eigenes Feature.
+- **Migration `20261008100432_Exemplare`** erzeugt für jeden bestehenden Coin mit Auflage die
+  Exemplare 1 bis Auflage in einem Statement. Bei vielen oder großen Auflagen (bis 1.000.000 je Coin)
+  für die Migration ein Timeout von mindestens 120 s einplanen.
+- **Lange Befehle**: Das Erzeugen und Löschen von Exemplaren (Coin anlegen, Auflage ändern) läuft mit
+  einem Befehls-Timeout von 120 s. Ein vorgelagerter Proxy mit kürzerem Timeout (z. B. nginx mit
+  60 s) kann solche Anfragen vorher abbrechen; sein Timeout entsprechend setzen.
+- **`Include Error Detail` nie setzen** (Npgsql-Option im Connection-String): Sie brächte
+  Parameterwerte, also Empfängerdaten, in Fehlermeldungen und Logs. Tests in
+  `KonfigurationsdateienTests` prüfen Konfigurationsdateien und Backend-Code darauf.
 - **Notfall „kein aktiver Administrator mehr“**: Über die App ist das ausgeschlossen (ADR-0018).
   Geht der Zugang trotzdem verloren (z. B. Konto im AD gelöscht), hilft `Bootstrap:AdminEmails`
   nur bei einem noch nie angemeldeten Konto. Sonst per SQL auf der Datenbank, für ein Konto, das
@@ -166,6 +187,15 @@ Neue Migration anlegen:
 
 ```powershell
 dotnet ef migrations add <Name> --project src/Coin.Infrastructure --startup-project src/Coin.Api --output-dir Persistenz/Migrationen
+```
+
+Lokale Dev-DB, auf die die Migration `Exemplare` schon vor dem Nachtrag des Index
+`ix_ausgabe_exemplar` angewendet wurde: einmal zurück- und wieder vorrollen. Das Zurückrollen löscht
+die Tabellen `exemplar`, `ausgabe` und `ausgabe_audit` samt Inhalt.
+
+```powershell
+dotnet ef database update 20261006053745_Benutzerverwaltung --project src/Coin.Infrastructure --startup-project src/Coin.Api
+dotnet ef database update --project src/Coin.Infrastructure --startup-project src/Coin.Api
 ```
 
 ## Frontend (`web/`)
@@ -204,16 +234,19 @@ Routen:
 | `/` | öffentlich | Startseite |
 | `/coins` | öffentlich | Katalog mit Suche und Blättern; Suchparameter `suche` (≤ 100 Zeichen) und `seite` in der URL; Link „Coin hinzufügen“ nur mit `coins.write` |
 | `/coins/neu` | `coins.write` | Seite „Coin hinzufügen“ (Formular inkl. Motivbild); danach `replace` auf die Detailseite |
-| `/coins/$coinId` | öffentlich | Detailseite; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf |
+| `/coins/$coinId` | öffentlich | Detailseite; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf. Abschnitt „Exemplare“ nur mit `coins.read` (Suchparameter `status` = `verfuegbar`/`ausgegeben` und `seite`), „Ausgabehistorie“ nur mit `issues.read`, „Ausgabe erfassen“/„Stornieren“ mit `issues.write`, „Auflage ändern“ mit `coins.write` |
+| `/coins/$coinId/ausgaben/neu` | `issues.write` | Seite „Ausgabe erfassen“; danach `replace` auf die Detailseite |
 | `/benutzerverwaltung` | `users.manage` | Tabs „Benutzer“ und „Audit-Log“ |
 | `/anmeldung/rueckruf` | öffentlich | Rückkehr vom Keycloak (ohne App-Shell) |
 | `/abgemeldet` | öffentlich | Bestätigung nach dem Abmelden |
 | `/kein-zugriff` | nur angemeldet | Hinweis für Benutzer ohne Rolle, mit deaktiviertem Konto oder (mit `?grund=berechtigung`) mit Rolle ohne die nötige Berechtigung; alle anderen werden nach `/` geleitet |
 
 `/coins/neu` und `/coins/$coinId` sind Geschwister von `/coins`; das statische Segment `neu` geht
-vor dem Parameter. Ungültige Suchparameter (`seite=0`, `seite=abc`, Seite über 2147483647) gelten
-als Seite 1, ein zu langer Suchbegriff wird gekürzt; die URL führt also nie zu einem `400`. Die
-Erfolgsmeldung nach dem Anlegen reist als fester Schlüssel im History-State und wird einmal verbraucht.
+vor dem Parameter. `/coins/$coinId/ausgaben/neu` ist ebenfalls ein Geschwister. Ungültige
+Suchparameter (`seite=0`, `seite=abc`, Seite über 2147483647, unbekannter `status`) gelten als
+Seite 1 bzw. „Alle“, ein zu langer Suchbegriff wird gekürzt; die URL führt also nie zu einem `400`.
+Die Erfolgsmeldungen nach dem Anlegen eines Coins und nach dem Erfassen einer Ausgabe (nur die
+Exemplar-Nummer, nie der Empfänger) reisen im History-State und werden einmal verbraucht.
 
 Unbekannte Pfade zeigen „Seite nicht gefunden.“ Die Guards `erfordertAnmeldung` und
 `erfordertBerechtigung(b)` liegen in `src/app/router/schutz.ts`. `erfordertBerechtigung` startet
@@ -255,25 +288,33 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
   importiert, innerhalb eines Slices relativ.
 - Einziger Alias ist `@/` → `src/` (in `tsconfig.json`, `tsconfig.app.json`, `vite.config.ts`).
 - `shared/ui` enthält die shadcn-Komponenten, `shared/lib` u. a. `cn()`, das Farbschema, `istGuid`
-  (`shared/lib/guid`), Hooks (`shared/lib/hooks`: `useIsMobile`, `useFokusBeiLadefehler`) und die
+  (`shared/lib/guid`), Zahl- und Datumsformate (`shared/lib/format.ts`: `de-DE`, Europe/Berlin,
+  `heuteInBerlin`), Hooks (`shared/lib/hooks`: `useIsMobile`, `useFokusBeiLadefehler`) und die
   Anmeldung (`shared/lib/anmeldung`: UserManager, Provider, `useAnmeldung`, `sicheresZiel`),
-  `shared/api` den generischen HTTP-Teil (inkl. Bearer-Header), `shared/config` die Routenpfade und
-  die OIDC-Konfiguration.
+  `shared/api` den generischen HTTP-Teil (inkl. Bearer-Header; Option `konfliktDetail` übernimmt bei
+  `409` auch `detail`), `shared/config` die Routenpfade und die OIDC-Konfiguration.
 - Anmeldung im Überblick: `entities/benutzer` (`GET /api/me`, Benutzerliste, `hatBerechtigung`,
   `StatusBadge`), `features/anmeldung` (Buttons „Anmelden“/„Abmelden“), `pages/kein-zugriff`,
   `pages/abgemeldet`, `pages/anmeldung-rueckruf`. `app` lädt `/api/me` einmal pro Anmeldung und
   reicht Benutzer und Anmeldezustand als Props an Widgets und Seiten weiter. Liefert `/api/me` oder
   ein anderer Aufruf `403 benutzer_deaktiviert`, wechselt `app` in den Zustand „deaktiviert“.
-- Katalog: `entities/coin` (API `ladeCoins`/`ladeCoin`/`legeCoinAn`/`ladeBildHoch`, `CoinListe`,
-  `CoinStammdaten`), `features/coin-anlegen` (`CoinFormular`), `widgets/coin-katalog` (Suche,
-  Statuszeile, Liste, Blättern), `pages/coin-liste`, `pages/coin-detail`, `pages/coin-anlegen`.
+- Katalog: `entities/coin` (API `ladeCoins`/`ladeCoin`/`legeCoinAn`/`ladeBildHoch`/`aendereAuflage`,
+  `CoinListe`, `CoinStammdaten`), `features/coin-anlegen` (`CoinFormular`), `widgets/coin-katalog`
+  (Suche, Statuszeile, Liste, Blättern), `pages/coin-liste`, `pages/coin-detail`, `pages/coin-anlegen`.
+- Exemplare und Ausgaben: `entities/exemplar` (`ladeExemplare`, `Kennzahlen`, `ExemplarTabelle`,
+  Status-Badge), `entities/ausgabe` (`ladeAusgaben`, `AusgabenTabelle`), `features/ausgabe-erfassen`
+  (`AusgabeFormular`), `features/ausgabe-stornieren` (Button mit Bestätigungsdialog),
+  `features/auflage-aendern` (Button mit Dialog), `widgets/coin-exemplare` (Kennzahlen, Filter,
+  Tabelle, Blättern, „Ausgabe erfassen“, „Auflage ändern“), `widgets/ausgaben-historie` (Historie mit
+  Storno), `pages/ausgabe-erfassen`. `pages/coin-detail` setzt die Widgets nach Berechtigung zusammen.
   Seiten nutzen keine Router-Hooks; Suche, Seite, Parameter und Navigation reicht
   `app/router/routen-komponenten.tsx` als Props durch.
 - Benutzerverwaltung: `entities/audit` (`AuditTabelle`, `GET /api/audit`), `features/rolle-zuweisen`
   und `features/benutzer-status-aendern` (je Auswahl bzw. Button mit Bestätigungsdialog),
   `widgets/benutzer-tabelle`, `widgets/audit-log`, `pages/benutzerverwaltung`.
 - Das Blättern (`shared/ui/blaettern.tsx`) ist eine eigene Komponente, keine shadcn-Komponente;
-  Katalog, Benutzertabelle und Audit-Log nutzen sie gemeinsam (Fokusregeln in ADR-0009).
+  Katalog, Benutzertabelle, Audit-Log, Exemplare und Ausgabehistorie nutzen sie gemeinsam
+  (Fokusregeln in ADR-0009).
 - Testhilfen (Fake-API, Setup) liegen außerhalb der Schichten in `web/test/`.
 - Steiger prüft die Regeln (`npm run lint:fsd`, Konfiguration `steiger.config.ts`).
 
@@ -311,7 +352,7 @@ nur, wenn Index und Arbeitsstand übereinstimmen.
 
 | | `web/ui-tests` (`npm run test:ui`) | `e2e/` (`npx playwright test`) |
 |---|---|---|
-| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten: Routing, Seitenleiste, Tastaturbedienung, Darstellung | fachliche Abläufe über alle Schichten |
+| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben: Routing, Seitenleiste, Tastaturbedienung, Darstellung | fachliche Abläufe über alle Schichten |
 | API | gemockt per `page.route`; Proxy-Ziel absichtlich unerreichbar; jeder nicht gemockte `/api`-Aufruf lässt den Test scheitern | echte API (Release-Build) mit Wegwerf-PostgreSQL |
 | Anmeldung | Identitätsanbieter gemockt (`VITE_OIDC_AUTHORITY=http://127.0.0.1:9/realms/coin`) | echter Wegwerf-Keycloak |
 | Voraussetzungen | nur Node.js und Chromium | Docker, .NET 10 SDK, Node.js ≥ 22.18 |
@@ -328,7 +369,8 @@ Erzeugen angepasst (ADR-0009). Nach einem erneuten `npx shadcn add` immer den Di
 Die CLI erzeugt `import { cn } from "cn"` statt `@/shared/lib/cn` und überschreibt Anpassungen,
 u. a. das entfernte Sidebar-Cookie, die deutschen Texte, `inert` an der eingeklappten
 Seitenleiste, die Ausnahme für Strg+B in Eingabefeldern, die Tab-Falle in `alert-dialog.tsx` und
-den Pfeiltasten-Umlauf in `select.tsx` (vollständige Liste in ADR-0009). Danach `npm run format`
+`dialog.tsx`, „Schließen“ in `dialog.tsx` und den Pfeiltasten-Umlauf in `select.tsx` (vollständige
+Liste in ADR-0009). Seit coin-ausgaben gehören auch `radio-group` und `dialog` dazu. Danach `npm run format`
 und `npm run lint` ausführen.
 
 ## Build und Tests
@@ -337,7 +379,12 @@ und `npm run lint` ausführen.
 dotnet build
 dotnet test                                                     # Unit- und Integrationstests
 dotnet test --filter "FullyQualifiedName~CoinAnlegenTests"      # Auswahl von Tests
+dotnet test --filter "Kategorie!=Langsam"                       # ohne die langsamen Tests
 ```
+
+Die Integrationstests enthalten langsame Tests mit Auflage 1.000.000 (`GrosseAuflageTests`, xUnit-Trait
+`[Trait("Kategorie", "Langsam")]`, zusammen etwa 1 Minute). Sie laufen im normalen `dotnet test` mit;
+der Filter `Kategorie!=Langsam` klammert sie aus.
 
 Die Integrationstests starten per Testcontainers einen eigenen PostgreSQL-Container
 (`postgres:17`); Docker muss laufen. Die lokale Umgebung aus `compose.yaml` wird dafür nicht benötigt.
@@ -353,6 +400,9 @@ npm run lint     # ESLint und Steiger
 npm run test:ui  # Playwright-UI-Tests mit gemockter API
 npm run build    # ESLint, TypeScript-Prüfung und Produktions-Build
 ```
+
+`npm test` und `npm run test:ui` nicht gleichzeitig starten: Unter sehr hoher Last laufen einzelne
+Vitest-Tests sonst in Timeouts.
 
 ### Systemtests (in `e2e/`)
 
@@ -383,8 +433,11 @@ Ablauf pro Lauf (ADR-0007, ADR-0015):
   Audit-Log und Sichtbarkeit, deaktiviert und reaktiviert ihn dann und prüft „Erneut prüfen“;
   `neu@test.local` behält keine Rolle. `katalog-seiten.spec.ts` legt einen Coin an, findet ihn über
   die Suche und prüft als Betrachter und anonym, dass „Coin hinzufügen“ fehlt.
+  `coin-ausgaben.spec.ts` vergibt `sachbearbeiter@test.local` und `betrachter@test.local` ihre Rollen,
+  legt einen Coin mit Auflage 150 an, erfasst als Sachbearbeiter eine Ausgabe, prüft als Betrachter
+  Kennzahlen und Status ohne Ausgabehistorie und storniert die Ausgabe.
 - Die Tests laufen nacheinander (`workers: 1`): Die Specs teilen sich Datenbank und Testkonten,
-  `benutzerverwaltung.spec.ts` und `katalog-seiten.spec.ts` brauchen beide `betrachter@test.local`
+  `benutzerverwaltung.spec.ts`, `katalog-seiten.spec.ts` und `coin-ausgaben.spec.ts` brauchen `betrachter@test.local`
   (einmal entzogen/deaktiviert, einmal als aktiver Betrachter), und die oberste Audit-Zeile würde
   durch parallele Rollenvergaben verfälscht. Ein Lauf dauert etwa 2 Minuten.
 - Laufende Server werden nie wiederverwendet. Ist Port 5182, 5183 oder 5184 belegt, bricht der Lauf ab.

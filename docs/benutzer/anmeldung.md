@@ -34,22 +34,23 @@ weiter ansehen, der Button **Coin hinzufügen** ist ausgeblendet.
 
 Was Sie nach der Anmeldung dürfen, hängt von der Rolle Ihres Kontos in C.O.I.N. ab:
 
-| Rolle | Katalog ansehen | Coins hinzufügen | Benutzerverwaltung |
-|---|---|---|---|
-| ohne Anmeldung | ja | nein | nein |
-| Administrator | ja | ja | ja |
-| Sachbearbeiter | ja | ja | nein |
-| Betrachter | ja | nein | nein |
-| angemeldet, aber noch ohne Rolle | ja | nein | nein |
-| Konto deaktiviert | ja | nein | nein |
+| Rolle | Katalog ansehen | Exemplare und Kennzahlen | Coins hinzufügen, Auflage ändern | Ausgaben sehen, erfassen, stornieren | Benutzerverwaltung |
+|---|---|---|---|---|---|
+| ohne Anmeldung | ja | nein | nein | nein | nein |
+| Administrator | ja | ja | ja | ja | ja |
+| Sachbearbeiter | ja | ja | ja | ja | nein |
+| Betrachter | ja | ja | nein | nein | nein |
+| angemeldet, aber noch ohne Rolle | ja | nein | nein | nein | nein |
+| Konto deaktiviert | ja | nein | nein | nein | nein |
 
 Neue Konten haben zunächst keine Rolle. Die Rolle vergibt ein Administrator in der
 [Benutzerverwaltung](benutzerverwaltung.md). Haben Sie noch keine Rolle, geht es über **Erneut
 prüfen** weiter (siehe unten). Ändert ein Administrator eine Rolle, die Sie schon haben, sehen Sie
 das erst nach dem Neuladen der Seite (Taste F5) oder nach der nächsten Anmeldung.
 
-Den Button **Coin hinzufügen** auf der Seite **Katalog** und den Eintrag **Benutzerverwaltung** in
-der Seitenleiste sehen Sie nur, wenn Ihre Rolle das erlaubt.
+Den Button **Coin hinzufügen** auf der Seite **Katalog**, die Abschnitte und Buttons zu Exemplaren
+und Ausgaben auf der Detailseite und den Eintrag **Benutzerverwaltung** in der Seitenleiste sehen
+Sie nur, wenn Ihre Rolle das erlaubt.
 
 ## Seite „Kein Zugriff“
 

@@ -37,5 +37,5 @@ Status: Angenommen (umgesetzt; Aufbewahrung vom Auftraggeber am 2026-10-05 entsc
 ## Folgen
 - Wer Eigentümerrechte an der DB hat, kann den Trigger entfernen. Das ist nur bei Betrieb mit getrennten DB-Rollen auszuschließen und als Betriebsthema vermerkt.
 - Die Tabelle wächst unbegrenzt, bis das Löschkonzept umgesetzt ist. Bei zwei seltenen Änderungsarten ist das unkritisch.
-- Spätere Audit-Arten (z. B. Verleihungen) bekommen eigene Werte für `art` per Migration oder eine eigene Tabelle.
+- Spätere Audit-Arten bekommen eigene Werte für `art` per Migration oder eine eigene Tabelle. Ausgaben haben die eigene Tabelle `ausgabe_audit` mit demselben Muster erhalten ([ADR-0020](0020-exemplare-und-ausgaben-datenmodell.md)); `benutzer_audit` bleibt unverändert.
 - Durch den Logfilter fehlen die Request-Start/Ende-Einträge der Hosting-Diagnose. Methode, Route, Status und Dauer liefert stattdessen das Request-Protokoll nach ADR-0019; `HttpLogging` wurde dafür geprüft und verworfen (Begründung dort).

@@ -5,7 +5,7 @@ Status: umgesetzt (vom qa-reviewer freigegeben; Abweichungen und Ergänzungen in
 ## 1. Ziel
 Die Katalogseite `/coins` dient nur noch zum Ansehen. Sie hat eine Liste mit Suche und Blättern, ein Klick führt zur Detailseite `/coins/{id}`. Angelegt werden Coins auf der eigenen Seite `/coins/neu`, die nur Benutzer mit `coins.write` erreichen. Nach dem Speichern geht es zur Detailseite des neuen Coins. Die Vorgabe des Auftraggebers steht wörtlich im Auftrag zu diesem Branch.
 
-Nicht im Umfang: Coins bearbeiten oder löschen, Verleihungen (nur ein Platzhalter), neue Funktionen für den Bild-Upload.
+Nicht im Umfang: Coins bearbeiten oder löschen, Verleihungen (nur ein Platzhalter, inzwischen ersetzt durch [coin-ausgaben](coin-ausgaben.md)), neue Funktionen für den Bild-Upload.
 
 ### Entscheidungen des Auftraggebers (2026-10-06)
 1. **F1 Kein Zugriff, einheitlich:** Angemeldete mit Rolle, denen die benötigte Berechtigung fehlt, landen auf `/kein-zugriff` mit dem neuen Grund „keine Berechtigung“. Das gilt für alle Routen mit `erfordertBerechtigung`, also auch für `/benutzerverwaltung` (bisher Weiterleitung nach `/`).
@@ -81,7 +81,7 @@ Nicht im Umfang: Coins bearbeiten oder löschen, Verleihungen (nur ein Platzhalt
   - Alle Inhalte als Text, nie als HTML.
   - Mit `bildUrl` das Motivbild per `<img src={bildUrl}>`, `alt` „Motiv: {Name}“, höchstens 320 × 320 px (Entscheidung F3). Ohne Bild der Text „Kein Motivbild vorhanden.“
   - Link „Zurück zum Katalog“ (`/coins`).
-- **AK-19** Platzhalter „Verleihungen“ (Entscheidung F5, Annahme A6):
+- **AK-19** Platzhalter „Verleihungen“ (Entscheidung F5, Annahme A6). *Nachtrag 2026-10-08: Der Platzhalter ist entfallen und durch die Abschnitte „Exemplare“ und „Ausgabehistorie“ aus [coin-ausgaben](coin-ausgaben.md) (AK-20 bis AK-25) ersetzt; der Begriff lautet dort „Ausgabe“ (F1).*
   - Abschnitt mit `h2` „Verleihungen“ und genau dem Text „Dieser Bereich wird in einer späteren Version ergänzt.“
   - Sichtbar für alle, auch anonym. Er hängt an keiner Berechtigung.
   - Er enthält keine Daten, keine Zahlen (z. B. keine Anzahl der Verleihungen), keine Namen und keine Formulierungen über Personen oder Empfänger. Es gibt keinen Request dafür.
