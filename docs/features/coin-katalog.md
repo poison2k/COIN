@@ -6,6 +6,8 @@ Zugehörige ADRs: [0001](../adr/0001-controller-statt-minimal-api.md), [0002](..
 
 Entscheidungen des Auftraggebers (2026-10-05): Auflage optional · Duplikate verboten (409) · Pilot ohne Anmeldung · Motivbild-Upload gehört in den Pilot.
 
+Fortgeschrieben durch [katalog-seiten](katalog-seiten.md): `GET /api/coins` liefert seitenweise mit Suche statt eines Arrays (AK-17 hier überholt), das Formular liegt auf der eigenen Seite `/coins/neu`, `/coins` heißt „Katalog“ und dient nur zum Ansehen (AK-28 hier teilweise überholt), dazu die Detailseite `/coins/{id}`.
+
 ## 1. Ziel
 Ein Benutzer erfasst über die Weboberfläche einen Coin-Typ (Name, Herausgeber, optional Auflage, Beschreibung und Motivbild). Der Coin wird in PostgreSQL gespeichert und erscheint mit Vorschaubild in einer Katalogliste. Der Pilot legt den durchgehenden technischen Durchstich fest (Domain → EF Core → API → React → Tests).
 

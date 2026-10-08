@@ -3,7 +3,8 @@
 Webanwendung zur Verwaltung militärischer Gedenk-Coins der Bundeswehr. Umgesetzt sind bisher:
 
 - **Coin-Katalog**: Coins mit Name, Herausgeber, optionaler Auflage, Beschreibung und Motivbild
-  anlegen und in einer Liste anzeigen. Lesen ist ohne Anmeldung möglich (ADR-0014).
+  auf einer eigenen Seite anlegen; Katalog mit Suche (Name, Herausgeber) und Blättern sowie eine
+  Detailseite je Coin. Lesen ist ohne Anmeldung möglich (ADR-0014).
 - **Anmeldung über Keycloak (OIDC)**: Anmeldung mit E-Mail und Passwort am Keycloak. Benutzer und
   Rollen führt C.O.I.N. in der eigenen Datenbank (ADR-0012, ADR-0013). Den ersten Administrator
   legt `Bootstrap:AdminEmails` fest.
@@ -201,16 +202,23 @@ Routen:
 | Pfad | Zugang | Inhalt |
 |---|---|---|
 | `/` | öffentlich | Startseite |
-| `/coins` | öffentlich | Katalog; Formular nur mit `coins.write` |
+| `/coins` | öffentlich | Katalog mit Suche und Blättern; Suchparameter `suche` (≤ 100 Zeichen) und `seite` in der URL; Link „Coin hinzufügen“ nur mit `coins.write` |
+| `/coins/neu` | `coins.write` | Seite „Coin hinzufügen“ (Formular inkl. Motivbild); danach `replace` auf die Detailseite |
+| `/coins/$coinId` | öffentlich | Detailseite; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf |
 | `/benutzerverwaltung` | `users.manage` | Tabs „Benutzer“ und „Audit-Log“ |
 | `/anmeldung/rueckruf` | öffentlich | Rückkehr vom Keycloak (ohne App-Shell) |
 | `/abgemeldet` | öffentlich | Bestätigung nach dem Abmelden |
-| `/kein-zugriff` | nur angemeldet | Hinweis für Benutzer ohne Rolle oder mit deaktiviertem Konto; alle anderen werden nach `/` geleitet |
+| `/kein-zugriff` | nur angemeldet | Hinweis für Benutzer ohne Rolle, mit deaktiviertem Konto oder (mit `?grund=berechtigung`) mit Rolle ohne die nötige Berechtigung; alle anderen werden nach `/` geleitet |
+
+`/coins/neu` und `/coins/$coinId` sind Geschwister von `/coins`; das statische Segment `neu` geht
+vor dem Parameter. Ungültige Suchparameter (`seite=0`, `seite=abc`, Seite über 2147483647) gelten
+als Seite 1, ein zu langer Suchbegriff wird gekürzt; die URL führt also nie zu einem `400`. Die
+Erfolgsmeldung nach dem Anlegen reist als fester Schlüssel im History-State und wird einmal verbraucht.
 
 Unbekannte Pfade zeigen „Seite nicht gefunden.“ Die Guards `erfordertAnmeldung` und
 `erfordertBerechtigung(b)` liegen in `src/app/router/schutz.ts`. `erfordertBerechtigung` startet
 ohne Sitzung die Anmeldung, leitet ohne Rolle oder deaktiviert nach `/kein-zugriff` und mit Rolle,
-aber ohne Berechtigung, nach `/`. Sichtbarkeit (Sidebar-Einträge, Formulare) richtet sich nur nach
+aber ohne Berechtigung, nach `/kein-zugriff?grund=berechtigung`. Sichtbarkeit (Sidebar-Einträge, Links) richtet sich nur nach
 `berechtigungen` aus `/api/me`, nie nach dem Rollennamen; ein Test in `abhaengigkeiten.test.ts`
 verbietet Rollenvergleiche außerhalb von `features/rolle-zuweisen`, `pages/kein-zugriff`,
 `app/router` und `app/anmeldung` (Zugriffsklasse).
@@ -223,10 +231,11 @@ Zugriffsklasse (`deaktiviert`, `ohneRolle`, `mitRolle`), laufen die Guards einma
 ### Anmeldung lokal ausprobieren
 
 1. `docker compose up -d`, API und `npm run dev` starten.
-2. `http://localhost:5173/coins` öffnen: Der Katalog ist ohne Anmeldung sichtbar, das Formular nicht.
+2. `http://localhost:5173/coins` öffnen: Der Katalog ist ohne Anmeldung sichtbar, der Link
+   „Coin hinzufügen“ nicht.
 3. „Anmelden“ → Keycloak-Formular → `admin@test.local` mit dem Testpasswort aus
    [infra/keycloak/README.md](infra/keycloak/README.md). Per Bootstrap wird dieser Benutzer
-   Administrator und sieht das Formular.
+   Administrator und sieht „Coin hinzufügen“.
 4. `neu@test.local` (ebenso `sachbearbeiter@test.local` und `betrachter@test.local`) hat in der
    App zunächst keine Rolle und landet nach der Anmeldung auf „Kein Zugriff“.
 5. Als `admin@test.local` in der Sidebar **Benutzerverwaltung** öffnen. Dort erscheinen alle
@@ -245,7 +254,8 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
 - Jeder Slice hat eine `index.ts` als Public API. Von außen wird nur über `@/<schicht>/<slice>`
   importiert, innerhalb eines Slices relativ.
 - Einziger Alias ist `@/` → `src/` (in `tsconfig.json`, `tsconfig.app.json`, `vite.config.ts`).
-- `shared/ui` enthält die shadcn-Komponenten, `shared/lib` u. a. `cn()`, das Farbschema und die
+- `shared/ui` enthält die shadcn-Komponenten, `shared/lib` u. a. `cn()`, das Farbschema, `istGuid`
+  (`shared/lib/guid`), Hooks (`shared/lib/hooks`: `useIsMobile`, `useFokusBeiLadefehler`) und die
   Anmeldung (`shared/lib/anmeldung`: UserManager, Provider, `useAnmeldung`, `sicheresZiel`),
   `shared/api` den generischen HTTP-Teil (inkl. Bearer-Header), `shared/config` die Routenpfade und
   die OIDC-Konfiguration.
@@ -254,10 +264,16 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
   `pages/abgemeldet`, `pages/anmeldung-rueckruf`. `app` lädt `/api/me` einmal pro Anmeldung und
   reicht Benutzer und Anmeldezustand als Props an Widgets und Seiten weiter. Liefert `/api/me` oder
   ein anderer Aufruf `403 benutzer_deaktiviert`, wechselt `app` in den Zustand „deaktiviert“.
+- Katalog: `entities/coin` (API `ladeCoins`/`ladeCoin`/`legeCoinAn`/`ladeBildHoch`, `CoinListe`,
+  `CoinStammdaten`), `features/coin-anlegen` (`CoinFormular`), `widgets/coin-katalog` (Suche,
+  Statuszeile, Liste, Blättern), `pages/coin-liste`, `pages/coin-detail`, `pages/coin-anlegen`.
+  Seiten nutzen keine Router-Hooks; Suche, Seite, Parameter und Navigation reicht
+  `app/router/routen-komponenten.tsx` als Props durch.
 - Benutzerverwaltung: `entities/audit` (`AuditTabelle`, `GET /api/audit`), `features/rolle-zuweisen`
   und `features/benutzer-status-aendern` (je Auswahl bzw. Button mit Bestätigungsdialog),
-  `widgets/benutzer-tabelle`, `widgets/audit-log`, `pages/benutzerverwaltung`. Das Blättern
-  (`shared/ui/blaettern.tsx`) ist eine eigene Komponente, keine shadcn-Komponente.
+  `widgets/benutzer-tabelle`, `widgets/audit-log`, `pages/benutzerverwaltung`.
+- Das Blättern (`shared/ui/blaettern.tsx`) ist eine eigene Komponente, keine shadcn-Komponente;
+  Katalog, Benutzertabelle und Audit-Log nutzen sie gemeinsam (Fokusregeln in ADR-0009).
 - Testhilfen (Fake-API, Setup) liegen außerhalb der Schichten in `web/test/`.
 - Steiger prüft die Regeln (`npm run lint:fsd`, Konfiguration `steiger.config.ts`).
 
@@ -295,7 +311,7 @@ nur, wenn Index und Arbeitsstand übereinstimmen.
 
 | | `web/ui-tests` (`npm run test:ui`) | `e2e/` (`npx playwright test`) |
 |---|---|---|
-| Zweck | App-Shell, Anmeldung, Benutzerverwaltung: Routing, Seitenleiste, Tastaturbedienung, Darstellung | fachliche Abläufe über alle Schichten |
+| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten: Routing, Seitenleiste, Tastaturbedienung, Darstellung | fachliche Abläufe über alle Schichten |
 | API | gemockt per `page.route`; Proxy-Ziel absichtlich unerreichbar; jeder nicht gemockte `/api`-Aufruf lässt den Test scheitern | echte API (Release-Build) mit Wegwerf-PostgreSQL |
 | Anmeldung | Identitätsanbieter gemockt (`VITE_OIDC_AUTHORITY=http://127.0.0.1:9/realms/coin`) | echter Wegwerf-Keycloak |
 | Voraussetzungen | nur Node.js und Chromium | Docker, .NET 10 SDK, Node.js ≥ 22.18 |
@@ -365,10 +381,15 @@ Ablauf pro Lauf (ADR-0007, ADR-0015):
 - Schreibende Tests melden sich über das echte Keycloak-Formular als `admin@test.local` an.
   `benutzerverwaltung.spec.ts` vergibt `betrachter@test.local` die Rolle Betrachter und prüft
   Audit-Log und Sichtbarkeit, deaktiviert und reaktiviert ihn dann und prüft „Erneut prüfen“;
-  `neu@test.local` behält keine Rolle.
+  `neu@test.local` behält keine Rolle. `katalog-seiten.spec.ts` legt einen Coin an, findet ihn über
+  die Suche und prüft als Betrachter und anonym, dass „Coin hinzufügen“ fehlt.
+- Die Tests laufen nacheinander (`workers: 1`): Die Specs teilen sich Datenbank und Testkonten,
+  `benutzerverwaltung.spec.ts` und `katalog-seiten.spec.ts` brauchen beide `betrachter@test.local`
+  (einmal entzogen/deaktiviert, einmal als aktiver Betrachter), und die oberste Audit-Zeile würde
+  durch parallele Rollenvergaben verfälscht. Ein Lauf dauert etwa 2 Minuten.
 - Laufende Server werden nie wiederverwendet. Ist Port 5182, 5183 oder 5184 belegt, bricht der Lauf ab.
 - `global-setup.ts` prüft vor dem ersten Test, dass die Datenbank leer ist (`GET /api/coins` liefert
-  `[]`), sonst bricht der Lauf ab.
+  eine Seite mit `gesamt: 0` und leeren `eintraege`), sonst bricht der Lauf ab.
 - Die Entwicklungsumgebung (DB, Keycloak 8180) und die Dev-Server (5172/5173) bleiben unberührt und
   dürfen parallel laufen. In der Shell gesetzte `ConnectionStrings__CoinDb`, `ASPNETCORE_ENVIRONMENT`
   oder `ASPNETCORE_URLS` werden für die e2e-API überschrieben. Geerbte Variablen der Sektionen
@@ -376,7 +397,9 @@ Ablauf pro Lauf (ADR-0007, ADR-0015):
   mit Präfix `ASPNETCORE_` oder `DOTNET_`.
 - Keycloak braucht im Dev-Modus etwa 10–30 s zum Start, der Lauf dauert entsprechend länger.
 - Nach dem Lauf werden die Container gestoppt. Unter Windows wird der API-Prozessbaum per `taskkill`
-  beendet; den Container räumt dann in der Praxis Ryuk nach etwa 25 s auf.
+  beendet; den Container räumt dann in der Praxis Ryuk nach etwa 25 s auf. Bis dahin ist Port 5184
+  noch belegt: Vor einem zweiten Lauf direkt danach warten, bis der Port frei ist, sonst bricht der
+  Lauf ab.
 - Bei der ersten Migration erscheint einmalig ein Logeintrag `fail: …` zu `__ef_migrations_history`
   (die Tabelle existiert in der frischen Datenbank noch nicht). Das ist erwartet und kein Fehler.
 

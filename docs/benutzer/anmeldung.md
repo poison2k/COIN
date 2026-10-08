@@ -2,15 +2,16 @@
 
 ## Was geht ohne Anmeldung?
 
-Startseite und Coin-Katalog (Seite **Coin-Liste**) können Sie ohne Anmeldung ansehen, samt
+Startseite, Katalog und die Detailseiten der Coins können Sie ohne Anmeldung ansehen, samt
 Motivbildern. Sie werden dabei nie automatisch zur Anmeldung geschickt.
 
-Coins erfassen können Sie nur angemeldet und nur mit der passenden Berechtigung (siehe unten).
+Coins hinzufügen können Sie nur angemeldet und nur mit der passenden Berechtigung (siehe unten).
+Rufen Sie die Seite **Coin hinzufügen** (`/coins/neu`) ohne Anmeldung auf, werden Sie zur Anmeldung
+geschickt und kommen danach dorthin zurück.
 
 ## Anmelden
 
-1. Klicken Sie rechts oben in der Kopfzeile auf **Anmelden**. Auf der Coin-Liste gibt es den Button
-   zusätzlich im Abschnitt „Neuen Coin erfassen“.
+1. Klicken Sie rechts oben in der Kopfzeile auf **Anmelden**.
 2. Sie gelangen zur Anmeldeseite. Geben Sie dort Ihre E-Mail-Adresse und Ihr Passwort ein.
 3. Kurz erscheint „Anmeldung wird abgeschlossen …“. Danach sind Sie wieder auf der Seite, von der
    aus Sie sich angemeldet haben.
@@ -27,13 +28,13 @@ oder **Zum Coin-Katalog**.
 
 Erscheint in der Kopfzeile „Ihre Anmeldung konnte nicht geprüft werden.“, ist der Server gerade
 nicht erreichbar. Klicken Sie auf **Erneut versuchen**. Den Katalog können Sie in der Zwischenzeit
-weiter ansehen, das Formular zum Erfassen ist ausgeblendet.
+weiter ansehen, der Button **Coin hinzufügen** ist ausgeblendet.
 
 ## Berechtigungen
 
 Was Sie nach der Anmeldung dürfen, hängt von der Rolle Ihres Kontos in C.O.I.N. ab:
 
-| Rolle | Katalog ansehen | Coins erfassen | Benutzerverwaltung |
+| Rolle | Katalog ansehen | Coins hinzufügen | Benutzerverwaltung |
 |---|---|---|---|
 | ohne Anmeldung | ja | nein | nein |
 | Administrator | ja | ja | ja |
@@ -47,11 +48,8 @@ Neue Konten haben zunächst keine Rolle. Die Rolle vergibt ein Administrator in 
 prüfen** weiter (siehe unten). Ändert ein Administrator eine Rolle, die Sie schon haben, sehen Sie
 das erst nach dem Neuladen der Seite (Taste F5) oder nach der nächsten Anmeldung.
 
-Im Abschnitt „Neuen Coin erfassen“ auf der Coin-Liste sehen Sie je nach Situation:
-
-- ohne Anmeldung: „Zum Erfassen von Coins melden Sie sich bitte an.“ und den Button **Anmelden**,
-- angemeldet ohne passende Rolle: „Coins erfassen können nur Administratoren und Sachbearbeiter.“,
-- als Administrator oder Sachbearbeiter: das Formular.
+Den Button **Coin hinzufügen** auf der Seite **Katalog** und den Eintrag **Benutzerverwaltung** in
+der Seitenleiste sehen Sie nur, wenn Ihre Rolle das erlaubt.
 
 ## Seite „Kein Zugriff“
 
@@ -59,8 +57,16 @@ Hat Ihr Konto noch keine Rolle, landen Sie nach der Anmeldung auf der Seite **Ke
 „Sie sind als … angemeldet, Ihrem Konto ist aber noch keine Rolle zugewiesen. Den Coin-Katalog
 können Sie weiterhin ansehen. Für weitere Funktionen wenden Sie sich bitte an einen Administrator.“
 
-Von dort geht es mit **Zum Coin-Katalog** zur Coin-Liste, mit **Erneut prüfen** (siehe unten)
+Von dort geht es mit **Zum Coin-Katalog** zum Katalog, mit **Erneut prüfen** (siehe unten)
 oder mit **Abmelden** hinaus.
+
+### Keine Berechtigung für eine Seite
+
+Haben Sie eine Rolle, rufen aber eine Seite auf, die Ihre Rolle nicht erlaubt (z. B. als Betrachter
+die Adresse `/coins/neu` oder als Sachbearbeiter `/benutzerverwaltung`), erscheint ebenfalls
+**Kein Zugriff**: „Ihr Benutzerkonto ist für diese Seite nicht berechtigt. Den Coin-Katalog können
+Sie weiterhin ansehen. Wenden Sie sich bei Fragen an einen Administrator.“ Dort gibt es **Zum
+Coin-Katalog** und **Abmelden**, aber kein **Erneut prüfen**.
 
 ## Konto deaktiviert
 
@@ -105,8 +111,9 @@ automatisch. Nach längerer Zeit ohne Aktivität oder nach einer Höchstdauer en
 erscheint wieder **Anmelden**.
 
 Ist die Anmeldung beim Speichern eines Coins abgelaufen, erscheint „Ihre Anmeldung ist abgelaufen.
-Sie werden zur Anmeldung weitergeleitet …“. Nach der Anmeldung kommen Sie auf die Coin-Liste
-zurück. **Ihre Eingaben im Formular gehen dabei verloren** und müssen neu eingegeben werden.
+Sie werden zur Anmeldung weitergeleitet …“. Nach der Anmeldung kommen Sie auf die Seite **Coin
+hinzufügen** zurück. **Ihre Eingaben im Formular gehen dabei verloren** und müssen neu eingegeben
+werden.
 
 ## Bekannte Einschränkung: mehrere Tabs
 

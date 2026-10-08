@@ -99,7 +99,7 @@ Weiter gelten (Keycloak-Feature): Der Katalog ist ohne Anmeldung lesbar. Die Rol
 - **AK-25** Route `/benutzerverwaltung`, `beforeLoad: erfordertBerechtigung('users.manage')`:
   - Anonym: Die Anmeldung startet mit Rückkehrziel.
   - Ohne Rolle oder deaktiviert: Weiterleitung nach `/kein-zugriff`.
-  - Mit Rolle ohne Berechtigung: Weiterleitung nach `/`.
+  - Mit Rolle ohne Berechtigung: Weiterleitung nach `/`. *Geändert durch [katalog-seiten](katalog-seiten.md) AK-11: Weiterleitung nach `/kein-zugriff?grund=berechtigung` („Kein Zugriff“ mit Grund „keine Berechtigung“).*
   - `erfordertRolle` wird durch `erfordertBerechtigung` ersetzt (Unit-Test).
 - **AK-26** Seite „Benutzerverwaltung“:
   - Ein `h1` „Benutzerverwaltung“ und Tabs „Benutzer“ und „Audit-Log“ (Pfeiltasten-Navigation, `role="tablist"`).

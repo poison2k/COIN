@@ -24,7 +24,11 @@ Die Vorgabe nennt `@stack-lib/sidebar` und `@stack-lib/theme`. Beide sind im öf
   - `alert-dialog.tsx`, `AlertDialogCancel` (rollen-benutzerverwaltung Rev. 3, AK-48): reicht `focusableWhenDisabled` an den gerenderten `Button` durch. Base-UI-`Close` kennt die Option nicht und würde sonst das `disabled`-Attribut setzen; bei gesetzter Option bekommt `Close` `disabled={false}`, der gesperrte Button verwirft den Klick selbst. Die Bestätigungsdialoge tragen während der Anfrage `aria-busy` am Dialog-Inhalt und eine Statusregion (`role="status"`, „Änderung wird gespeichert …“) im Footer; Schließen per Escape, „Abbrechen“ oder Klick außerhalb verhindern die Features selbst über `onOpenChange`.
   - App-Shell (`widgets/app-shell`): Die Kopfzeile steht als eigenes `<header>` (banner-Landmark) neben `<main>`, statt in `SidebarInset` zu liegen. `<main>` enthält nur den Seiteninhalt.
   - Lint-Sauberkeit und Prettier-Formatierung.
-- Weitere per CLI übernommene Komponenten (Base UI): `select`, `alert-dialog`, `badge`, `tabs`. `shared/ui/blaettern.tsx` ist eine eigene Komponente aus shadcn-Bausteinen (`Button`), keine CLI-Komponente.
+- Weitere per CLI übernommene Komponenten (Base UI): `select`, `alert-dialog`, `badge`, `tabs`. `shared/ui/blaettern.tsx` ist eine eigene Komponente aus shadcn-Bausteinen (`Button`), keine CLI-Komponente (katalog-seiten):
+  - Am Rand sind die Buttons nativ `disabled`. Führt ein Klick an den Rand, wandert der Fokus vorher auf den anderen Button bzw. auf die `<nav>` (`tabIndex={-1}`, sichtbarer Fokusring) und nach dem Laden zurück auf den bedienbaren Button.
+  - Während eine Seite lädt (`laedt`), sind die Buttons nur per `aria-disabled` gesperrt (nicht nativ und ohne `focusableWhenDisabled`) und verwerfen Klicks selbst, damit der Fokus nicht auf `body` fällt.
+  - „Vorherige Seite“ hinter dem Ende springt auf die letzte vorhandene Seite.
+  - Fällt die Navigation durch einen Ladefehler weg, setzt `useFokusBeiLadefehler` (`shared/lib/hooks`) den Fokus auf den Alarm, wenn er vorher in der Navigation lag.
 - Zusätzliche Pakete aus der shadcn-Einrichtung: `@fontsource-variable/geist` (Schrift) und `shadcn` als devDependency, weil `src/app/styles/index.css` `shadcn/tailwind.css` importiert.
 - Theme:
   - Klasse `light`/`dark` auf `<html>`,

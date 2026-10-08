@@ -6,16 +6,17 @@ Audit-Log, wer wann was geändert hat. Die Seite steht nur Administratoren zur V
 ## Seite öffnen
 
 Klicken Sie in der Seitenleiste auf **Benutzerverwaltung**. Den Eintrag sehen nur Administratoren.
-Wer die Adresse `/benutzerverwaltung` direkt aufruft, wird ohne Anmeldung zur Anmeldung geschickt,
-ohne Rolle oder mit deaktiviertem Konto zur Seite **Kein Zugriff** und mit einer anderen Rolle zur
-Startseite.
+Wer die Adresse `/benutzerverwaltung` direkt aufruft, wird ohne Anmeldung zur Anmeldung geschickt.
+Ohne Rolle, mit deaktiviertem Konto oder mit einer anderen Rolle als Administrator erscheint die
+Seite **Kein Zugriff** (mit einer anderen Rolle mit dem Text „Ihr Benutzerkonto ist für diese Seite
+nicht berechtigt. …“, siehe [Anmeldung](anmeldung.md#keine-berechtigung-für-eine-seite)).
 
 Die Seite hat zwei Reiter: **Benutzer** und **Audit-Log**. Zwischen den Reitern wechseln Sie per
 Klick oder mit den Pfeiltasten, wenn ein Reiter den Fokus hat.
 
 ## Rollen und Rechte
 
-| Rolle | Coin-Katalog ansehen | Coins erfassen | Benutzerverwaltung und Audit-Log |
+| Rolle | Coin-Katalog ansehen | Coins hinzufügen | Benutzerverwaltung und Audit-Log |
 |---|---|---|---|
 | Administrator | ja | ja | ja |
 | Sachbearbeiter | ja | ja | nein |
@@ -38,6 +39,7 @@ Benutzer von Hand anlegen oder löschen können Sie nicht.
 Über der Tabelle steht, wie viele Benutzer gefunden wurden, z. B. „3 Benutzer gefunden“. Die
 Tabelle zeigt Name, E-Mail, Rolle, Status und Aktion, sortiert nach Namen, 25 Benutzer pro Seite.
 Mit **Vorherige Seite** und **Nächste Seite** blättern Sie; dazwischen steht „Seite x von y“.
+Während die nächste Seite lädt, bleibt die bisherige Seite sichtbar.
 
 Ihre eigene Zeile ist mit „(Sie)“ markiert. Rolle und Status Ihres eigenen Kontos können Sie nicht
 ändern, die Bedienelemente sind dort gesperrt.
@@ -96,7 +98,7 @@ Nach einer Fehlermeldung zeigt die Zeile wieder den gespeicherten Stand.
 ## Audit-Log
 
 Der Reiter **Audit-Log** zeigt jede Änderung an Rollen und Status, die neueste zuerst, 25 Einträge
-pro Seite. Er wird bei jedem Öffnen neu geladen.
+pro Seite. Er wird bei jedem Öffnen neu geladen. Geblättert wird wie in der Benutzerliste.
 
 | Spalte | Inhalt |
 |---|---|

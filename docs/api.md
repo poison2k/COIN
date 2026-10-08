@@ -5,7 +5,7 @@ In der Umgebung `Development` liefert `GET /openapi/v1.json` das OpenAPI-Dokumen
 
 | Methode | Pfad | Zweck | Zugang |
 |---|---|---|---|
-| `GET` | `/api/coins` | Alle Coins auflisten | öffentlich |
+| `GET` | `/api/coins` | Coins suchen und seitenweise auflisten | öffentlich |
 | `GET` | `/api/coins/{id}` | Einen Coin abrufen | öffentlich |
 | `GET` | `/api/coins/{id}/bild` | Motivbild abrufen | öffentlich |
 | `POST` | `/api/coins` | Coin anlegen | `coins.write` |
@@ -156,7 +156,7 @@ Benutzer entstehen nur bei ihrem ersten Aufruf mit Token. Anlegen oder Löschen 
 
 ### Seiten
 
-Listen werden seitenweise geliefert:
+Listen (`/api/benutzer`, `/api/audit` und `/api/coins`) werden seitenweise geliefert:
 
 ```json
 { "eintraege": [ ... ], "gesamt": 42, "seite": 1, "groesse": 25 }
@@ -321,7 +321,8 @@ Objekt `errors` (Schlüssel → Liste deutscher Meldungen). Mehrere ungültige F
 | `anfrage` | Body ist kein gültiges JSON und der Fehler lässt sich keinem Feld zuordnen (Meldung „Die Anfrage enthält kein gültiges JSON.“) |
 | `datei` | Bild-Upload: Formular fehlerhaft, keine/mehrere Dateien, leere Datei |
 | `rolle`, `aktiv` | Benutzerverwaltung: Body-Feld fehlt oder ungültig |
-| `suche`, `seite`, `groesse`, `benutzerId` | Benutzerliste und Audit-Log: Query-Parameter ungültig |
+| `suche`, `seite`, `groesse` | Coin-Liste, Benutzerliste und Audit-Log (ohne `suche`): Query-Parameter ungültig |
+| `benutzerId` | Audit-Log: Query-Parameter ungültig |
 
 ProblemDetails mit fachlichem Fehlergrund (`403`, `409` der Benutzerverwaltung) tragen zusätzlich
 die Erweiterung `code` (z. B. `keine_berechtigung`, `letzter_administrator`).
@@ -386,8 +387,61 @@ Bei `400`, `401`, `403`, `409` und `415` wird nichts gespeichert.
 
 ## GET /api/coins
 
-Öffentlich. Liefert `200` mit einem Array aller Coins, sortiert nach `name` aufsteigend ohne
-Beachtung von Groß-/Kleinschreibung. Ohne Coins: `[]`. Keine Paginierung.
+`GET /api/coins?suche=bataillon&seite=1&groesse=25` (alle Parameter optional)
+
+Öffentlich. Die Antwort hängt nicht vom Token ab (anonym, ungültiges Token und Token eines
+deaktivierten Benutzers liefern dasselbe `200`); es gibt keinen Benutzerabgleich.
+
+> **Breaking Change (katalog-seiten):** Bis dahin lieferte der Endpunkt ein Array aller Coins. Jetzt
+> liefert er ein Seiten-Objekt; ein Array-Format gibt es nicht mehr.
+
+- Format und Paging wie unter [Seiten](#seiten): `{ "eintraege": [Coin, …], "gesamt", "seite", "groesse" }`,
+  Standard `seite=1`, `groesse=25`. Einträge im [Coin-Format](#datenformat-coin).
+- `suche` (optional, getrimmt, höchstens 100 Zeichen; leer = alle) findet Teilstrings in `name`
+  oder `herausgeber` ohne Beachtung der Groß-/Kleinschreibung. `%`, `_` und `\` gelten wörtlich,
+  die Abfrage ist parametrisiert. Die Beschreibung wird nicht durchsucht.
+- Sortierung: `name` ohne Beachtung der Groß-/Kleinschreibung, dann `id` (stabil über Seiten hinweg).
+- Eine Seite hinter dem Ende liefert `eintraege: []` mit korrektem `gesamt`.
+- Das Request-Protokoll enthält nur die Route `/api/coins`, nie `suche` oder die Query.
+
+```json
+{
+  "eintraege": [
+    {
+      "id": "0199b3c4-5d6e-7f80-9a1b-2c3d4e5f6a7b",
+      "name": "Einsatzkontingent Beispiel 2025",
+      "herausgeber": "Beispielbataillon 1",
+      "auflage": 500,
+      "beschreibung": null,
+      "erstelltAm": "2026-10-05T09:15:00.123456+00:00",
+      "bildUrl": null
+    }
+  ],
+  "gesamt": 1,
+  "seite": 1,
+  "groesse": 25
+}
+```
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | gültige Parameter | Seite mit Coins |
+| `400 Bad Request` | `seite` < 1, `groesse` außerhalb 1–100, `suche` nach dem Trimmen länger als 100 Zeichen („Der Suchbegriff darf höchstens 100 Zeichen lang sein.“) oder ein Wert, der keine Zahl ist; übrige Meldungen wie unter [Seiten](#seiten). Regelverstöße mehrerer Parameter werden gemeinsam gemeldet. | ValidationProblemDetails, Schlüssel `suche`, `seite`, `groesse` |
+
+Beispiel für `GET /api/coins?seite=0&groesse=101`:
+
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "Eingaben ungültig",
+  "status": 400,
+  "errors": {
+    "seite": ["Die Seite muss mindestens 1 sein."],
+    "groesse": ["Die Seitengröße muss zwischen 1 und 100 liegen."]
+  },
+  "traceId": "00-..."
+}
+```
 
 ## GET /api/coins/{id}
 
