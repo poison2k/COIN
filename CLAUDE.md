@@ -15,6 +15,8 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
 - **Ausgabe**: Übergabe eines Exemplars an eine Person (wer, wann, Gelegenheit, Begründung, ausgebende
   Stelle); wird nie geändert oder gelöscht, nur mit Grund storniert. Früher „Verleihung“.
 - **Zertifikat**: signierter Echtheitsnachweis für ein Exemplar, öffentlich prüfbar
+- **Zertifikatsvorlage**: Word-Vorlage (.docx) je Coin mit Platzhaltern `{{Gruppe.Feld}}`
+  (`docs/platzhalter.md`); ohne eigene gilt die vom Backend erzeugte Standardvorlage
 
 ## Technik
 - Backend: C# / .NET 10, ASP.NET Core Web API, EF Core, PostgreSQL
@@ -60,8 +62,14 @@ unveränderlich per Trigger, unbegrenzt aufbewahrt). Der erste Administrator kom
 `Bootstrap:AdminEmails`. Exemplare und Ausgaben (`docs/features/coin-ausgaben.md`, ADR-0020/0021):
 Exemplare 1 bis Auflage, Kennzahlen/Status mit `coins.read`, Historie mit `issues.read`, Erfassen
 und Stornieren mit `issues.write`, Auflage ändern mit `coins.write`; `ausgabe` und `ausgabe_audit`
-unveränderlich per Trigger. Noch nicht vorhanden: Zertifikate, Löschkonzept für Audit und
-Empfängerdaten.
+unveränderlich per Trigger. Zertifikatsvorlagen und „Coin bearbeiten“
+(`docs/features/zertifikatsvorlagen.md`, ADR-0022–0026): Stammdaten ändern auf
+`/coins/{id}/bearbeiten` (`PUT /api/coins/{id}`), Standardvorlage herunterladen, eigene Vorlage
+hochladen (Prüfung mit Namespace-Positivliste `docs/word-namespaces.md`, Bereinigung der
+Metadaten), Versionen und Zurücksetzen, alles mit `coins.write` (OpenXML SDK in
+`Coin.Infrastructure/Vorlagen`); `zertifikat_vorlage` und `vorlage_audit` unveränderlich per
+Trigger. Noch nicht vorhanden: Zertifikate ausstellen (Nummer, Signatur, PDF, Prüfseite),
+Löschkonzept für Audit, Empfängerdaten und Vorlagenversionen.
 Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup im `README.md`.
 `dotnet build` ohne Warnungen ist Pflicht, `TreatWarningsAsErrors` ist aber (noch) nicht gesetzt.
 
@@ -117,6 +125,10 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
   öffentliche Endpunkte bleiben tokenunabhängig.
 - Das Frontend leitet Sichtbarkeit nur aus `berechtigungen` von `/api/me` ab, nie aus Rollennamen
   (geprüft in `web/src/app/abhaengigkeiten.test.ts`).
+- Hochgeladene Word-Dateien sind nicht vertrauenswürdig. Die Namespace-Positivliste
+  (`Coin.Domain.Vorlagen.WordNamespaces`) ist nicht konfigurierbar und wird nur über den
+  Nachtragsprozess aus ADR-0026 erweitert; keine punktuellen Sperrregeln statt Listeneinträgen.
+  Marker in `docs/platzhalter.md` und `docs/word-namespaces.md` nicht ändern (Doku-Tests).
 - Audit-Einträge sind unveränderlich (nur INSERT/SELECT, DB-Trigger); Änderungen an Rolle oder Status
   nur über `BenutzerverwaltungService` (Sperre plus Audit in derselben Transaktion).
 - Request-Logs schreibt nur `AnfrageProtokoll` (Methode, Routen-Template, Status, Dauer; ADR-0019).
