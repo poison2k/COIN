@@ -1,4 +1,3 @@
-using Coin.Domain.Katalog;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Net.Http.Headers;
 
@@ -11,7 +10,7 @@ public abstract record MultipartDateiErgebnis
     {
     }
 
-    /// <summary>Genau eine Datei im erwarteten Feld; Inhalt höchstens <see cref="CoinBild.MaxGroesseBytes"/> Bytes.</summary>
+    /// <summary>Genau eine Datei im erwarteten Feld; Inhalt höchstens so groß wie die übergebene Dateigrenze.</summary>
     public sealed record Datei(byte[] Inhalt) : MultipartDateiErgebnis;
 
     /// <summary>Datei oder Request größer als erlaubt (413).</summary>
@@ -26,7 +25,7 @@ public abstract record MultipartDateiErgebnis
 /// Alle Limits werden hier selbst kontrolliert und als typisiertes Ergebnis gemeldet (AK-23, AK-25):
 /// <list type="bullet">
 /// <item>Request-Body höchstens <see cref="MaxRequestBytes"/> gelesen, danach <see cref="MultipartDateiErgebnis.ZuGross"/>.</item>
-/// <item>Datei höchstens <see cref="CoinBild.MaxGroesseBytes"/>, sonst <see cref="MultipartDateiErgebnis.ZuGross"/>.</item>
+/// <item>Datei höchstens so groß wie die übergebene Dateigrenze (Bild, Vorlage), sonst <see cref="MultipartDateiErgebnis.ZuGross"/>.</item>
 /// <item>Höchstens <see cref="MaxAbschnitte"/> Formularabschnitte, sonst <see cref="MultipartDateiErgebnis.Ungueltig"/>.</item>
 /// </list>
 /// Der Leser hört beim Überschreiten auf zu lesen; den ungelesenen Rest verwirft Kestrel nach der Antwort
@@ -42,7 +41,8 @@ public static class MultipartDateiLeser
 
     private const int MaxBoundaryLaenge = 70; // RFC 2046
 
-    public static async Task<MultipartDateiErgebnis> LesenAsync(HttpRequest request, string feldname, CancellationToken ct)
+    public static async Task<MultipartDateiErgebnis> LesenAsync(
+        HttpRequest request, string feldname, int maxDateiBytes, CancellationToken ct)
     {
         if (request.ContentLength > MaxRequestBytes)
         {
@@ -58,7 +58,7 @@ public static class MultipartDateiLeser
         var body = new BegrenzterLeseStream(request.Body, MaxRequestBytes);
         try
         {
-            return await LesenAsync(new MultipartReader(boundary, body), feldname, ct);
+            return await LesenAsync(new MultipartReader(boundary, body), feldname, maxDateiBytes, ct);
         }
         catch (RequestZuGrossException)
         {
@@ -76,7 +76,8 @@ public static class MultipartDateiLeser
         }
     }
 
-    private static async Task<MultipartDateiErgebnis> LesenAsync(MultipartReader reader, string feldname, CancellationToken ct)
+    private static async Task<MultipartDateiErgebnis> LesenAsync(
+        MultipartReader reader, string feldname, int maxDateiBytes, CancellationToken ct)
     {
         byte[]? inhalt = null;
         var anzahlDateien = 0;
@@ -106,7 +107,7 @@ public static class MultipartDateiLeser
                 return new MultipartDateiErgebnis.Ungueltig("Bitte genau eine Datei im Feld „datei“ senden.");
             }
 
-            inhalt = await DateiLesenAsync(abschnitt.Body, ct);
+            inhalt = await DateiLesenAsync(abschnitt.Body, maxDateiBytes, ct);
             if (inhalt is null)
             {
                 return new MultipartDateiErgebnis.ZuGross();
@@ -118,15 +119,15 @@ public static class MultipartDateiLeser
             : new MultipartDateiErgebnis.Datei(inhalt);
     }
 
-    /// <summary>Liest die Datei; <c>null</c>, sobald sie größer als <see cref="CoinBild.MaxGroesseBytes"/> ist.</summary>
-    private static async Task<byte[]?> DateiLesenAsync(Stream quelle, CancellationToken ct)
+    /// <summary>Liest die Datei; <c>null</c>, sobald sie größer als <paramref name="maxDateiBytes"/> ist.</summary>
+    private static async Task<byte[]?> DateiLesenAsync(Stream quelle, int maxDateiBytes, CancellationToken ct)
     {
         using var ziel = new MemoryStream();
         var puffer = new byte[81_920];
         int gelesen;
         while ((gelesen = await quelle.ReadAsync(puffer, ct)) > 0)
         {
-            if (ziel.Length + gelesen > CoinBild.MaxGroesseBytes)
+            if (ziel.Length + gelesen > maxDateiBytes)
             {
                 return null;
             }

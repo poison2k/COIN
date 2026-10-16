@@ -18,3 +18,6 @@ export interface CoinAnlegen {
   auflage: number | null
   beschreibung: string | null
 }
+
+/** Daten zum Bearbeiten der Stammdaten (PUT /api/coins/{id}, zertifikatsvorlagen AK-22). */
+export type CoinAendern = CoinAnlegen

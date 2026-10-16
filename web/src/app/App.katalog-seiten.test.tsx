@@ -349,7 +349,9 @@ describe('/coins/{id}', () => {
   })
 
   // Geändert durch coin-ausgaben (F3, AK-25): „Auflage ändern“ ist die einzige erlaubte Änderung am Coin.
-  it('zeigt mit coins.write außer „Auflage ändern“ keine Bearbeiten-, Löschen- oder Upload-Elemente', async () => {
+  // Geändert durch zertifikatsvorlagen (AK-27, ersetzt katalog-seiten AK-20): Mit coins.write gibt es zusätzlich genau
+  // den Link „Bearbeiten“ zur Seite „Coin bearbeiten“; auf der Detailseite selbst bleiben Formulare und Uploads aus.
+  it('zeigt mit coins.write außer „Auflage ändern“ und dem Link „Bearbeiten“ keine Bearbeiten-, Löschen- oder Upload-Elemente', async () => {
     zeigeApp(`/coins/${ALPHA.id}`, { coins: [ALPHA] })
     await screen.findByRole('heading', { level: 1, name: 'Coin Alpha' })
     await angemeldetGeladen()
@@ -368,9 +370,12 @@ describe('/coins/{id}', () => {
     const namen = [...within(main).queryAllByRole('button'), ...within(main).queryAllByRole('link')].map(
       (el) => el.textContent?.trim() ?? '',
     )
-    expect(namen.filter((n) => n !== 'Auflage ändern' && /bearbeiten|ändern|löschen|hochladen|Bild/i.test(n))).toEqual(
-      [],
-    )
+    expect(
+      namen.filter(
+        (n) => n !== 'Auflage ändern' && n !== 'Bearbeiten' && /bearbeiten|ändern|löschen|hochladen|Bild/i.test(n),
+      ),
+    ).toEqual([])
+    expect(within(main).getAllByRole('link', { name: 'Bearbeiten' })).toHaveLength(1)
   })
 
   it('führt über „Zurück zum Katalog“ zu /coins', async () => {

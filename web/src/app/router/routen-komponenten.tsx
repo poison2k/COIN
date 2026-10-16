@@ -8,6 +8,7 @@ import { AusgabeErfassenSeite } from '@/pages/ausgabe-erfassen'
 import { RueckrufSeite } from '@/pages/anmeldung-rueckruf'
 import { BenutzerverwaltungSeite } from '@/pages/benutzerverwaltung'
 import { CoinAnlegenSeite } from '@/pages/coin-anlegen'
+import { CoinBearbeitenSeite } from '@/pages/coin-bearbeiten'
 import { CoinDetailSeite, type CoinDetailMeldung } from '@/pages/coin-detail'
 import { CoinListeSeite } from '@/pages/coin-liste'
 import { KeinZugriffSeite } from '@/pages/kein-zugriff'
@@ -42,6 +43,7 @@ const katalogApi = getRouteApi('/shell/coins')
 const coinDetailApi = getRouteApi('/shell/coins/$coinId')
 const keinZugriffApi = getRouteApi('/shell/kein-zugriff')
 const ausgabeNeuApi = getRouteApi('/shell/coins/$coinId/ausgaben/neu')
+const coinBearbeitenApi = getRouteApi('/shell/coins/$coinId/bearbeiten')
 
 /** Katalog: Suche und Seite stehen in der URL (katalog-seiten, AK-14); eine neue Suche beginnt auf Seite 1. */
 export function CoinListeRoute() {
@@ -108,12 +110,15 @@ export function CoinDetailRoute() {
   const { benutzer } = useBenutzerKontext()
   const coinAngelegt = useLocation({ select: (ort) => ort.state.coinAngelegt })
   const ausgabeNummer = useLocation({ select: (ort) => ort.state.ausgabeErfasst?.nummer })
+  const coinGeaendert = useLocation({ select: (ort) => ort.state.coinGeaendert === true })
   const navigate = useNavigate()
   const routeNavigate = coinDetailApi.useNavigate()
   const [gemerkt, setGemerkt] = useState<{ coinId: string; meldung: CoinDetailMeldung } | null>(null)
 
   const neueMeldung: CoinDetailMeldung | undefined =
-    coinAngelegt ?? (typeof ausgabeNummer === 'number' ? { art: 'ausgabeErfasst', nummer: ausgabeNummer } : undefined)
+    coinAngelegt ??
+    (coinGeaendert ? 'coinGeaendert' : undefined) ??
+    (typeof ausgabeNummer === 'number' ? { art: 'ausgabeErfasst', nummer: ausgabeNummer } : undefined)
   if (neueMeldung && (gemerkt?.coinId !== coinId || !gleicheMeldung(gemerkt.meldung, neueMeldung))) {
     setGemerkt({ coinId, meldung: neueMeldung })
   }
@@ -147,6 +152,7 @@ export function CoinDetailRoute() {
         historie: hatBerechtigung(benutzer, 'issues.read'),
         erfassen: hatBerechtigung(benutzer, 'issues.write'),
         auflage: hatBerechtigung(benutzer, 'coins.write'),
+        bearbeiten: hatBerechtigung(benutzer, 'coins.write'),
       }}
       status={status}
       seite={seite}
@@ -183,6 +189,32 @@ export function AusgabeErfassenRoute() {
 
   return hatBerechtigung(benutzer, 'issues.write') ? (
     <AusgabeErfassenSeite coinId={coinId} onErfasst={onErfasst} />
+  ) : null
+}
+
+/**
+ * „Coin bearbeiten“ nur mit coins.write. Nach dem Speichern ersetzt die Detailseite die Bearbeiten-Seite im Verlauf;
+ * die Meldung reist als fester Schlüssel im History-State (zertifikatsvorlagen, AK-28).
+ */
+export function CoinBearbeitenRoute() {
+  const { coinId } = coinBearbeitenApi.useParams()
+  const { benutzer } = useBenutzerKontext()
+  const navigate = useNavigate()
+
+  const onGespeichert = useCallback(
+    (coin: Coin) => {
+      void navigate({
+        to: ROUTEN.coinDetail,
+        params: { coinId: coin.id },
+        replace: true,
+        state: { coinGeaendert: true },
+      })
+    },
+    [navigate],
+  )
+
+  return hatBerechtigung(benutzer, 'coins.write') ? (
+    <CoinBearbeitenSeite coinId={coinId} onGespeichert={onGespeichert} />
   ) : null
 }
 

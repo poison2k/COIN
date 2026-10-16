@@ -5,6 +5,7 @@ import type { Coin } from '@/entities/coin'
 import { erstelleFakeApi, problemAntwort, testDatei, type FakeApi } from '../../../../test/fakeApi'
 import { formularFelder, fuelleAus, meldungMit, seitentext, TEXTE } from '../../../../test/hilfen'
 import { zeigeMitRouter } from '../../../../test/router'
+import { beobachteDownloads } from '../../../../test/downloads'
 import { CoinAnlegenSeite } from '../index'
 
 // Feature katalog-seiten, AK-21 bis AK-24, AK-26: Seite „Coin hinzufügen“ (/coins/neu) mit dem bestehenden
@@ -153,5 +154,60 @@ describe('deutsche Texte', () => {
     await geladen()
 
     expect(seitentext()).not.toMatch(/\b(Add|Cancel|Submit|Upload|Choose file|Loading|Error|New coin)\b/)
+  })
+})
+
+// ---------- zertifikatsvorlagen, AK-31: Abschnitt „Zertifikatsvorlage“ ----------
+
+describe('Abschnitt „Zertifikatsvorlage“ (zertifikatsvorlagen, AK-31)', () => {
+  const HINWEIS =
+    'Laden Sie die Standardvorlage herunter, um daraus in Word eine Urkunde zu gestalten. Die fertige Vorlage laden Sie nach dem Anlegen auf der Seite „Coin bearbeiten“ hoch.'
+
+  it('hat die Überschrift „Zertifikatsvorlage“ als Ebene 2', async () => {
+    zeigeSeite()
+    await geladen()
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Zertifikatsvorlage' })).toBeInTheDocument()
+  })
+
+  it('erklärt den Ablauf mit Standardvorlage und „Coin bearbeiten“', async () => {
+    zeigeSeite()
+    await geladen()
+
+    expect(seitentext().replace(/\s+/g, ' ')).toContain(HINWEIS)
+  })
+
+  it('steht unter dem Formular', async () => {
+    zeigeSeite()
+    await geladen()
+
+    const absenden = formularFelder().absenden
+    const ueberschrift = screen.getByRole('heading', { level: 2, name: 'Zertifikatsvorlage' })
+    expect(absenden.compareDocumentPosition(ueberschrift) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('lädt über „Standardvorlage herunterladen“ die Datei zertifikatsvorlage-standard.docx', async () => {
+    const { downloads } = beobachteDownloads()
+    const { user } = zeigeSeite()
+    await geladen()
+
+    await user.click(screen.getByRole('button', { name: 'Standardvorlage herunterladen' }))
+
+    await waitFor(() => expect(downloads.map((d) => d.dateiname)).toEqual(['zertifikatsvorlage-standard.docx']))
+  })
+
+  it('sendet beim Download nichts aus dem Formular und legt keinen Coin an', async () => {
+    beobachteDownloads()
+    const { user } = zeigeSeite()
+    await geladen()
+    await fuelleAus(user, PFLICHT)
+
+    await user.click(screen.getByRole('button', { name: 'Standardvorlage herunterladen' }))
+
+    await waitFor(() => expect(api.anfragenMit('GET', /^\/api\/zertifikatsvorlagen\/standard$/)).toHaveLength(1))
+    expect(api.anfragen.map((a) => `${a.methode} ${a.pfad}`)).toEqual(['GET /api/zertifikatsvorlagen/standard'])
+    expect(api.anfragen[0].query.toString()).toBe('')
+    expect(onAngelegt).not.toHaveBeenCalled()
+    expect(formularFelder().name).toHaveValue('Coin Alpha')
   })
 })

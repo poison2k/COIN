@@ -94,6 +94,17 @@ public class BerechtigungsDokuTests
         Assert.Equal(tabelle.Count, tabelle.Distinct(StringComparer.Ordinal).Count());
     }
 
+    [Fact]
+    public void Doku_nennt_fuer_coins_write_die_Bedeutung_laut_zertifikatsvorlagen()
+    {
+        // Feature zertifikatsvorlagen, AK-25 und Abschnitt 5.4: Bedeutung erweitert, Haken unverändert.
+        var (_, zeilen) = Matrix();
+
+        Assert.Equal(
+            "Coins anlegen und bearbeiten, Motivbild hochladen, Auflage ändern, Zertifikatsvorlagen herunterladen, hochladen und zurücksetzen",
+            zeilen["coins.write"][1]);
+    }
+
     [Theory]
     [InlineData("Administrator")]
     [InlineData("Sachbearbeiter")]

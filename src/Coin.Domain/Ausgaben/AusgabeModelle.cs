@@ -86,6 +86,24 @@ public abstract record AuflageAendernErgebnis
     public sealed record ZuKlein(int HoechsteAusgegebeneNummer) : AuflageAendernErgebnis;
 }
 
+/// <summary>Ergebnis von <see cref="AusgabeService.CoinBearbeitenAsync"/> (zertifikatsvorlagen AK-22).</summary>
+public abstract record CoinBearbeitenErgebnis
+{
+    private CoinBearbeitenErgebnis()
+    {
+    }
+
+    public sealed record Geaendert(CoinEintrag Coin) : CoinBearbeitenErgebnis;
+
+    public sealed record Ungueltig(IReadOnlyDictionary<string, string[]> Fehler) : CoinBearbeitenErgebnis;
+
+    public sealed record CoinNichtGefunden : CoinBearbeitenErgebnis;
+
+    public sealed record Duplikat : CoinBearbeitenErgebnis;
+
+    public sealed record AuflageZuKlein(int HoechsteAusgegebeneNummer) : CoinBearbeitenErgebnis;
+}
+
 /// <summary>Ergebnis der Leseabfragen (Exemplare, Historie).</summary>
 public abstract record AbfrageErgebnis<T>
 {

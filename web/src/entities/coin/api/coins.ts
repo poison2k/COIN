@@ -1,5 +1,5 @@
 import { sende, type ApiErgebnis, type Seite } from '@/shared/api'
-import type { Coin, CoinAnlegen } from '../model/types'
+import type { Coin, CoinAnlegen, CoinAendern } from '../model/types'
 
 const COINS_URL = '/api/coins'
 
@@ -71,5 +71,27 @@ export function aendereAuflage(
     },
     [200],
     optionen,
+  )
+}
+
+/**
+ * PUT /api/coins/{id} – Stammdaten ersetzen (zertifikatsvorlagen AK-22, nur coins.write). Bei 409 enthält das Ergebnis
+ * `code` (`coin_existiert`, `auflage_zu_klein`) und den Text des Servers.
+ */
+export function aendereCoin(id: string, daten: CoinAendern): Promise<ApiErgebnis<Coin>> {
+  return sende<Coin>(
+    `${COINS_URL}/${encodeURIComponent(id)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        name: daten.name,
+        herausgeber: daten.herausgeber,
+        auflage: daten.auflage,
+        beschreibung: daten.beschreibung,
+      }),
+    },
+    [200],
+    { konfliktDetail: true },
   )
 }

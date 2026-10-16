@@ -222,6 +222,14 @@ public partial class EndpunktTabelleTests(PostgresFixture fixture) : Integration
     [InlineData("POST /api/coins")]
     [InlineData("PUT /api/coins/{id}/bild")]
     [InlineData("PUT /api/coins/{id}/auflage")]
+    // zertifikatsvorlagen AK-24, AK-25 (Abschnitt 5.4): alle neuen Endpunkte verlangen coins.write.
+    [InlineData("PUT /api/coins/{id}")]
+    [InlineData("GET /api/zertifikatsvorlagen/standard")]
+    [InlineData("GET /api/coins/{id}/zertifikatsvorlage")]
+    [InlineData("GET /api/coins/{id}/zertifikatsvorlage/datei")]
+    [InlineData("GET /api/coins/{id}/zertifikatsvorlage/versionen/{version}/datei")]
+    [InlineData("POST /api/coins/{id}/zertifikatsvorlage/versionen")]
+    [InlineData("POST /api/coins/{id}/zertifikatsvorlage/zuruecksetzen")]
     public void Schreibende_Katalog_Endpunkte_verlangen_coins_write(string name)
     {
         var endpunkt = Assert.Single(Endpunkte(), e => e.Name == name).Endpunkt;

@@ -15,6 +15,7 @@ import {
   AusgabeErfassenRoute,
   BenutzerverwaltungRoute,
   CoinAnlegenRoute,
+  CoinBearbeitenRoute,
   CoinDetailRoute,
   CoinListeRoute,
   KeinZugriffRoute,
@@ -86,6 +87,15 @@ const coinAusgabeNeuRoute = createRoute({
   },
   component: AusgabeErfassenRoute,
 })
+// Geschwister der Detailseite, nur mit coins.write (zertifikatsvorlagen, AK-26).
+const coinBearbeitenRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: ROUTEN.coinBearbeiten,
+  beforeLoad: async ({ context, location }) => {
+    erfordertBerechtigung('coins.write')(await context.schutz(), location.href)
+  },
+  component: CoinBearbeitenRoute,
+})
 const abgemeldetRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: ROUTEN.abgemeldet,
@@ -122,6 +132,7 @@ const routenBaum = wurzel.addChildren([
     coinNeuRoute,
     coinDetailRoute,
     coinAusgabeNeuRoute,
+    coinBearbeitenRoute,
     abgemeldetRoute,
     keinZugriffRoute,
     benutzerverwaltungRoute,
@@ -150,5 +161,7 @@ declare module '@tanstack/react-router' {
     coinAngelegt?: 'mitBild' | 'ohneBild'
     /** Meldung nach dem Erfassen einer Ausgabe, nur mit der Nummer (coin-ausgaben, AK-28); wird einmal verbraucht. */
     ausgabeErfasst?: { nummer: number }
+    /** Meldung nach dem Speichern auf „Coin bearbeiten“ (zertifikatsvorlagen, AK-28); wird einmal verbraucht. */
+    coinGeaendert?: true
   }
 }

@@ -5,4 +5,5 @@ export {
   type CoinDetailBerechtigungen,
   type CoinDetailMeldung,
   type CoinDetailSeiteProps,
+  type CoinGeaendertMeldung,
 } from './ui/CoinDetailSeite'

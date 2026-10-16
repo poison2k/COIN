@@ -202,6 +202,84 @@ public sealed class AusgabeService(IAusgabeRepository repository, ICoinKatalogRe
         return new AuflageAendernErgebnis.Geaendert(coin);
     }
 
+    /// <summary>
+    /// Ersetzt die Stammdaten eines Coins (zertifikatsvorlagen AK-22, ADR-0025). Reihenfolge: Felder (400) → Coin (404)
+    /// → Auflage <c>null</c> bei gesetzter Auflage (400) → Duplikat (409) → Auflage zu klein (409). Alles in einer
+    /// Transaktion unter der Coin-Sperre; ohne Änderung wird nichts geschrieben. Kein Audit (F3).
+    /// </summary>
+    public async Task<CoinBearbeitenErgebnis> CoinBearbeitenAsync(
+        Guid coinId, string? name, string? herausgeber, int? auflage, string? beschreibung, CancellationToken ct)
+    {
+        // Feldregeln ohne Bezug auf den gespeicherten Coin; „Auflage ist erforderlich“ folgt nach der Sperre.
+        var vorab = CoinStammdaten.Pruefen(name, herausgeber, auflage, beschreibung, bisherigeAuflage: null);
+        if (vorab.Wert is null)
+        {
+            return new CoinBearbeitenErgebnis.Ungueltig(vorab.Fehler);
+        }
+
+        await using (var sperre = await repository.SperrenAsync(coinId, ct))
+        {
+            if (sperre is null)
+            {
+                return new CoinBearbeitenErgebnis.CoinNichtGefunden();
+            }
+
+            var geprueft = CoinStammdaten.Pruefen(name, herausgeber, auflage, beschreibung, sperre.Auflage);
+            if (geprueft.Wert is not { } daten)
+            {
+                return new CoinBearbeitenErgebnis.Ungueltig(geprueft.Fehler);
+            }
+
+            var bisher = await katalog.FindenAsync(coinId, ct)
+                ?? throw new InvalidOperationException("Gesperrter Coin nicht gefunden.");
+            var geschrieben = false;
+            if (bisher.Name != daten.Name || bisher.Herausgeber != daten.Herausgeber || bisher.Beschreibung != daten.Beschreibung)
+            {
+                // Vorabprüfung für eine klare Antwort; gleichzeitige Anfragen fängt der eindeutige Index ab.
+                if (await sperre.NameVergebenAsync(daten.Name, daten.Herausgeber, ct)
+                    || !await sperre.StammdatenSetzenAsync(daten.Name, daten.Herausgeber, daten.Beschreibung, ct))
+                {
+                    return new CoinBearbeitenErgebnis.Duplikat();
+                }
+
+                geschrieben = true;
+            }
+
+            if (daten.Auflage is not null)
+            {
+                var hoechste = await sperre.HoechsteJeAusgegebeneNummerAsync(ct);
+                switch (AuflageAenderung.Pruefen(sperre.Auflage, daten.Auflage, hoechste))
+                {
+                    case AuflageAenderung.Ungueltig ungueltig:
+                        return new CoinBearbeitenErgebnis.Ungueltig(ungueltig.Fehler);
+                    case AuflageAenderung.ZuKlein zuKlein:
+                        return new CoinBearbeitenErgebnis.AuflageZuKlein(zuKlein.HoechsteAusgegebeneNummer);
+                    case AuflageAenderung.Unveraendert:
+                        break;
+                    case AuflageAenderung.Erhoehung erhoehung:
+                        await sperre.AuflageErhoehenAsync(daten.Auflage.Value, erhoehung.Von, erhoehung.Bis, ct);
+                        geschrieben = true;
+                        break;
+                    case AuflageAenderung.Senkung senkung:
+                        await sperre.AuflageSenkenAsync(daten.Auflage.Value, senkung.Von, senkung.Bis, ct);
+                        geschrieben = true;
+                        break;
+                    default:
+                        throw new InvalidOperationException("Unbekanntes Ergebnis beim Ändern der Auflage.");
+                }
+            }
+
+            if (geschrieben)
+            {
+                await sperre.AbschliessenAsync(ct);
+            }
+        }
+
+        var coin = await katalog.FindenAsync(coinId, ct)
+            ?? throw new InvalidOperationException("Coin nach dem Bearbeiten nicht gefunden.");
+        return new CoinBearbeitenErgebnis.Geaendert(coin);
+    }
+
     private async Task<AusgabeEintrag> GespeichertAsync(Guid ausgabeId, CancellationToken ct) =>
         await repository.FindenAsync(ausgabeId, ct)
         ?? throw new InvalidOperationException("Gespeicherte Ausgabe nicht gefunden.");

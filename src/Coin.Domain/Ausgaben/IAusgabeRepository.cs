@@ -57,6 +57,15 @@ public interface ICoinSperre : IAsyncDisposable
     /// <summary>Setzt die Auflage und löscht die Exemplare <paramref name="von"/> bis <paramref name="bis"/>.</summary>
     Task AuflageSenkenAsync(int auflage, int von, int bis, CancellationToken ct);
 
+    /// <summary>Ist Name und Herausgeber (ohne Groß-/Kleinschreibung) bei einem anderen Coin vergeben?</summary>
+    Task<bool> NameVergebenAsync(string name, string herausgeber, CancellationToken ct);
+
+    /// <summary>
+    /// Setzt Name, Herausgeber und Beschreibung. <c>false</c>, wenn der eindeutige Index für Name und Herausgeber
+    /// verletzt wurde (die Transaktion ist dann nicht mehr verwendbar).
+    /// </summary>
+    Task<bool> StammdatenSetzenAsync(string name, string herausgeber, string? beschreibung, CancellationToken ct);
+
     /// <summary>Schreibt die Transaktion fest.</summary>
     Task AbschliessenAsync(CancellationToken ct);
 }

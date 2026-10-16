@@ -73,6 +73,14 @@ public partial class EndpunktInventarTests(PostgresFixture fixture) : Integratio
     [Theory]
     [InlineData("POST /api/coins")]
     [InlineData("PUT /api/coins/{id}/bild")]
+    // zertifikatsvorlagen AK-24, AK-25: neue Endpunkte, alle mit coins.write und nicht anonym.
+    [InlineData("PUT /api/coins/{id}")]
+    [InlineData("GET /api/zertifikatsvorlagen/standard")]
+    [InlineData("GET /api/coins/{id}/zertifikatsvorlage")]
+    [InlineData("GET /api/coins/{id}/zertifikatsvorlage/datei")]
+    [InlineData("GET /api/coins/{id}/zertifikatsvorlage/versionen/{version}/datei")]
+    [InlineData("POST /api/coins/{id}/zertifikatsvorlage/versionen")]
+    [InlineData("POST /api/coins/{id}/zertifikatsvorlage/zuruecksetzen")]
     public void Schreibende_Endpunkte_verlangen_die_Policy_coins_write(string name)
     {
         var endpunkt = Assert.Single(Endpunkte(Fixture.Factory), e => e.Name == name).Endpunkt;
@@ -121,7 +129,8 @@ public partial class EndpunktInventarTests(PostgresFixture fixture) : Integratio
         {
             var (methode, muster) = (name.Split(' ')[0], name.Split(' ')[1]);
             // coin-ausgaben: mehrere Routenparameter ({id}, {ausgabeId}) – jeder wird durch eine GUID ersetzt.
-            var url = RoutenParameter().Replace(muster, _ => Guid.NewGuid().ToString());
+            // zertifikatsvorlagen: {version} ist eine Zahl (Route-Constraint int), sonst passt die Route nicht.
+            var url = RoutenParameter().Replace(muster, m => m.Groups[1].Value == "version" ? "1" : Guid.NewGuid().ToString());
             using var anfrage = new HttpRequestMessage(new HttpMethod(methode == "*" ? "GET" : methode), url);
             using var antwort = await Anonym.SendAsync(anfrage);
             ergebnisse.Add($"{name} -> {(int)antwort.StatusCode}");

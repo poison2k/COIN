@@ -47,50 +47,18 @@ public sealed class CoinTyp
         string? beschreibung,
         DateTimeOffset jetzt)
     {
-        var fehler = new Dictionary<string, string[]>();
-
-        var nameGetrimmt = name?.Trim() ?? string.Empty;
-        if (nameGetrimmt.Length == 0)
+        var ergebnis = CoinStammdaten.Pruefen(name, herausgeber, auflage, beschreibung, bisherigeAuflage: null);
+        if (ergebnis.Wert is not { } daten)
         {
-            fehler["name"] = ["Name ist erforderlich."];
-        }
-        else if (nameGetrimmt.Length > NameMaxLaenge)
-        {
-            fehler["name"] = [$"Name darf höchstens {NameMaxLaenge} Zeichen lang sein."];
-        }
-
-        var herausgeberGetrimmt = herausgeber?.Trim() ?? string.Empty;
-        if (herausgeberGetrimmt.Length == 0)
-        {
-            fehler["herausgeber"] = ["Herausgeber ist erforderlich."];
-        }
-        else if (herausgeberGetrimmt.Length > HerausgeberMaxLaenge)
-        {
-            fehler["herausgeber"] = [$"Herausgeber darf höchstens {HerausgeberMaxLaenge} Zeichen lang sein."];
-        }
-
-        if (auflage is < AuflageMin or > AuflageMax)
-        {
-            fehler["auflage"] = [$"Auflage muss zwischen {AuflageMin} und {AuflageMax} liegen."];
-        }
-
-        var beschreibungGetrimmt = string.IsNullOrWhiteSpace(beschreibung) ? null : beschreibung.Trim();
-        if (beschreibungGetrimmt is { Length: > BeschreibungMaxLaenge })
-        {
-            fehler["beschreibung"] = [$"Beschreibung darf höchstens {BeschreibungMaxLaenge} Zeichen lang sein."];
-        }
-
-        if (fehler.Count > 0)
-        {
-            return Ergebnis<CoinTyp>.Fehlschlag(fehler);
+            return Ergebnis<CoinTyp>.Fehlschlag(ergebnis.Fehler);
         }
 
         return Ergebnis<CoinTyp>.Erfolg(new CoinTyp(
             Guid.CreateVersion7(),
-            nameGetrimmt,
-            herausgeberGetrimmt,
-            auflage,
-            beschreibungGetrimmt,
+            daten.Name,
+            daten.Herausgeber,
+            daten.Auflage,
+            daten.Beschreibung,
             jetzt.ToUniversalTime()));
     }
 

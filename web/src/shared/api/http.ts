@@ -141,3 +141,63 @@ export async function sende<T>(
     return { art: 'fehler' }
   }
 }
+
+/** Heruntergeladene Datei mit dem Namen aus `Content-Disposition` (`null`, wenn keiner angegeben ist). */
+export interface Datei {
+  blob: Blob
+  dateiname: string | null
+}
+
+/**
+ * Dateiname aus einem `Content-Disposition`-Header (RFC 6266): `filename*` (RFC 5987, prozentkodiert) vor
+ * `filename`; `null` ohne Header, ohne Namen oder bei ungültiger Kodierung. Die Prüfung, ob der Name verwendet
+ * werden darf, liegt beim Aufrufer.
+ */
+export function dateinameAusContentDisposition(header: string | null): string | null {
+  if (header === null) return null
+  let einfach: string | null = null
+  let erweitert: string | null = null
+  for (const teil of header.split(';')) {
+    const gleich = teil.indexOf('=')
+    if (gleich < 0) continue
+    const name = teil.slice(0, gleich).trim().toLowerCase()
+    const wert = teil.slice(gleich + 1).trim()
+    if (name === 'filename*') {
+      const apostroph = wert.indexOf("'", wert.indexOf("'") + 1)
+      try {
+        erweitert = decodeURIComponent(apostroph < 0 ? wert : wert.slice(apostroph + 1))
+      } catch {
+        erweitert = null
+      }
+    } else if (name === 'filename') {
+      einfach = wert.length >= 2 && wert.startsWith('"') && wert.endsWith('"') ? wert.slice(1, -1) : wert
+    }
+  }
+  const ergebnis = erweitert ?? einfach
+  return ergebnis === null || ergebnis.length === 0 ? null : ergebnis
+}
+
+/**
+ * Lädt eine Datei per `fetch` mit Bearer-Token wie `sende` und liefert sie als Blob samt Dateiname aus
+ * `Content-Disposition` (zertifikatsvorlagen, AK-30). Das Token steht nie in der URL. Fehler werden wie bei
+ * `bildeAb` abgebildet; 403 `benutzer_deaktiviert` löst die Deaktiviert-Reaktion aus.
+ */
+export async function ladeDatei(url: string): Promise<ApiErgebnis<Datei>> {
+  try {
+    const headers = new Headers()
+    const token = await holeToken()
+    if (token && istEigeneApi(url)) headers.set('Authorization', `Bearer ${token}`)
+
+    const antwort = await fetch(url, { method: 'GET', headers })
+    if (antwort.status === 200) {
+      const dateiname = dateinameAusContentDisposition(antwort.headers.get('Content-Disposition'))
+      return { art: 'ok', daten: { blob: await antwort.blob(), dateiname } }
+    }
+    const ergebnis = await bildeAb<Datei>(antwort, [])
+    if (ergebnis.art === 'keinZugriff' && ergebnis.grund === 'deaktiviert') beiDeaktiviert?.()
+    return ergebnis
+  } catch {
+    // Netzwerkfehler: keine technischen Details nach außen geben.
+    return { art: 'fehler' }
+  }
+}

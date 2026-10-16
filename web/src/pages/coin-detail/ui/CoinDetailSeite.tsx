@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { PencilIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { CoinStammdaten, ladeCoin, type Coin } from '@/entities/coin'
 import type { ExemplarStatus } from '@/entities/exemplar'
@@ -12,13 +13,16 @@ import { buttonVariants } from '@/shared/ui/button'
 /** Meldung nach dem Anlegen: mit gespeichertem (oder ohne gewähltes) Bild bzw. bewusst ohne Motivbild. */
 export type CoinAngelegtMeldung = 'mitBild' | 'ohneBild'
 
+/** Meldung nach dem Speichern auf „Coin bearbeiten“ (zertifikatsvorlagen, AK-28). */
+export type CoinGeaendertMeldung = 'coinGeaendert'
+
 /** Meldung nach dem Erfassen einer Ausgabe; nur die Nummer, nie der Empfänger (coin-ausgaben AK-28). */
 export interface AusgabeErfasstMeldung {
   art: 'ausgabeErfasst'
   nummer: number
 }
 
-export type CoinDetailMeldung = CoinAngelegtMeldung | AusgabeErfasstMeldung
+export type CoinDetailMeldung = CoinAngelegtMeldung | CoinGeaendertMeldung | AusgabeErfasstMeldung
 
 /** Welche Abschnitte und Aktionen die Seite zeigt; abgeleitet aus den Berechtigungen (ADR-0021). */
 export interface CoinDetailBerechtigungen {
@@ -30,6 +34,8 @@ export interface CoinDetailBerechtigungen {
   erfassen: boolean
   /** „Auflage ändern“ (coins.write). */
   auflage: boolean
+  /** Link „Bearbeiten“ zur Seite „Coin bearbeiten“ (coins.write, zertifikatsvorlagen AK-27). */
+  bearbeiten: boolean
 }
 
 export interface CoinDetailSeiteProps {
@@ -46,9 +52,10 @@ export interface CoinDetailSeiteProps {
   onSeite: (seite: number) => void
 }
 
-const MELDUNGEN: Record<CoinAngelegtMeldung, string> = {
+const MELDUNGEN: Record<CoinAngelegtMeldung | CoinGeaendertMeldung, string> = {
   mitBild: 'Coin wurde angelegt.',
   ohneBild: 'Coin wurde ohne Motivbild angelegt.',
+  coinGeaendert: 'Änderungen wurden gespeichert.',
 }
 
 function meldungsText(meldung: CoinDetailMeldung): string {
@@ -138,9 +145,21 @@ export function CoinDetailSeite({
   return (
     <div className="mx-auto grid w-full max-w-5xl gap-6 p-6">
       <div className="grid gap-2">
-        <h1 ref={ueberschrift} tabIndex={-1} className="text-2xl font-semibold break-words outline-none">
-          {coin.name}
-        </h1>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <h1 ref={ueberschrift} tabIndex={-1} className="min-w-0 text-2xl font-semibold break-words outline-none">
+            {coin.name}
+          </h1>
+          {berechtigungen.bearbeiten && (
+            <Link
+              to={ROUTEN.coinBearbeiten}
+              params={{ coinId: coin.id }}
+              className={buttonVariants({ variant: 'outline' })}
+            >
+              <PencilIcon aria-hidden="true" />
+              Bearbeiten
+            </Link>
+          )}
+        </div>
         {meldung && (
           <p role="status" className="text-success">
             {meldungsText(meldung)}

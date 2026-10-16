@@ -1,5 +1,6 @@
 using Coin.Api.Contracts;
 using Coin.Api.Http;
+using Coin.Domain.Ausgaben;
 using Coin.Domain.Benutzer;
 using Coin.Domain.Katalog;
 using Microsoft.AspNetCore.Authorization;
@@ -15,7 +16,7 @@ namespace Coin.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/coins")]
-public sealed class CoinsController(CoinKatalogService service) : ControllerBase
+public sealed class CoinsController(CoinKatalogService service, AusgabeService ausgaben) : ControllerBase
 {
     /// <summary>
     /// Hartes Request-Limit von Kestrel für den Bild-Upload. Bewusst über <see cref="MultipartDateiLeser.MaxRequestBytes"/>:
@@ -67,6 +68,37 @@ public sealed class CoinsController(CoinKatalogService service) : ControllerBase
         return coin is null ? CoinNichtGefunden() : Ok(CoinResponse.Aus(coin));
     }
 
+    /// <summary>
+    /// Ersetzt die Stammdaten (zertifikatsvorlagen AK-22, ADR-0025). Auflage nach derselben Regel und unter derselben
+    /// Coin-Sperre wie <c>PUT …/auflage</c>; kein Audit (F3).
+    /// </summary>
+    [HttpPut("{id:guid}")]
+    [Authorize(Policy = Berechtigungen.CoinsWrite)]
+    [Inhaltstyp("application/json")]
+    [KeinCache]
+    public async Task<ActionResult<CoinResponse>> Bearbeiten(
+        [FromRoute] Guid id, [FromBody] CoinBearbeitenRequest request, CancellationToken ct)
+    {
+        return await ausgaben.CoinBearbeitenAsync(id, request.Name, request.Herausgeber, request.Auflage, request.Beschreibung, ct) switch
+        {
+            CoinBearbeitenErgebnis.Geaendert geaendert => Ok(CoinResponse.Aus(geaendert.Coin)),
+            CoinBearbeitenErgebnis.Ungueltig ungueltig => this.Validierungsfehler(ungueltig.Fehler),
+            CoinBearbeitenErgebnis.CoinNichtGefunden => CoinNichtGefunden(),
+            CoinBearbeitenErgebnis.Duplikat => this.ProblemMitCode(
+                StatusCodes.Status409Conflict,
+                "Coin existiert bereits",
+                "Ein Coin mit diesem Namen und Herausgeber existiert bereits.",
+                "coin_existiert"),
+            CoinBearbeitenErgebnis.AuflageZuKlein zuKlein => this.ProblemMitCode(
+                StatusCodes.Status409Conflict,
+                "Änderung nicht möglich",
+                $"Die Auflage kann nicht unter {zuKlein.HoechsteAusgegebeneNummer} gesenkt werden, " +
+                $"weil Exemplar Nr. {zuKlein.HoechsteAusgegebeneNummer} ausgegeben wurde.",
+                "auflage_zu_klein"),
+            _ => throw new InvalidOperationException("Unbekanntes Ergebnis beim Bearbeiten."),
+        };
+    }
+
     [HttpPut("{id:guid}/bild")]
     [Authorize(Policy = Berechtigungen.CoinsWrite)]
     [Inhaltstyp("multipart/form-data")]
@@ -75,7 +107,7 @@ public sealed class CoinsController(CoinKatalogService service) : ControllerBase
     public async Task<ActionResult<CoinResponse>> BildHochladen([FromRoute] Guid id, CancellationToken ct)
     {
         byte[] inhalt;
-        switch (await MultipartDateiLeser.LesenAsync(Request, DateiFeld, ct))
+        switch (await MultipartDateiLeser.LesenAsync(Request, DateiFeld, CoinBild.MaxGroesseBytes, ct))
         {
             case MultipartDateiErgebnis.Datei datei:
                 inhalt = datei.Inhalt;

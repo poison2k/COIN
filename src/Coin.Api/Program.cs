@@ -3,6 +3,7 @@ using Coin.Api.Http;
 using Coin.Domain.Ausgaben;
 using Coin.Domain.Benutzer;
 using Coin.Domain.Katalog;
+using Coin.Domain.Vorlagen;
 using Coin.Infrastructure;
 using Coin.Infrastructure.Persistenz;
 using Microsoft.AspNetCore.Cors.Infrastructure;
@@ -23,6 +24,11 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CoinKatalogService>();
 builder.Services.AddScoped<AusgabeService>();
 builder.Services.AddScoped<BenutzerverwaltungService>();
+// Prozessweit ein Exemplar: begrenzt die gleichzeitigen Aufbereitungen (AK-12) und protokolliert Fehlschläge (AK-16).
+builder.Services.AddSingleton<IVorlagenProtokoll, VorlagenProtokoll>();
+builder.Services.AddSingleton(sp => new VorlagenAufbereitung(
+    sp.GetRequiredService<IDocxAnalyse>(), sp.GetRequiredService<IDocxBereinigung>(), sp.GetRequiredService<IVorlagenProtokoll>()));
+builder.Services.AddScoped<ZertifikatsvorlageService>();
 builder.Services.AddUrlsNichtProtokollieren();
 builder.Services.AddInfrastruktur(builder.Configuration);
 
@@ -38,7 +44,9 @@ builder.Services.AddOptions<CorsOptions>().Configure<IConfiguration>((options, k
         options.AddDefaultPolicy(policy => policy
             .WithOrigins(ursprung)
             .WithMethods(HttpMethods.Get, HttpMethods.Post, HttpMethods.Put)
-            .WithHeaders("Authorization", "Content-Type"));
+            .WithHeaders("Authorization", "Content-Type")
+            // Dateiname der DOCX-Downloads für das Frontend lesbar (zertifikatsvorlagen AK-6, AK-30).
+            .WithExposedHeaders("Content-Disposition"));
     }
 });
 

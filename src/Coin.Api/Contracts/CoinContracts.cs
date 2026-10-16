@@ -6,7 +6,21 @@ namespace Coin.Api.Contracts;
 /// Anfrage zum Anlegen eines Coins. Bewusst ohne Validierungsattribute: die Regeln liegen in der Domain (ADR-0002).
 /// Vom Client mitgesendete Felder wie <c>id</c>, <c>erstelltAm</c> oder <c>bildUrl</c> werden ignoriert (AK-16).
 /// </summary>
-public sealed record CoinAnlegenRequest(string? Name, string? Herausgeber, int? Auflage, string? Beschreibung);
+public sealed record CoinAnlegenRequest(string? Name, string? Herausgeber, int? Auflage, string? Beschreibung)
+{
+    /// <summary>Ohne Werte, damit Eingaben nicht in Logs landen (MVC protokolliert Argumente auf Trace).</summary>
+    public override string ToString() => nameof(CoinAnlegenRequest);
+}
+
+/// <summary>
+/// Anfrage zum Bearbeiten der Stammdaten (zertifikatsvorlagen AK-22, ADR-0025); Regeln in der Domain. Mitgesendete
+/// Felder wie <c>id</c>, <c>erstelltAm</c> oder <c>bildUrl</c> werden ignoriert.
+/// </summary>
+public sealed record CoinBearbeitenRequest(string? Name, string? Herausgeber, int? Auflage, string? Beschreibung)
+{
+    /// <summary>Ohne Werte, damit Eingaben nicht in Logs landen (MVC protokolliert Argumente auf Trace).</summary>
+    public override string ToString() => nameof(CoinBearbeitenRequest);
+}
 
 /// <summary>Coin in API-Antworten. Enthält nie Bilddaten, nur die versionierte <see cref="BildUrl"/>.</summary>
 public sealed record CoinResponse(

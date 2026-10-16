@@ -15,6 +15,9 @@ public sealed class CoinTypDatensatz
 
     public DateTimeOffset ErstelltAm { get; set; }
 
+    /// <summary>Aktive Version der Zertifikatsvorlage; <c>null</c> = Standardvorlage (ADR-0023 Punkt 3).</summary>
+    public int? AktiveVorlageVersion { get; set; }
+
     public CoinBildDatensatz? Bild { get; set; }
 }
 

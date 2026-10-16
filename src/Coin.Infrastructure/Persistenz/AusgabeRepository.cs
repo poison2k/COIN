@@ -243,6 +243,34 @@ internal sealed class AusgabeRepository(CoinDbContext db) : IAusgabeRepository
             await AuflageSetzenAsync(auflage, ct);
         }
 
+        public async Task<bool> NameVergebenAsync(string name, string herausgeber, CancellationToken ct)
+        {
+            // Vergleich mit lower() in PostgreSQL, dieselbe Semantik wie ux_coin_typ_name_herausgeber.
+            var treffer = await db.Database.SqlQuery<int>(
+                    $"""
+                    SELECT 1 AS "Value" FROM coin_typ
+                    WHERE id <> {coinId} AND lower(name) = lower({name}) AND lower(herausgeber) = lower({herausgeber})
+                    LIMIT 1
+                    """)
+                .ToListAsync(ct);
+            return treffer.Count > 0;
+        }
+
+        public async Task<bool> StammdatenSetzenAsync(string name, string herausgeber, string? beschreibung, CancellationToken ct)
+        {
+            try
+            {
+                await db.Database.ExecuteSqlInterpolatedAsync(
+                    $"UPDATE coin_typ SET name = {name}, herausgeber = {herausgeber}, beschreibung = {beschreibung} WHERE id = {coinId}",
+                    ct);
+                return true;
+            }
+            catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
+            {
+                return false;
+            }
+        }
+
         public Task AbschliessenAsync(CancellationToken ct) => transaktion.CommitAsync(ct);
 
         public ValueTask DisposeAsync() => transaktion.DisposeAsync();

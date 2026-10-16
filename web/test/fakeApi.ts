@@ -3,6 +3,49 @@ import type { AuditEintrag } from '@/entities/audit'
 import type { Ausgabe } from '@/entities/ausgabe'
 import type { Benutzer, BenutzerEintrag, Rolle } from '@/entities/benutzer'
 import type { Coin } from '@/entities/coin'
+import type { VorlagenStatus, VorlagenVersion } from '@/entities/zertifikatsvorlage'
+
+/** Content-Type von DOCX-Downloads (zertifikatsvorlagen, AK-6). */
+export const DOCX_TYP = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
+/** Synthetische Version einer Zertifikatsvorlage (zertifikatsvorlagen, Abschnitt 5.3; keine echten Personendaten). */
+export function testVorlagenVersion(teil: Partial<VorlagenVersion> = {}): VorlagenVersion {
+  return {
+    version: 1,
+    groesseBytes: 48211,
+    hochgeladenAm: '2026-10-09T09:00:00.123456+00:00',
+    hochgeladenVon: { id: '0199a1b2-0000-7000-8000-00000000a002', name: 'Test Sachbearbeiter' },
+    aktiv: true,
+    ...teil,
+  }
+}
+
+/** Vorlagenstatus aus Versionen (neueste zuerst) und aktiver Version (`null` = Standardvorlage). */
+export function testVorlagenStatus(
+  versionen: VorlagenVersion[] = [],
+  aktiveVersion: number | null = null,
+): VorlagenStatus {
+  return {
+    quelle: aktiveVersion === null ? 'standard' : 'eigene',
+    aktiveVersion,
+    versionen: versionen.map((v) => ({ ...v, aktiv: v.version === aktiveVersion })),
+  }
+}
+
+/**
+ * Antwort mit einem DOCX-Download (Inhalt synthetisch, Header laut AK-6). Der Body ist ein `Uint8Array`, kein `Blob`:
+ * Ein jsdom-`Blob` wird von der Node-`Response` nicht erkannt und als Text „[object Blob]“ serialisiert.
+ */
+export function docxAntwort(dateiname: string, inhalt = 'PK-test-docx'): Response {
+  return new Response(new TextEncoder().encode(inhalt), {
+    status: 200,
+    headers: {
+      'Content-Type': DOCX_TYP,
+      'Content-Disposition': `attachment; filename="${dateiname}"`,
+      'Cache-Control': 'no-store',
+    },
+  })
+}
 
 /** Eine vom Frontend an die API gesendete Anfrage, wie sie der Fake-Server gesehen hat. */
 export interface Anfrage {
@@ -180,14 +223,20 @@ export function erstelleFakeApi(
     audit?: AuditEintrag[]
     /** Ausgaben je Coin-Id, neueste zuerst (coin-ausgaben). */
     ausgaben?: Record<string, Ausgabe[]>
+    /** Zertifikatsvorlagen je Coin-Id (zertifikatsvorlagen); ohne Eintrag gilt die Standardvorlage. */
+    vorlagen?: Record<string, VorlagenStatus>
   } = {},
 ) {
-  const coins: Coin[] = [...startCoins]
+  // Elemente kopieren: PUT-Handler ändern Coins in place, Modulkonstanten der Tests dürfen davon unberührt bleiben.
+  const coins: Coin[] = startCoins.map((coin) => structuredClone(coin))
   let me: Benutzer | null | 'deaktiviert' = optionen.me ?? null
   const benutzer: BenutzerEintrag[] = [...(optionen.benutzer ?? [])]
   const audit: AuditEintrag[] = [...(optionen.audit ?? [])]
   const ausgaben: Record<string, Ausgabe[]> = Object.fromEntries(
     Object.entries(optionen.ausgaben ?? {}).map(([id, liste]) => [id, [...liste]]),
+  )
+  const vorlagen: Record<string, VorlagenStatus> = Object.fromEntries(
+    Object.entries(optionen.vorlagen ?? {}).map(([id, status]) => [id, structuredClone(status)]),
   )
   const anfragen: Anfrage[] = []
   const ueberschreibungen: Array<{ methode: string; pfad: RegExp; antwort: Antwortgeber }> = []
@@ -238,6 +287,50 @@ export function erstelleFakeApi(
         .filter((c) => !suche || c.name.toLowerCase().includes(suche) || c.herausgeber.toLowerCase().includes(suche))
         .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()) || a.id.localeCompare(b.id))
       return jsonAntwort(200, seiteVon(treffer, anfrage.query))
+    }
+    // zertifikatsvorlagen (Abschnitt 5.1): Standardvorlage, Status, Downloads, Upload, Zurücksetzen.
+    if (anfrage.methode === 'GET' && anfrage.pfad === '/api/zertifikatsvorlagen/standard') {
+      return docxAntwort('zertifikatsvorlage-standard.docx', 'PK-standard')
+    }
+    const vorlagePfad =
+      /^\/api\/coins\/([^/]+)\/zertifikatsvorlage(\/datei|\/versionen|\/versionen\/(\d+)\/datei|\/zuruecksetzen)?$/.exec(
+        anfrage.pfad,
+      )
+    if (vorlagePfad) {
+      const coinId = decodeURIComponent(vorlagePfad[1])
+      if (!coins.some((c) => c.id === coinId)) return problemAntwort(404, { title: 'Coin nicht gefunden' })
+      const status = (vorlagen[coinId] ??= testVorlagenStatus())
+      const teil = vorlagePfad[2] ?? ''
+      if (anfrage.methode === 'GET' && teil === '') return jsonAntwort(200, structuredClone(status))
+      if (anfrage.methode === 'GET' && teil === '/datei') {
+        return status.aktiveVersion === null
+          ? docxAntwort(`zertifikatsvorlage-${coinId}-standard.docx`, 'PK-standard')
+          : docxAntwort(`zertifikatsvorlage-${coinId}-v${status.aktiveVersion}.docx`, `PK-v${status.aktiveVersion}`)
+      }
+      if (anfrage.methode === 'GET' && vorlagePfad[3]) {
+        const nummer = Number(vorlagePfad[3])
+        return status.versionen.some((v) => v.version === nummer)
+          ? docxAntwort(`zertifikatsvorlage-${coinId}-v${nummer}.docx`, `PK-v${nummer}`)
+          : problemAntwort(404, { title: 'Vorlage nicht gefunden' })
+      }
+      if (anfrage.methode === 'POST' && teil === '/versionen') {
+        const neu = Math.max(0, ...status.versionen.map((v) => v.version)) + 1
+        const akteur =
+          me && me !== 'deaktiviert' ? { id: me.id, name: me.name } : { id: 'unbekannt', name: 'Unbekannt' }
+        const version = testVorlagenVersion({
+          version: neu,
+          groesseBytes: 40000 + neu,
+          hochgeladenAm: `2026-10-09T1${neu % 10}:00:00+00:00`,
+          hochgeladenVon: akteur,
+        })
+        vorlagen[coinId] = testVorlagenStatus([version, ...status.versionen], neu)
+        return jsonAntwort(201, structuredClone(vorlagen[coinId]))
+      }
+      if (anfrage.methode === 'POST' && teil === '/zuruecksetzen') {
+        vorlagen[coinId] = testVorlagenStatus(status.versionen, null)
+        return jsonAntwort(200, structuredClone(vorlagen[coinId]))
+      }
+      return problemAntwort(404)
     }
     // coin-ausgaben (Abschnitt 5): Exemplare, Historie, Erfassen, Storno, Auflage ändern.
     const ausgabenPfad = /^\/api\/coins\/([^/]+)\/(exemplare|ausgaben|auflage)$/.exec(anfrage.pfad)
@@ -338,6 +431,37 @@ export function erstelleFakeApi(
       const coin = coins.find((c) => c.id === decodeURIComponent(einzeln[1]))
       return coin ? jsonAntwort(200, { ...coin }) : problemAntwort(404, { title: 'Coin nicht gefunden' })
     }
+    if (anfrage.methode === 'PUT' && einzeln) {
+      // zertifikatsvorlagen (AK-22): Stammdaten ersetzen; Duplikat, Auflage-Regel und auflage: null wie im Backend.
+      const coin = coins.find((c) => c.id === decodeURIComponent(einzeln[1]))
+      if (!coin) return problemAntwort(404, { title: 'Coin nicht gefunden' })
+      const daten = (anfrage.body ?? {}) as Partial<Record<'name' | 'herausgeber' | 'beschreibung', string | null>> & {
+        auflage?: number | null
+      }
+      const name = String(daten.name ?? '').trim()
+      const herausgeber = String(daten.herausgeber ?? '').trim()
+      const auflage = daten.auflage ?? null
+      if (auflage === null && coin.auflage !== null) {
+        return problemAntwort(400, { title: 'Eingaben ungültig', errors: { auflage: ['Auflage ist erforderlich.'] } })
+      }
+      const gleich = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
+      if (coins.some((c) => c.id !== coin.id && gleich(c.name, name) && gleich(c.herausgeber, herausgeber))) {
+        return problemAntwort(409, {
+          title: 'Coin existiert bereits',
+          code: 'coin_existiert',
+          detail: 'Ein Coin mit diesem Namen und Herausgeber existiert bereits.',
+        })
+      }
+      const hoechste = Math.max(0, ...(ausgaben[coin.id] ?? []).map((a) => a.exemplarNummer))
+      if (auflage !== null && auflage < hoechste) {
+        return ausgabeKonfliktAntwort(
+          'auflage_zu_klein',
+          `Die Auflage kann nicht unter ${hoechste} gesenkt werden, weil Exemplar Nr. ${hoechste} ausgegeben wurde.`,
+        )
+      }
+      Object.assign(coin, { name, herausgeber, auflage, beschreibung: daten.beschreibung?.trim() || null })
+      return jsonAntwort(200, { ...coin })
+    }
     if (anfrage.methode === 'POST' && anfrage.pfad === '/api/coins') {
       const daten = anfrage.body as {
         name: string
@@ -398,6 +522,8 @@ export function erstelleFakeApi(
     audit,
     /** Ausgaben je Coin-Id, neueste zuerst; POST …/ausgaben fügt vorne an, Storno ändert den Eintrag. */
     ausgaben,
+    /** Vorlagenstatus je Coin-Id (zertifikatsvorlagen); Upload und Zurücksetzen wirken hier. */
+    vorlagen,
     anfragen,
     /** Überschreibt die nächste Antwort für Methode und Pfad (einmalig). */
     einmal(methode: string, pfad: RegExp, antwort: Antwortgeber | Promise<Response> | Response) {

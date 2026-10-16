@@ -1,20 +1,22 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
-import { ladeBildHoch, legeCoinAn, type Coin } from '@/entities/coin'
+import {
+  ERLAUBTE_BILDTYPEN,
+  HINWEIS_BILD_FORMATE,
+  HINWEIS_BILD_METADATEN,
+  MELDUNG_BILD_FORMAT,
+  MELDUNG_BILD_ZU_GROSS,
+  ladeBildHoch,
+  legeCoinAn,
+  parseAuflage,
+  validiereBild,
+  type Coin,
+} from '@/entities/coin'
 import type { ApiErgebnis, KeinZugriffGrund } from '@/shared/api'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Textarea } from '@/shared/ui/textarea'
-import {
-  ERLAUBTE_BILDTYPEN,
-  MELDUNG_FORMAT,
-  MELDUNG_ZU_GROSS,
-  parseAuflage,
-  validiereBild,
-  validiereCoin,
-  type CoinFehler,
-  type CoinFeld,
-} from '../model/validiereCoin'
+import { validiereCoin, type CoinFehler, type CoinFeld } from '../model/validiereCoin'
 
 const TEXT_ERFOLG = 'Coin wurde angelegt.'
 const TEXT_TEILERFOLG = 'Coin wurde angelegt, das Bild konnte nicht gespeichert werden:'
@@ -55,9 +57,9 @@ function serverFehler(fehler: Record<string, string[]>): CoinFehler {
 function grundFuerBildFehler(ergebnis: Exclude<ApiErgebnis<Coin>, { art: 'ok' }>): string {
   switch (ergebnis.art) {
     case 'zuGross':
-      return MELDUNG_ZU_GROSS
+      return MELDUNG_BILD_ZU_GROSS
     case 'formatUngueltig':
-      return MELDUNG_FORMAT
+      return MELDUNG_BILD_FORMAT
     case 'validierung':
       return ergebnis.fehler.datei?.join(' ') || 'Die Datei wurde vom Server abgelehnt.'
     case 'nichtGefunden':
@@ -328,10 +330,10 @@ export function CoinFormular({ onAngelegt }: CoinFormularProps) {
           {...feldAttribute('bild', 'coin-bild-formate coin-bild-hinweis')}
         />
         <p id="coin-bild-formate" className="text-sm text-muted-foreground">
-          JPEG, PNG oder WebP, höchstens 5 MB.
+          {HINWEIS_BILD_FORMATE}
         </p>
         <p id="coin-bild-hinweis" className="text-sm text-muted-foreground">
-          Bitte nur Bilder ohne personenbezogene Metadaten hochladen.
+          {HINWEIS_BILD_METADATEN}
         </p>
         {feldFehler('bild')}
         {vorschau && (

@@ -1,0 +1,14 @@
+# Einheitlich LF im Repository und in der Arbeitskopie (Prettier/ESLint erwarten LF)
+* text=auto eol=lf
+
+# Binärdateien
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.docx binary
+*.zip binary
+*.woff binary
+*.woff2 binary

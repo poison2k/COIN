@@ -40,13 +40,14 @@ const KEINE_RECHTE: CoinDetailSeiteProps['berechtigungen'] = {
   historie: false,
   erfassen: false,
   auflage: false,
+  bearbeiten: false,
 }
 
 /** Berechtigungsstufen laut Rechtematrix (ADR-0021): anonym/ohne Rolle, Betrachter, Sachbearbeiter/Administrator. */
 const STUFEN = {
   anonym: KEINE_RECHTE,
-  betrachter: { exemplare: true, historie: false, erfassen: false, auflage: false },
-  sachbearbeiter: { exemplare: true, historie: true, erfassen: true, auflage: true },
+  betrachter: { exemplare: true, historie: false, erfassen: false, auflage: false, bearbeiten: false },
+  sachbearbeiter: { exemplare: true, historie: true, erfassen: true, auflage: true, bearbeiten: true },
 } satisfies Record<string, CoinDetailSeiteProps['berechtigungen']>
 
 function zeige(props: Partial<CoinDetailSeiteProps> = {}) {
@@ -537,7 +538,7 @@ describe('Meldung nach dem Erfassen (AK-28)', () => {
   })
 })
 
-// ---------- AK-20: keine Bearbeiten-Elemente ----------
+// ---------- AK-20: keine Bearbeiten-Elemente ohne coins.write (zertifikatsvorlagen AK-27: siehe unten) ----------
 
 describe('nur Ansicht', () => {
   it('enthält kein Formular und kein Eingabefeld', async () => {
@@ -639,5 +640,84 @@ describe('deutsche Texte', () => {
       .getAllByRole('link')
       .map((l) => l.textContent?.trim())
     expect(links).toEqual(['Zurück zum Katalog'])
+  })
+})
+
+// ---------- zertifikatsvorlagen, AK-27 (ersetzt katalog-seiten AK-20 für coins.write) und AK-28 ----------
+
+describe('Link „Bearbeiten“ (zertifikatsvorlagen, AK-27)', () => {
+  it('zeigt mit coins.write den Link „Bearbeiten“ auf /coins/{id}/bearbeiten', async () => {
+    zeige({ berechtigungen: STUFEN.sachbearbeiter })
+    await ueberschrift('Coin Alpha')
+
+    expect(screen.getByRole('link', { name: 'Bearbeiten' })).toHaveAttribute('href', `/coins/${ID}/bearbeiten`)
+  })
+
+  it('führt über „Bearbeiten“ zur Seite „Coin bearbeiten“', async () => {
+    const { user, router } = zeige({ berechtigungen: STUFEN.sachbearbeiter })
+    await ueberschrift('Coin Alpha')
+
+    await user.click(screen.getByRole('link', { name: 'Bearbeiten' }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/coins/${ID}/bearbeiten`))
+  })
+
+  it('blendet das Icon des Links für Screenreader aus', async () => {
+    zeige({ berechtigungen: STUFEN.sachbearbeiter })
+    await ueberschrift('Coin Alpha')
+
+    const icons = screen.getByRole('link', { name: 'Bearbeiten' }).querySelectorAll('svg')
+    expect([...icons].every((svg) => svg.getAttribute('aria-hidden') === 'true')).toBe(true)
+  })
+
+  it('steht im Kopfbereich neben der Überschrift, vor den Stammdaten', async () => {
+    zeige({ berechtigungen: STUFEN.sachbearbeiter })
+    const h1 = await ueberschrift('Coin Alpha')
+
+    const link = screen.getByRole('link', { name: 'Bearbeiten' })
+    const stammdaten = document.querySelector('dl') as Element
+    expect(h1.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(link.compareDocumentPosition(stammdaten) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it.each([
+    ['anonym/ohne Rolle', STUFEN.anonym],
+    ['Betrachter', STUFEN.betrachter],
+  ])('zeigt %s keinen Link „Bearbeiten“', async (_, berechtigungen) => {
+    zeige({ berechtigungen })
+    await ueberschrift('Coin Alpha')
+
+    expect(screen.queryByRole('link', { name: 'Bearbeiten' })).not.toBeInTheDocument()
+  })
+
+  it('zeigt auf der 404-Ansicht keinen Link „Bearbeiten“', async () => {
+    starte(null)
+    zeige({ berechtigungen: STUFEN.sachbearbeiter })
+    await ueberschrift('Coin nicht gefunden')
+
+    expect(screen.queryByRole('link', { name: 'Bearbeiten' })).not.toBeInTheDocument()
+  })
+})
+
+describe('Meldung nach dem Bearbeiten (zertifikatsvorlagen, AK-28)', () => {
+  it('meldet „Änderungen wurden gespeichert.“ als Status', async () => {
+    zeige({ meldung: 'coinGeaendert' })
+    await ueberschrift('Coin Alpha')
+
+    await waitFor(() => expect(meldungMit('Änderungen wurden gespeichert.')?.getAttribute('role')).toBe('status'))
+  })
+
+  it('setzt den Fokus nach dem Laden auf die Überschrift', async () => {
+    zeige({ meldung: 'coinGeaendert' })
+    const h1 = await ueberschrift('Coin Alpha')
+
+    await waitFor(() => expect(h1).toHaveFocus())
+  })
+
+  it('zeigt ohne Meldung keinen Speicher-Hinweis', async () => {
+    zeige()
+    await ueberschrift('Coin Alpha')
+
+    expect(seitentext()).not.toContain('Änderungen wurden gespeichert.')
   })
 })

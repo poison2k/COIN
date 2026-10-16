@@ -32,4 +32,8 @@ describe('ROUTEN', () => {
   it('enthält /coins/$coinId für die Detailseite (katalog-seiten, AK-7)', () => {
     expect(ROUTEN.coinDetail).toBe('/coins/$coinId')
   })
+
+  it('enthält /coins/$coinId/bearbeiten für „Coin bearbeiten“ (zertifikatsvorlagen, AK-26)', () => {
+    expect(ROUTEN.coinBearbeiten).toBe('/coins/$coinId/bearbeiten')
+  })
 })

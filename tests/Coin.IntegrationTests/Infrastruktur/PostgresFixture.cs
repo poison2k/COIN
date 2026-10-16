@@ -37,8 +37,19 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         using var scope = Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CoinDbContext>();
-        // coin-ausgaben (Abschnitt 4): die neuen Tabellen ausdrücklich mit aufgeführt.
-        await db.Database.ExecuteSqlRawAsync("TRUNCATE ausgabe_audit, ausgabe, exemplar, coin_typ, benutzer CASCADE");
+        // coin-ausgaben (Abschnitt 4) und zertifikatsvorlagen (Abschnitt 6): die neuen Tabellen ausdrücklich mit
+        // aufgeführt. Nur vorhandene Tabellen, damit die Tests auch vor der Migration „Zertifikatsvorlagen“ laufen.
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            DO $$
+            DECLARE liste text;
+            BEGIN
+              SELECT string_agg(quote_ident(t), ', ') INTO liste
+              FROM unnest(ARRAY['vorlage_audit', 'zertifikat_vorlage', 'ausgabe_audit', 'ausgabe', 'exemplar', 'coin_typ', 'benutzer']) AS t
+              WHERE to_regclass(t) IS NOT NULL;
+              EXECUTE 'TRUNCATE ' || liste || ' CASCADE';
+            END $$;
+            """);
     }
 
     public async Task DisposeAsync()
