@@ -110,6 +110,8 @@ Nur für Sachbearbeiter und Administratoren.
 - Zurück auf „unbekannt“ geht nicht.
 
 Nach dem Speichern erscheint „Auflage wurde geändert.“, Stammdaten und Kennzahlen sind aktualisiert.
+Die Auflage lässt sich nach denselben Regeln auch auf der Seite **Coin bearbeiten** ändern (siehe
+[Coin-Katalog](coin-katalog.md#coin-bearbeiten)).
 
 ## Fehlermeldungen
 

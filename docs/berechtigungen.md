@@ -19,7 +19,7 @@ nicht verändern.
 | Berechtigung | Bedeutung | Administrator | Sachbearbeiter | Betrachter | keine Rolle |
 |---|---|---|---|---|---|
 | `coins.read` | Exemplare und Kennzahlen lesen (Katalog selbst ist öffentlich) | ✓ | ✓ | ✓ | – |
-| `coins.write` | Coins anlegen, Motivbild hochladen, Auflage ändern | ✓ | ✓ | – | – |
+| `coins.write` | Coins anlegen und bearbeiten, Motivbild hochladen, Auflage ändern, Zertifikatsvorlagen herunterladen, hochladen und zurücksetzen | ✓ | ✓ | – | – |
 | `issues.read` | Ausgaben mit Empfängerdaten lesen | ✓ | ✓ | – | – |
 | `issues.write` | Ausgaben erfassen und stornieren | ✓ | ✓ | – | – |
 | `users.manage` | Benutzer auflisten, Rolle und Status ändern | ✓ | – | – | – |
@@ -50,7 +50,8 @@ Endpunkte ohne eigene Angabe fallen unter die Fallback-Policy (angemeldet und ak
 | Endpunkt | Zugriff |
 |---|---|
 | `GET /api/coins`, `GET /api/coins/{id}`, `GET /api/coins/{id}/bild` | öffentlich |
-| `POST /api/coins`, `PUT /api/coins/{id}/bild`, `PUT /api/coins/{id}/auflage` | `coins.write` |
+| `POST /api/coins`, `PUT /api/coins/{id}`, `PUT /api/coins/{id}/bild`, `PUT /api/coins/{id}/auflage` | `coins.write` |
+| `GET /api/zertifikatsvorlagen/standard`, `GET /api/coins/{id}/zertifikatsvorlage`, `GET /api/coins/{id}/zertifikatsvorlage/datei`, `GET /api/coins/{id}/zertifikatsvorlage/versionen/{version}/datei`, `POST /api/coins/{id}/zertifikatsvorlage/versionen`, `POST /api/coins/{id}/zertifikatsvorlage/zuruecksetzen` | `coins.write` |
 | `GET /api/coins/{id}/exemplare` | `coins.read` |
 | `GET /api/coins/{id}/ausgaben` | `issues.read` |
 | `POST /api/coins/{id}/ausgaben`, `POST /api/coins/{id}/ausgaben/{ausgabeId}/storno` | `issues.write` |

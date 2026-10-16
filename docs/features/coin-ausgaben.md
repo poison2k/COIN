@@ -12,7 +12,7 @@ Nicht dazu: Zertifikate, PDF, Personenstammdaten mit Wiederverwendung, Rückgabe
 ### Entscheidungen des Auftraggebers (2026-10-08)
 1. **F1 Begriff:** überall „Ausgabe“ (UI, API `/ausgaben`, Code), Berechtigungen `issues.read`/`issues.write`. Platzhalter „Verleihungen“ und `verleihungen.read` entfallen. Den Fachbegriff in `CLAUDE.md` passt der Koordinator an.
 2. **F2 Sichtbarkeit:** Kennzahlen und Exemplar-Status nur mit `coins.read` (Betrachter, Sachbearbeiter, Administrator). Anonyme, Benutzer ohne Rolle und Deaktivierte sehen nur die Stammdaten (ADR-0021).
-3. **F3 Auflage ändern:** nur per `PUT /api/coins/{id}/auflage` (`coins.write`) und Dialog „Auflage ändern“ auf der Detailseite. Kein weiteres Bearbeiten von Coins.
+3. **F3 Auflage ändern:** nur per `PUT /api/coins/{id}/auflage` (`coins.write`) und Dialog „Auflage ändern“ auf der Detailseite. Kein weiteres Bearbeiten von Coins. *Nachtrag 2026-10-16: „Kein weiteres Bearbeiten“ abgelöst durch [zertifikatsvorlagen](zertifikatsvorlagen.md) (ADR-0025, Seite „Coin bearbeiten“); `PUT …/auflage` und der Dialog bleiben.*
 4. **F4 Untergrenze beim Senken:** höchste **je** ausgegebene Nummer (aktiv oder storniert). Kein Zurück auf „unbekannt“.
 5. **F5 Ausgebende Stelle:** Pflicht-Freitext „Ausgebende Stelle oder Person“. Der Erfasser wird automatisch gespeichert (`erfasstVon`).
 6. **F6 Audit-Inhalt:** keine Empfängerdaten im Audit, nur Ids, Exemplar-Nummer, Art, Akteur, Zeit und beim Storno der Grund. Die Oberfläche weist am Grund-Feld darauf hin, keine Personendaten einzutragen (AK-24).

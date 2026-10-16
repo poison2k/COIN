@@ -16,7 +16,7 @@ Klick oder mit den Pfeiltasten, wenn ein Reiter den Fokus hat.
 
 ## Rollen und Rechte
 
-| Rolle | Coin-Katalog ansehen | Exemplare und Kennzahlen | Coins hinzufügen, Auflage ändern | Ausgaben sehen, erfassen, stornieren | Benutzerverwaltung und Audit-Log |
+| Rolle | Coin-Katalog ansehen | Exemplare und Kennzahlen | Coins hinzufügen und bearbeiten, Auflage ändern, Zertifikatsvorlagen | Ausgaben sehen, erfassen, stornieren | Benutzerverwaltung und Audit-Log |
 |---|---|---|---|---|---|
 | Administrator | ja | ja | ja | ja | ja |
 | Sachbearbeiter | ja | ja | ja | ja | nein |

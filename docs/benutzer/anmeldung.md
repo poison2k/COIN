@@ -34,7 +34,7 @@ weiter ansehen, der Button **Coin hinzufügen** ist ausgeblendet.
 
 Was Sie nach der Anmeldung dürfen, hängt von der Rolle Ihres Kontos in C.O.I.N. ab:
 
-| Rolle | Katalog ansehen | Exemplare und Kennzahlen | Coins hinzufügen, Auflage ändern | Ausgaben sehen, erfassen, stornieren | Benutzerverwaltung |
+| Rolle | Katalog ansehen | Exemplare und Kennzahlen | Coins hinzufügen und bearbeiten, Auflage ändern, Zertifikatsvorlagen | Ausgaben sehen, erfassen, stornieren | Benutzerverwaltung |
 |---|---|---|---|---|---|
 | ohne Anmeldung | ja | nein | nein | nein | nein |
 | Administrator | ja | ja | ja | ja | ja |

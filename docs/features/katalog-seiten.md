@@ -87,7 +87,7 @@ Nicht im Umfang: Coins bearbeiten oder löschen, Verleihungen (nur ein Platzhalt
   - Er enthält keine Daten, keine Zahlen (z. B. keine Anzahl der Verleihungen), keine Namen und keine Formulierungen über Personen oder Empfänger. Es gibt keinen Request dafür.
   - Das Coin-DTO wird dafür nicht erweitert.
   - Der Begriff „Ausgaben“ kommt in der Oberfläche nicht vor.
-- **AK-20** Die Detailseite zeigt keine Bearbeiten-, Löschen- oder Upload-Bedienelemente, auch nicht mit `coins.write`.
+- **AK-20** Die Detailseite zeigt keine Bearbeiten-, Löschen- oder Upload-Bedienelemente, auch nicht mit `coins.write`. *Nachtrag 2026-10-16: abgelöst durch [zertifikatsvorlagen](zertifikatsvorlagen.md) AK-27 (Link „Bearbeiten“ mit `coins.write`).*
 
 ### Seite „Coin hinzufügen“ (`/coins/neu`)
 - **AK-21** `h1` „Coin hinzufügen“, darunter `CoinFormular` aus `features/coin-anlegen`. Felder, Labels, Hinweise, Validierung und Fehlermeldungen bleiben unverändert, einschließlich des optionalen Motivbilds (Entscheidung F6). Link „Abbrechen“ führt zu `/coins`, ohne zu speichern.

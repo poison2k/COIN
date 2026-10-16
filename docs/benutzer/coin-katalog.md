@@ -1,20 +1,21 @@
 # Coin-Katalog – Anleitung
 
 Im Katalog suchen und blättern Sie in allen erfassten Coins und öffnen die Detailseite eines Coins.
-Neue Coins legen Sie auf der eigenen Seite **Coin hinzufügen** an.
+Neue Coins legen Sie auf der eigenen Seite **Coin hinzufügen** an, ändern können Sie sie auf der Seite
+**Coin bearbeiten**.
 
 Den Katalog und die Detailseiten kann jeder ohne Anmeldung ansehen; Exemplare und Ausgaben sehen
 nur angemeldete Benutzer mit Rolle (siehe [Exemplare und Ausgaben](ausgaben.md)). **Coins
-hinzufügen** können nur angemeldete Benutzer mit der Rolle Administrator oder Sachbearbeiter. Wie Sie sich anmelden, steht in
-der [Anleitung zur Anmeldung](anmeldung.md).
+hinzufügen** und **bearbeiten** können nur angemeldete Benutzer mit der Rolle Administrator oder
+Sachbearbeiter. Wie Sie sich anmelden, steht in der [Anleitung zur Anmeldung](anmeldung.md).
 
 ## Navigation
 
 Links befindet sich die Seitenleiste:
 
 - **Startseite**: Begrüßung mit kurzer Einleitung und dem Button **Zum Katalog**.
-- **Katalog**: Liste aller Coins mit Suche. Der Eintrag ist auch auf der Detailseite eines Coins und
-  auf **Coin hinzufügen** hervorgehoben.
+- **Katalog**: Liste aller Coins mit Suche. Der Eintrag ist auch auf der Detailseite eines Coins, auf
+  **Coin hinzufügen** und auf **Coin bearbeiten** hervorgehoben.
 - **Benutzerverwaltung**: nur für Administratoren (siehe [Benutzerverwaltung](benutzerverwaltung.md)).
 
 Rechts in der Kopfzeile stehen **Anmelden** bzw. Ihr Name und **Abmelden**.
@@ -87,7 +88,9 @@ Mit **Zurück** im Browser kommen Sie von der Detailseite wieder zu derselben Su
 
 ## Detailseite eines Coins
 
-Die Detailseite (`/coins/…`) zeigt als Überschrift den Namen des Coins und darunter:
+Die Detailseite (`/coins/…`) zeigt als Überschrift den Namen des Coins, als Administrator oder
+Sachbearbeiter rechts daneben den Button **Bearbeiten** (siehe [Coin bearbeiten](#coin-bearbeiten)),
+und darunter:
 
 - das Motivbild oder „Kein Motivbild vorhanden.“,
 - **Herausgeber**, **Auflage** (oder „unbekannt“), **Erfasst am** und **Beschreibung** (mit den
@@ -98,8 +101,8 @@ Die Detailseite (`/coins/…`) zeigt als Überschrift den Namen des Coins und da
 
 Mit **Zurück zum Katalog** geht es zur ersten Seite des Katalogs ohne Suche.
 
-Außer der Auflage (**Auflage ändern**, siehe [Ausgaben](ausgaben.md#auflage-ändern)) lässt sich ein
-Coin auf der Detailseite weder bearbeiten noch löschen. Gibt es den Coin nicht (z. B. bei
+Die Auflage ändern Sie auch direkt auf der Detailseite (**Auflage ändern**, siehe
+[Ausgaben](ausgaben.md#auflage-ändern)). Löschen lässt sich ein Coin nicht. Gibt es den Coin nicht (z. B. bei
 einer falsch abgetippten Adresse), erscheint „Coin nicht gefunden“ mit dem Link **Zum Katalog**.
 Kann der Coin nicht geladen werden, erscheint „Der Coin konnte nicht geladen werden. Bitte später
 erneut versuchen.“
@@ -138,11 +141,53 @@ Formular.
 
 Mit **Abbrechen** kehren Sie ohne Speichern zum Katalog zurück.
 
-Ein angelegter Coin kann in dieser Version weder bearbeitet noch gelöscht werden; nur die Auflage
-lässt sich später ändern. Prüfen Sie Ihre Eingaben deshalb vor dem Speichern.
+Einen angelegten Coin können Sie später auf **Coin bearbeiten** ändern, aber nicht löschen.
 
 Mit einer Auflage legt C.O.I.N. gleich die Exemplare 1 bis zur Auflage an. Bei sehr großen Auflagen
 dauert das Speichern spürbar länger.
+
+Unter dem Formular steht der Abschnitt **Zertifikatsvorlage** mit dem Button **Standardvorlage
+herunterladen**. Damit laden Sie die Word-Vorlage für das Echtheitszertifikat herunter, um sie in Word zu
+gestalten; das Formular wird dabei weder gespeichert noch geleert. Die fertige Vorlage laden Sie nach dem
+Anlegen auf **Coin bearbeiten** hoch (siehe [Zertifikatsvorlagen](zertifikatsvorlagen.md)).
+
+## Coin bearbeiten
+
+Nur angemeldet mit der Rolle Administrator oder Sachbearbeiter. Öffnen Sie die Detailseite des Coins
+und klicken Sie auf **Bearbeiten**. Die Seite **Coin bearbeiten** (`/coins/…/bearbeiten`) zeigt unter der
+Überschrift den Namen des Coins und hat drei Abschnitte. Beim direkten Aufruf der Adresse gilt dasselbe
+wie bei **Coin hinzufügen** (Anmeldung bzw. **Kein Zugriff**).
+
+### Stammdaten
+
+Die Felder **Name**, **Herausgeber**, **Auflage** und **Beschreibung (optional)** sind mit den
+gespeicherten Werten vorbelegt. Es gelten dieselben Regeln und Meldungen wie beim Anlegen (siehe oben).
+Zusätzlich:
+
+- Hat der Coin eine Auflage, ist das Feld **Auflage** Pflicht; zurück auf „unbekannt“ geht nicht. Ohne
+  bisherige Auflage heißt es **Auflage (optional)**.
+- Die Auflage lässt sich nur bis zur höchsten bereits ausgegebenen Exemplar-Nummer senken (auch wenn die
+  Ausgabe storniert wurde). Sonst erscheint am Feld z. B. „Die Auflage kann nicht unter 12 gesenkt werden,
+  weil Exemplar Nr. 12 ausgegeben wurde.“ Eine höhere Auflage legt die fehlenden Exemplare an.
+- Name und Herausgeber dürfen nicht zu einem anderen Coin passen („Ein Coin mit diesem Namen und
+  Herausgeber existiert bereits.“).
+
+Klicken Sie auf **Änderungen speichern**. Bei Erfolg öffnet sich die Detailseite mit „Änderungen wurden
+gespeichert.“ Bei einem Fehler bleiben Sie auf der Seite, Ihre Eingaben bleiben erhalten. **Abbrechen**
+führt ohne Speichern zur Detailseite. Bearbeiten zwei Personen gleichzeitig, gilt das zuletzt
+Gespeicherte. Änderungen an den Stammdaten werden nicht protokolliert.
+
+### Motivbild
+
+Zeigt das aktuelle Bild oder „Kein Motivbild vorhanden.“ Wählen Sie im Feld **Neues Motivbild** ein Bild
+(Regeln wie unter [Motivbild](#motivbild)) und klicken Sie auf **Bild hochladen**. Bei Erfolg erscheint
+„Motivbild wurde gespeichert.“ und das neue Bild. Ohne ausgewählte Datei erscheint „Bitte ein Bild
+auswählen.“ Löschen lässt sich das Bild nicht, nur ersetzen.
+
+### Zertifikatsvorlage
+
+Hier laden Sie die Word-Vorlage für das Echtheitszertifikat herunter und hoch. Die Anleitung dazu steht
+unter [Zertifikatsvorlagen](zertifikatsvorlagen.md).
 
 ## Motivbild
 
@@ -177,11 +222,13 @@ Fehler zu einzelnen Feldern stehen direkt unter dem jeweiligen Feld. Ihre Eingab
 | „… darf höchstens … Zeichen lang sein.“ | Text kürzen. |
 | „Auflage muss eine ganze Zahl sein.“ | Nur Ziffern eingeben, ohne Punkt oder Komma. |
 | „Auflage muss zwischen 1 und 1000000 liegen.“ | Wert anpassen oder Feld leer lassen. |
+| „Auflage ist erforderlich.“ | Nur beim Bearbeiten: Der Coin hat schon eine Auflage, das Feld darf nicht leer sein. |
+| „Die Auflage kann nicht unter … gesenkt werden, weil Exemplar Nr. … ausgegeben wurde.“ | Nur beim Bearbeiten: höhere Auflage wählen. |
 | „Nur JPEG, PNG oder WebP erlaubt.“ | Bild in einem erlaubten Format wählen. |
 | „Bild ist zu groß (max. 5 MB).“ | Kleineres Bild wählen. |
 | „Die Bilddatei ist leer.“ | Die gewählte Datei hat keinen Inhalt. |
 | „Ein Coin mit diesem Namen und Herausgeber existiert bereits.“ | Dieser Coin ist schon im Katalog. |
-| „Sie sind nicht berechtigt, Coins zu erfassen.“ | Ihrem Konto fehlt die nötige Rolle. Wenden Sie sich an einen Administrator. |
+| „Sie sind nicht berechtigt, Coins zu erfassen.“ / „Sie sind nicht berechtigt, Coins zu bearbeiten.“ | Ihrem Konto fehlt die nötige Rolle. Wenden Sie sich an einen Administrator. |
 | „Ihr Benutzerkonto ist deaktiviert.“ | Ein Administrator hat Ihr Konto deaktiviert (siehe [Anmeldung](anmeldung.md#konto-deaktiviert)). |
 | „Ihre Anmeldung ist abgelaufen. Sie werden zur Anmeldung weitergeleitet …“ | Melden Sie sich erneut an. Die Eingaben gehen dabei verloren (siehe [Anmeldung](anmeldung.md#sitzung-abgelaufen)). |
-| „Der Coin konnte nicht angelegt werden. Bitte später erneut versuchen.“ | Technisches Problem, z. B. keine Verbindung zum Server. |
+| „Der Coin konnte nicht angelegt werden. Bitte später erneut versuchen.“ / „Die Änderungen konnten nicht gespeichert werden. Bitte später erneut versuchen.“ | Technisches Problem, z. B. keine Verbindung zum Server. |

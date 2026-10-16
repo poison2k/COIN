@@ -3,8 +3,9 @@
 Webanwendung zur Verwaltung militärischer Gedenk-Coins der Bundeswehr. Umgesetzt sind bisher:
 
 - **Coin-Katalog**: Coins mit Name, Herausgeber, optionaler Auflage, Beschreibung und Motivbild
-  auf einer eigenen Seite anlegen; Katalog mit Suche (Name, Herausgeber) und Blättern sowie eine
-  Detailseite je Coin. Lesen ist ohne Anmeldung möglich (ADR-0014).
+  auf einer eigenen Seite anlegen und auf der Seite „Coin bearbeiten“ ändern (Stammdaten, Motivbild;
+  ADR-0025); Katalog mit Suche (Name, Herausgeber) und Blättern sowie eine Detailseite je Coin. Lesen
+  ist ohne Anmeldung möglich (ADR-0014).
 - **Anmeldung über Keycloak (OIDC)**: Anmeldung mit E-Mail und Passwort am Keycloak. Benutzer und
   Rollen führt C.O.I.N. in der eigenen Datenbank (ADR-0012, ADR-0013). Den ersten Administrator
   legt `Bootstrap:AdminEmails` fest.
@@ -20,13 +21,21 @@ Webanwendung zur Verwaltung militärischer Gedenk-Coins der Bundeswehr. Umgesetz
   Sachbearbeiter und Administratoren erfassen Ausgaben (wer, wann, Gelegenheit, Begründung,
   ausgebende Stelle), stornieren sie mit Grund und ändern die Auflage. Ausgaben und ihr Audit sind
   unveränderlich (ADR-0020, ADR-0021).
+- **Zertifikatsvorlagen**: Je Coin eine Word-Vorlage (.docx) für das spätere Echtheitszertifikat.
+  Sachbearbeiter und Administratoren laden die vom Server erzeugte Standardvorlage herunter, gestalten
+  sie in Word und laden sie wieder hoch. Der Server prüft die Datei als nicht vertrauenswürdig
+  (Platzhalter, Makros, externe Inhalte, Namespace-Positivliste), entfernt persönliche
+  Dokumenteigenschaften und speichert sie als neue, sofort aktive Version; frühere Versionen bleiben
+  abrufbar, Zurücksetzen auf die Standardvorlage ist möglich (ADR-0022 bis ADR-0024, ADR-0026,
+  [docs/platzhalter.md](docs/platzhalter.md), [docs/word-namespaces.md](docs/word-namespaces.md)).
 
-Zertifikate folgen später.
+Zertifikate selbst (Nummer, Signatur, PDF, Prüfseite) folgen später.
 
 - API: [docs/api.md](docs/api.md), Berechtigungen: [docs/berechtigungen.md](docs/berechtigungen.md)
 - Anleitung für Anwender: [docs/benutzer/anmeldung.md](docs/benutzer/anmeldung.md),
   [docs/benutzer/coin-katalog.md](docs/benutzer/coin-katalog.md),
   [docs/benutzer/ausgaben.md](docs/benutzer/ausgaben.md),
+  [docs/benutzer/zertifikatsvorlagen.md](docs/benutzer/zertifikatsvorlagen.md),
   [docs/benutzer/benutzerverwaltung.md](docs/benutzer/benutzerverwaltung.md)
 - Architekturentscheidungen: [docs/adr/](docs/adr/)
 - Anforderungen: [docs/requirements.md](docs/requirements.md)
@@ -42,8 +51,8 @@ Zertifikate folgen später.
 
 | Ordner | Inhalt |
 |---|---|
-| `src/Coin.Domain` | Fachlogik, Entitäten, Validierung (u. a. `Katalog/`, `Ausgaben/`, `Benutzer/`) |
-| `src/Coin.Infrastructure` | EF Core, PostgreSQL, Migrationen (`Persistenz/Migrationen`) |
+| `src/Coin.Domain` | Fachlogik, Entitäten, Validierung (u. a. `Katalog/`, `Ausgaben/`, `Benutzer/`, `Vorlagen/` mit Platzhalterkatalog und Namespace-Positivliste) |
+| `src/Coin.Infrastructure` | EF Core, PostgreSQL, Migrationen (`Persistenz/Migrationen`), Prüfung, Bereinigung und Standardvorlage für Word-Dateien (`Vorlagen/`, NuGet `DocumentFormat.OpenXml`) |
 | `src/Coin.Api` | ASP.NET Core Web API (Controller, DTOs, `Authentifizierung/`) |
 | `tests/Coin.UnitTests`, `tests/Coin.IntegrationTests` | xUnit-Tests |
 | `web/` | React-Frontend (Vite, TypeScript, Feature-Sliced Design), UI-Tests in `web/ui-tests` |
@@ -146,10 +155,27 @@ angewendet. In Development ist das OpenAPI-Dokument unter `/openapi/v1.json` abr
   verbietet `DELETE` und jedes `UPDATE` außer dem einmaligen Storno, `trg_ausgabe_audit_unveraenderlich`
   jedes `UPDATE` und `DELETE` im Audit; `TRUNCATE` bleibt möglich. Ausgaben samt Empfängerdaten und
   Audit werden vorerst unbegrenzt aufbewahrt (F10), ein Löschkonzept folgt als eigenes Feature.
+- **Zertifikatsvorlagen** (Tabellen `zertifikat_vorlage`, `vorlage_audit`, ADR-0023): Die Trigger
+  `trg_zertifikat_vorlage_unveraenderlich` und `trg_vorlage_audit_unveraenderlich` brechen jedes `UPDATE`
+  und `DELETE` ab; `TRUNCATE` bleibt möglich. Versionen und Audit werden vorerst unbegrenzt aufbewahrt.
+  Die Dateien liegen als `bytea` in der Datenbank, nie im Dateisystem.
+- **Arbeitsspeicher beim Vorlagen-Upload** (ADR-0024 Punkt 7): Prüfung und Bereinigung brauchen je
+  Upload im ungünstigsten Fall etwa 200 MiB Working Set; je Prozess laufen höchstens 2 gleichzeitig,
+  weitere warten (gemessene Spitze bei 8 parallelen Uploads etwa 518 MiB). Dafür Arbeitsspeicher
+  einplanen. Einen Virenscan macht die App nicht (Betriebsthema).
+- **Abgelehnte Word-Erweiterungen** (ADR-0026 Punkt 7): Lehnt der Server eine echte Word-Datei mit
+  „nicht unterstützte Word-Erweiterungen“ ab, wird der betroffene Namespace nicht geloggt. Nachtrag nur
+  über den Nachtragsprozess (Datei ohne Personendaten bereitstellen, Bewertung, Eintrag in
+  `WordNamespaces` und [docs/word-namespaces.md](docs/word-namespaces.md)); die Liste ist nicht
+  konfigurierbar.
+- **Warnungen der Vorlagenbereinigung**: Schlägt die Bereinigung oder die Nachprüfung einer
+  hochgeladenen Vorlage fehl, schreibt die Kategorie `Coin.Api.Http.VorlagenProtokoll` eine Warnung
+  `2401` bzw. `2402` mit fester Meldung (ohne Dateiinhalt). Gehäufte Einträge deuten auf Word-Dateien
+  hin, die das OpenXML SDK nicht sauber schreibt.
 - **Migration `20261008100432_Exemplare`** erzeugt für jeden bestehenden Coin mit Auflage die
   Exemplare 1 bis Auflage in einem Statement. Bei vielen oder großen Auflagen (bis 1.000.000 je Coin)
   für die Migration ein Timeout von mindestens 120 s einplanen.
-- **Lange Befehle**: Das Erzeugen und Löschen von Exemplaren (Coin anlegen, Auflage ändern) läuft mit
+- **Lange Befehle**: Das Erzeugen und Löschen von Exemplaren (Coin anlegen, Auflage ändern, Coin bearbeiten) läuft mit
   einem Befehls-Timeout von 120 s. Ein vorgelagerter Proxy mit kürzerem Timeout (z. B. nginx mit
   60 s) kann solche Anfragen vorher abbrechen; sein Timeout entsprechend setzen.
 - **`Include Error Detail` nie setzen** (Npgsql-Option im Connection-String): Sie brächte
@@ -233,8 +259,9 @@ Routen:
 |---|---|---|
 | `/` | öffentlich | Startseite |
 | `/coins` | öffentlich | Katalog mit Suche und Blättern; Suchparameter `suche` (≤ 100 Zeichen) und `seite` in der URL; Link „Coin hinzufügen“ nur mit `coins.write` |
-| `/coins/neu` | `coins.write` | Seite „Coin hinzufügen“ (Formular inkl. Motivbild); danach `replace` auf die Detailseite |
-| `/coins/$coinId` | öffentlich | Detailseite; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf. Abschnitt „Exemplare“ nur mit `coins.read` (Suchparameter `status` = `verfuegbar`/`ausgegeben` und `seite`), „Ausgabehistorie“ nur mit `issues.read`, „Ausgabe erfassen“/„Stornieren“ mit `issues.write`, „Auflage ändern“ mit `coins.write` |
+| `/coins/neu` | `coins.write` | Seite „Coin hinzufügen“ (Formular inkl. Motivbild, darunter „Standardvorlage herunterladen“); danach `replace` auf die Detailseite |
+| `/coins/$coinId` | öffentlich | Detailseite; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf. Link „Bearbeiten“ und „Auflage ändern“ mit `coins.write`, Abschnitt „Exemplare“ nur mit `coins.read` (Suchparameter `status` = `verfuegbar`/`ausgegeben` und `seite`), „Ausgabehistorie“ nur mit `issues.read`, „Ausgabe erfassen“/„Stornieren“ mit `issues.write` |
+| `/coins/$coinId/bearbeiten` | `coins.write` | Seite „Coin bearbeiten“: Stammdaten, Motivbild, Zertifikatsvorlage; nach dem Speichern der Stammdaten `replace` auf die Detailseite |
 | `/coins/$coinId/ausgaben/neu` | `issues.write` | Seite „Ausgabe erfassen“; danach `replace` auf die Detailseite |
 | `/benutzerverwaltung` | `users.manage` | Tabs „Benutzer“ und „Audit-Log“ |
 | `/anmeldung/rueckruf` | öffentlich | Rückkehr vom Keycloak (ohne App-Shell) |
@@ -242,11 +269,12 @@ Routen:
 | `/kein-zugriff` | nur angemeldet | Hinweis für Benutzer ohne Rolle, mit deaktiviertem Konto oder (mit `?grund=berechtigung`) mit Rolle ohne die nötige Berechtigung; alle anderen werden nach `/` geleitet |
 
 `/coins/neu` und `/coins/$coinId` sind Geschwister von `/coins`; das statische Segment `neu` geht
-vor dem Parameter. `/coins/$coinId/ausgaben/neu` ist ebenfalls ein Geschwister. Ungültige
+vor dem Parameter. `/coins/$coinId/ausgaben/neu` und `/coins/$coinId/bearbeiten` sind ebenfalls
+Geschwister. Ungültige
 Suchparameter (`seite=0`, `seite=abc`, Seite über 2147483647, unbekannter `status`) gelten als
 Seite 1 bzw. „Alle“, ein zu langer Suchbegriff wird gekürzt; die URL führt also nie zu einem `400`.
-Die Erfolgsmeldungen nach dem Anlegen eines Coins und nach dem Erfassen einer Ausgabe (nur die
-Exemplar-Nummer, nie der Empfänger) reisen im History-State und werden einmal verbraucht.
+Die Erfolgsmeldungen nach dem Anlegen und Bearbeiten eines Coins und nach dem Erfassen einer Ausgabe
+(nur die Exemplar-Nummer, nie der Empfänger) reisen im History-State und werden einmal verbraucht.
 
 Unbekannte Pfade zeigen „Seite nicht gefunden.“ Die Guards `erfordertAnmeldung` und
 `erfordertBerechtigung(b)` liegen in `src/app/router/schutz.ts`. `erfordertBerechtigung` startet
@@ -292,15 +320,24 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
   `heuteInBerlin`), Hooks (`shared/lib/hooks`: `useIsMobile`, `useFokusBeiLadefehler`) und die
   Anmeldung (`shared/lib/anmeldung`: UserManager, Provider, `useAnmeldung`, `sicheresZiel`),
   `shared/api` den generischen HTTP-Teil (inkl. Bearer-Header; Option `konfliktDetail` übernimmt bei
-  `409` auch `detail`), `shared/config` die Routenpfade und die OIDC-Konfiguration.
+  `409` auch `detail`; Datei-Downloads mit Token als Blob samt Dateiname aus `Content-Disposition`),
+  `shared/lib/datei` das Speichern eines Blobs als Datei (Object-URL erst nach 40 s freigegeben),
+  `shared/config` die Routenpfade und die OIDC-Konfiguration.
 - Anmeldung im Überblick: `entities/benutzer` (`GET /api/me`, Benutzerliste, `hatBerechtigung`,
   `StatusBadge`), `features/anmeldung` (Buttons „Anmelden“/„Abmelden“), `pages/kein-zugriff`,
   `pages/abgemeldet`, `pages/anmeldung-rueckruf`. `app` lädt `/api/me` einmal pro Anmeldung und
   reicht Benutzer und Anmeldezustand als Props an Widgets und Seiten weiter. Liefert `/api/me` oder
   ein anderer Aufruf `403 benutzer_deaktiviert`, wechselt `app` in den Zustand „deaktiviert“.
-- Katalog: `entities/coin` (API `ladeCoins`/`ladeCoin`/`legeCoinAn`/`ladeBildHoch`/`aendereAuflage`,
-  `CoinListe`, `CoinStammdaten`), `features/coin-anlegen` (`CoinFormular`), `widgets/coin-katalog`
-  (Suche, Statuszeile, Liste, Blättern), `pages/coin-liste`, `pages/coin-detail`, `pages/coin-anlegen`.
+- Katalog: `entities/coin` (API `ladeCoins`/`ladeCoin`/`legeCoinAn`/`aendereCoin`/`ladeBildHoch`/
+  `aendereAuflage`, gemeinsame Feldprüfung `validiereStammdaten` und `validiereBild` für Anlegen und
+  Bearbeiten, `CoinListe`, `CoinStammdaten`), `features/coin-anlegen` (`CoinFormular`),
+  `features/coin-bearbeiten` (`CoinBearbeitenFormular`), `features/motivbild-hochladen`,
+  `widgets/coin-katalog` (Suche, Statuszeile, Liste, Blättern), `pages/coin-liste`, `pages/coin-detail`,
+  `pages/coin-anlegen`, `pages/coin-bearbeiten`.
+- Zertifikatsvorlagen: `entities/zertifikatsvorlage` (Status, Downloads, `VersionenTabelle`,
+  Dateiname aus der Antwort), `features/standardvorlage-herunterladen`, `features/vorlage-hochladen`
+  (Dateifeld mit Vorprüfung auf `.docx` und Größe), `features/vorlage-zuruecksetzen` (Button mit
+  Bestätigungsdialog), `widgets/zertifikatsvorlage` (Abschnitt auf „Coin bearbeiten“).
 - Exemplare und Ausgaben: `entities/exemplar` (`ladeExemplare`, `Kennzahlen`, `ExemplarTabelle`,
   Status-Badge), `entities/ausgabe` (`ladeAusgaben`, `AusgabenTabelle`), `features/ausgabe-erfassen`
   (`AusgabeFormular`), `features/ausgabe-stornieren` (Button mit Bestätigungsdialog),
@@ -352,7 +389,7 @@ nur, wenn Index und Arbeitsstand übereinstimmen.
 
 | | `web/ui-tests` (`npm run test:ui`) | `e2e/` (`npx playwright test`) |
 |---|---|---|
-| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben: Routing, Seitenleiste, Tastaturbedienung, Darstellung | fachliche Abläufe über alle Schichten |
+| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen: Routing, Seitenleiste, Tastaturbedienung, Darstellung | fachliche Abläufe über alle Schichten |
 | API | gemockt per `page.route`; Proxy-Ziel absichtlich unerreichbar; jeder nicht gemockte `/api`-Aufruf lässt den Test scheitern | echte API (Release-Build) mit Wegwerf-PostgreSQL |
 | Anmeldung | Identitätsanbieter gemockt (`VITE_OIDC_AUTHORITY=http://127.0.0.1:9/realms/coin`) | echter Wegwerf-Keycloak |
 | Voraussetzungen | nur Node.js und Chromium | Docker, .NET 10 SDK, Node.js ≥ 22.18 |
@@ -436,8 +473,13 @@ Ablauf pro Lauf (ADR-0007, ADR-0015):
   `coin-ausgaben.spec.ts` vergibt `sachbearbeiter@test.local` und `betrachter@test.local` ihre Rollen,
   legt einen Coin mit Auflage 150 an, erfasst als Sachbearbeiter eine Ausgabe, prüft als Betrachter
   Kennzahlen und Status ohne Ausgabehistorie und storniert die Ausgabe.
+  `zertifikatsvorlagen.spec.ts` lädt als Sachbearbeiter auf „Coin hinzufügen“ die Standardvorlage
+  herunter, legt einen Coin an, lädt die Datei auf „Coin bearbeiten“ zweimal hoch (Version 1 und 2),
+  lädt Version 1 herunter, prüft die Ablehnung einer umbenannten Textdatei und als Betrachter, dass
+  „Bearbeiten“ und die Vorlagen-Bedienelemente fehlen.
 - Die Tests laufen nacheinander (`workers: 1`): Die Specs teilen sich Datenbank und Testkonten,
-  `benutzerverwaltung.spec.ts`, `katalog-seiten.spec.ts` und `coin-ausgaben.spec.ts` brauchen `betrachter@test.local`
+  `benutzerverwaltung.spec.ts`, `katalog-seiten.spec.ts`, `coin-ausgaben.spec.ts` und
+  `zertifikatsvorlagen.spec.ts` brauchen `betrachter@test.local`
   (einmal entzogen/deaktiviert, einmal als aktiver Betrachter), und die oberste Audit-Zeile würde
   durch parallele Rollenvergaben verfälscht. Ein Lauf dauert etwa 2 Minuten.
 - Laufende Server werden nie wiederverwendet. Ist Port 5182, 5183 oder 5184 belegt, bricht der Lauf ab.

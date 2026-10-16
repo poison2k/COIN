@@ -1,6 +1,6 @@
 # ADR-0021: Rechte für Exemplare und Ausgaben, getrennte Endpunkte statt Feldfilter
 
-Status: Angenommen, umgesetzt (Entscheidungen des Auftraggebers vom 2026-10-08, F1–F3 in `docs/features/coin-ausgaben.md`) · Datum: 2026-10-08 · Feature: coin-ausgaben · Ändert: [ADR-0016](0016-berechtigungen-im-code-und-deaktivierte-benutzer.md) Punkt 1, 2 und 4 · Ergänzt: [ADR-0014](0014-coin-katalog-oeffentlich-lesbar.md)
+Status: Angenommen, umgesetzt (Entscheidungen des Auftraggebers vom 2026-10-08, F1–F3 in `docs/features/coin-ausgaben.md`); Punkt 5 geändert durch [ADR-0025](0025-coin-stammdaten-bearbeiten.md) · Datum: 2026-10-08 · Feature: coin-ausgaben · Ändert: [ADR-0016](0016-berechtigungen-im-code-und-deaktivierte-benutzer.md) Punkt 1, 2 und 4 · Ergänzt: [ADR-0014](0014-coin-katalog-oeffentlich-lesbar.md)
 
 ## Kontext
 Vorgabe: neue Berechtigungen `issues.read` und `issues.write`. Erfassen und Stornieren dürfen Administrator und Sachbearbeiter. Der Betrachter sieht nur Kennzahlen und den Status der Exemplare, aber keine Empfänger, Anlässe oder Begründungen, und „der Backend-Endpunkt liefert diese Felder für ihn gar nicht erst aus“.
@@ -26,7 +26,7 @@ Bisher: Der Katalog ist öffentlich (ADR-0014). `coins.read` ist definiert, aber
    - So bleibt die Regel „eine Berechtigung je Endpunkt“ erhalten, und die Inventartests prüfen den Schutz. Ein Feldfilter innerhalb eines Endpunkts wäre nur per Code-Review prüfbar und anfällig für Fehler bei Erweiterungen.
 3. **`coins.read` wird durchgesetzt**, aber nur für den neuen Exemplar-Endpunkt (Entscheidung F2). Die drei bisherigen Katalog-Endpunkte bleiben öffentlich und tokenunabhängig (ADR-0014 unverändert). Anonyme Besucher, Benutzer ohne Rolle und deaktivierte Benutzer sehen Kennzahlen und Exemplar-Status nicht.
 4. **Kein Personendatum im öffentlichen Coin-DTO**: `GET /api/coins` und `GET /api/coins/{id}` bekommen keine Kennzahlen und keine Ausgabedaten.
-5. **Auflage ändern** (Entscheidung F3) ist ein eigener Endpunkt `PUT /api/coins/{id}/auflage` mit `coins.write`. Weiteres Bearbeiten von Coins gibt es nicht.
+5. **Auflage ändern** (Entscheidung F3) ist ein eigener Endpunkt `PUT /api/coins/{id}/auflage` mit `coins.write`. Weiteres Bearbeiten von Coins gibt es nicht. *(Geändert durch ADR-0025: Stammdaten sind über `PUT /api/coins/{id}` bearbeitbar; `PUT …/auflage` bleibt.)*
 6. Antworten aller neuen Endpunkte tragen `Cache-Control: no-store`, weil sie von der Anmeldung abhängen bzw. Personendaten enthalten.
 7. 403-Texte (`code` `keine_berechtigung`):
    - `coins.read`: „Ihr Benutzerkonto ist nicht berechtigt, die Exemplare einzusehen.“
