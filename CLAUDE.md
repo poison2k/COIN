@@ -17,6 +17,11 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
 - **Zertifikat**: signierter Echtheitsnachweis für ein Exemplar, öffentlich prüfbar
 - **Zertifikatsvorlage**: Word-Vorlage (.docx) je Coin mit Platzhaltern `{{Gruppe.Feld}}`
   (`docs/platzhalter.md`); ohne eigene gilt die vom Backend erzeugte Standardvorlage
+- **Coin-Kennung**: `C` + laufende Nummer mit mindestens 4 Ziffern (`C0042`), unveränderlich,
+  Teil der Zertifikatsnummer, nicht im öffentlichen DTO
+- **Zertifikatsnummer**: `<Kennung>-<Exemplar, mind. 4-stellig>` (`C0042-0012`), je Ausgabe
+  unveränderlich; eine Neuausgabe desselben Exemplars nach Storno erhält dieselbe Nummer
+  (eindeutig nur unter aktiven Ausgaben)
 
 ## Technik
 - Backend: C# / .NET 10, ASP.NET Core Web API, EF Core, PostgreSQL
@@ -68,7 +73,12 @@ unveränderlich per Trigger. Zertifikatsvorlagen und „Coin bearbeiten“
 hochladen (Prüfung mit Namespace-Positivliste `docs/word-namespaces.md`, Bereinigung der
 Metadaten), Versionen und Zurücksetzen, alles mit `coins.write` (OpenXML SDK in
 `Coin.Infrastructure/Vorlagen`); `zertifikat_vorlage` und `vorlage_audit` unveränderlich per
-Trigger. Noch nicht vorhanden: Zertifikate ausstellen (Nummer, Signatur, PDF, Prüfseite),
+Trigger. Zertifikat erzeugen (`docs/features/zertifikat-erzeugen.md`, ADR-0027–0029): Kennung
+per Sequenz `coin_kennung_seq`, Zertifikatsnummer bei Erfassung der Ausgabe; Seite einer Ausgabe
+`/coins/{id}/ausgaben/{ausgabeId}` mit `issues.read`; Download `Zertifikat_<Nummer>.docx` aus der
+aktiven Vorlage (sonst Standardvorlage ohne Erläuterung) mit `issues.write`, Ersetzung nur im
+Speicher, höchstens 200 Platzhalter; jeder Download in `zertifikat_audit` (unveränderlich per
+Trigger, kein Lese-Endpunkt). Noch nicht vorhanden: Signatur, PDF, QR-Code/Prüfseite,
 Löschkonzept für Audit, Empfängerdaten und Vorlagenversionen.
 Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup im `README.md`.
 `dotnet build` ohne Warnungen ist Pflicht, `TreatWarningsAsErrors` ist aber (noch) nicht gesetzt.
@@ -129,6 +139,9 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
   (`Coin.Domain.Vorlagen.WordNamespaces`) ist nicht konfigurierbar und wird nur über den
   Nachtragsprozess aus ADR-0026 erweitert; keine punktuellen Sperrregeln statt Listeneinträgen.
   Marker in `docs/platzhalter.md` und `docs/word-namespaces.md` nicht ändern (Doku-Tests).
+- Erzeugte Zertifikate enthalten Personendaten: nur im Speicher erzeugen (kein Dateisystem,
+  kein `System.IO.Packaging`, geprüft per Code-Test), nie loggen oder zwischenspeichern;
+  Erzeugungsfehler selbst fangen und nur die feste Warnung 2501 schreiben.
 - Audit-Einträge sind unveränderlich (nur INSERT/SELECT, DB-Trigger); Änderungen an Rolle oder Status
   nur über `BenutzerverwaltungService` (Sperre plus Audit in derselben Transaktion).
 - Request-Logs schreibt nur `AnfrageProtokoll` (Methode, Routen-Template, Status, Dauer; ADR-0019).
