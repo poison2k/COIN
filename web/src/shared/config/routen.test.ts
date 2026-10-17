@@ -36,4 +36,12 @@ describe('ROUTEN', () => {
   it('enthält /coins/$coinId/bearbeiten für „Coin bearbeiten“ (zertifikatsvorlagen, AK-26)', () => {
     expect(ROUTEN.coinBearbeiten).toBe('/coins/$coinId/bearbeiten')
   })
+
+  it('enthält /coins/$coinId/ausgaben/$ausgabeId für die Seite „Ausgabe“ (zertifikat-erzeugen, AK-27)', () => {
+    expect(ROUTEN.ausgabeDetail).toBe('/coins/$coinId/ausgaben/$ausgabeId')
+  })
+
+  it('behält /coins/$coinId/ausgaben/neu für „Ausgabe erfassen“ (zertifikat-erzeugen, AK-27)', () => {
+    expect(ROUTEN.coinAusgabeNeu).toBe('/coins/$coinId/ausgaben/neu')
+  })
 })

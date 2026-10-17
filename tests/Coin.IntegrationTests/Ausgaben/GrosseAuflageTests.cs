@@ -91,10 +91,10 @@ public class GrosseAuflageTests(PostgresFixture fixture) : AusgabenTestBasis(fix
         var adminId = await AdminIdAsync();
         var fehler = await AusgabeDb.RohAusfuehrenAsync(
             $"""
-            INSERT INTO ausgabe (id, coin_id, exemplar_nummer, empfaenger_name, datum, gelegenheit, begruendung,
-                                 ausgebende_stelle, erfasst_am, erfasst_von)
-            SELECT gen_random_uuid(), '{coinId}', n, 'Test Empfänger ' || n, DATE '2026-10-01', 'Test Gelegenheit',
-                   'Test Begründung', 'Test Stelle', now(), '{adminId}'
+            INSERT INTO ausgabe (id, coin_id, exemplar_nummer, zertifikatsnummer, empfaenger_name, datum, gelegenheit,
+                                 begruendung, ausgebende_stelle, erfasst_am, erfasst_von)
+            SELECT gen_random_uuid(), '{coinId}', n, 'T-Gross-' || n, 'Test Empfänger ' || n, DATE '2026-10-01',
+                   'Test Gelegenheit', 'Test Begründung', 'Test Stelle', now(), '{adminId}'
               FROM generate_series(1, 20000) AS n
             """);
         Assert.Null(fehler);

@@ -22,6 +22,8 @@ public sealed class CoinDbContext(DbContextOptions<CoinDbContext> options) : DbC
 
     public DbSet<VorlageAuditDatensatz> VorlageAudit => Set<VorlageAuditDatensatz>();
 
+    public DbSet<ZertifikatAuditDatensatz> ZertifikatAudit => Set<ZertifikatAuditDatensatz>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CoinDbContext).Assembly);

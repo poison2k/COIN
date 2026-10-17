@@ -136,13 +136,20 @@ export function testAuditEintrag(teil: Partial<AuditEintrag> = {}): AuditEintrag
   }
 }
 
+/** Zertifikatsnummer zu einem Exemplar im Format von zertifikat-erzeugen (AK-3), Kennung des Test-Coins C0042. */
+export function testZertifikatsnummer(exemplar: number, kennung = 'C0042'): string {
+  return `${kennung}-${String(exemplar).padStart(4, '0')}`
+}
+
 /**
  * Synthetische Ausgabe (coin-ausgaben, Abschnitt 5.2; keine echten Personendaten). Ohne Angabe aktiv, Exemplar Nr. 1.
+ * Seit zertifikat-erzeugen (Abschnitt 5.3) mit `zertifikatsnummer` (aus der Exemplar-Nummer gebildet).
  */
 export function testAusgabe(teil: Partial<Ausgabe> = {}): Ausgabe {
   return {
     id: '0199a1b2-0000-7000-8000-00000000e001',
-    exemplarNummer: 1,
+    exemplarNummer: teil.exemplarNummer ?? 1,
+    zertifikatsnummer: testZertifikatsnummer(teil.exemplarNummer ?? 1),
     empfaenger: { name: 'Max Beispiel', dienstgrad: 'Hauptmann', dienststelle: 'Beispielbataillon 1' },
     datum: '2026-10-01',
     gelegenheit: 'Truppenbesuch',
@@ -162,6 +169,16 @@ export function ausgabeKonfliktAntwort(
 ): Response {
   const title = code === 'auflage_zu_klein' ? 'Änderung nicht möglich' : 'Ausgabe nicht möglich'
   return problemAntwort(409, { title, code, detail })
+}
+
+/** Antwort 409 beim Zertifikat-Download (zertifikat-erzeugen, Abschnitt 5.2). */
+export function zertifikatKonfliktAntwort(
+  code: 'ausgabe_storniert' | 'vorlage_zu_viele_platzhalter',
+  detail = code === 'ausgabe_storniert'
+    ? 'Für eine stornierte Ausgabe kann kein Zertifikat heruntergeladen werden.'
+    : 'Die aktive Vorlage enthält mehr als 200 Platzhalter. Bitte eine angepasste Vorlage hochladen.',
+): Response {
+  return problemAntwort(409, { title: 'Zertifikat nicht möglich', code, detail })
 }
 
 /** Antwort 403 laut AK-6 (ProblemDetails mit code). */
@@ -213,6 +230,8 @@ function bodyVon(init: RequestInit | undefined): unknown {
  * GET /api/me → 200 mit `optionen.me` bzw. 401 ohne angemeldeten Benutzer (anmeldung-keycloak).
  * coin-ausgaben: GET …/exemplare (Kennzahlen aus Auflage und aktiven Ausgaben), GET/POST …/ausgaben,
  * POST …/ausgaben/{id}/storno, PUT …/auflage mit den 409-Fällen aus AK-8, AK-12 und AK-17.
+ * zertifikat-erzeugen: GET …/ausgaben/{id} (404 „Ausgabe nicht gefunden“) und GET …/ausgaben/{id}/zertifikat
+ * (DOCX `Zertifikat_{Nummer}.docx`, 409 `ausgabe_storniert` bei stornierten Ausgaben).
  * Mit `einmal(...)` lässt sich die nächste passende Antwort überschreiben.
  */
 export function erstelleFakeApi(
@@ -332,6 +351,18 @@ export function erstelleFakeApi(
       }
       return problemAntwort(404)
     }
+    // zertifikat-erzeugen (Abschnitt 5.1): eine Ausgabe lesen, Zertifikat herunterladen (409 bei Storno).
+    const einzelneAusgabe = /^\/api\/coins\/([^/]+)\/ausgaben\/([^/]+)(\/zertifikat)?$/.exec(anfrage.pfad)
+    if (anfrage.methode === 'GET' && einzelneAusgabe && decodeURIComponent(einzelneAusgabe[2]) !== 'neu') {
+      const coinId = decodeURIComponent(einzelneAusgabe[1])
+      const ausgabe = coins.some((c) => c.id === coinId)
+        ? (ausgaben[coinId] ?? []).find((a) => a.id === decodeURIComponent(einzelneAusgabe[2]))
+        : undefined
+      if (!ausgabe) return problemAntwort(404, { title: 'Ausgabe nicht gefunden' })
+      if (!einzelneAusgabe[3]) return jsonAntwort(200, structuredClone(ausgabe))
+      if (ausgabe.storno) return zertifikatKonfliktAntwort('ausgabe_storniert')
+      return docxAntwort(`Zertifikat_${ausgabe.zertifikatsnummer}.docx`, `PK-zertifikat-${ausgabe.zertifikatsnummer}`)
+    }
     // coin-ausgaben (Abschnitt 5): Exemplare, Historie, Erfassen, Storno, Auflage ändern.
     const ausgabenPfad = /^\/api\/coins\/([^/]+)\/(exemplare|ausgaben|auflage)$/.exec(anfrage.pfad)
     const stornoPfad = /^\/api\/coins\/([^/]+)\/ausgaben\/([^/]+)\/storno$/.exec(anfrage.pfad)
@@ -392,6 +423,7 @@ export function erstelleFakeApi(
         const ausgabe: Ausgabe = {
           id: `0199a1b2-0000-7000-8000-${String(zaehler).padStart(12, 'e')}`,
           exemplarNummer: nummer,
+          zertifikatsnummer: testZertifikatsnummer(nummer),
           empfaenger: {
             name: text(daten.empfaengerName) ?? '',
             dienstgrad: text(daten.empfaengerDienstgrad),

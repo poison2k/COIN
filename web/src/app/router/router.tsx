@@ -12,6 +12,7 @@ import { StartSeite } from '@/pages/start'
 import { ROUTEN } from '@/shared/config'
 import { Fehler, NichtGefunden } from './Fehlerseiten'
 import {
+  AusgabeDetailRoute,
   AusgabeErfassenRoute,
   BenutzerverwaltungRoute,
   CoinAnlegenRoute,
@@ -87,6 +88,16 @@ const coinAusgabeNeuRoute = createRoute({
   },
   component: AusgabeErfassenRoute,
 })
+// Geschwister der Detailseite, nur mit issues.read (zertifikat-erzeugen, AK-27). „neu“ ist als statisches Segment
+// der Erfassen-Seite vorrangig; andere Ids ohne GUID-Format behandelt die Seite als „Ausgabe nicht gefunden“.
+const ausgabeDetailRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: ROUTEN.ausgabeDetail,
+  beforeLoad: async ({ context, location }) => {
+    erfordertBerechtigung('issues.read')(await context.schutz(), location.href)
+  },
+  component: AusgabeDetailRoute,
+})
 // Geschwister der Detailseite, nur mit coins.write (zertifikatsvorlagen, AK-26).
 const coinBearbeitenRoute = createRoute({
   getParentRoute: () => shellRoute,
@@ -132,6 +143,7 @@ const routenBaum = wurzel.addChildren([
     coinNeuRoute,
     coinDetailRoute,
     coinAusgabeNeuRoute,
+    ausgabeDetailRoute,
     coinBearbeitenRoute,
     abgemeldetRoute,
     keinZugriffRoute,

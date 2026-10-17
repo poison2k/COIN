@@ -4,6 +4,7 @@ import type { Ausgabe } from '@/entities/ausgabe'
 import type { Coin } from '@/entities/coin'
 import { hatBerechtigung } from '@/entities/benutzer'
 import type { ExemplarStatus } from '@/entities/exemplar'
+import { AusgabeDetailSeite } from '@/pages/ausgabe-detail'
 import { AusgabeErfassenSeite } from '@/pages/ausgabe-erfassen'
 import { RueckrufSeite } from '@/pages/anmeldung-rueckruf'
 import { BenutzerverwaltungSeite } from '@/pages/benutzerverwaltung'
@@ -43,6 +44,7 @@ const katalogApi = getRouteApi('/shell/coins')
 const coinDetailApi = getRouteApi('/shell/coins/$coinId')
 const keinZugriffApi = getRouteApi('/shell/kein-zugriff')
 const ausgabeNeuApi = getRouteApi('/shell/coins/$coinId/ausgaben/neu')
+const ausgabeDetailApi = getRouteApi('/shell/coins/$coinId/ausgaben/$ausgabeId')
 const coinBearbeitenApi = getRouteApi('/shell/coins/$coinId/bearbeiten')
 
 /** Katalog: Suche und Seite stehen in der URL (katalog-seiten, AK-14); eine neue Suche beginnt auf Seite 1. */
@@ -189,6 +191,23 @@ export function AusgabeErfassenRoute() {
 
   return hatBerechtigung(benutzer, 'issues.write') ? (
     <AusgabeErfassenSeite coinId={coinId} onErfasst={onErfasst} />
+  ) : null
+}
+
+/**
+ * Seite „Ausgabe“ nur mit issues.read (zertifikat-erzeugen, AK-27); der Download nur mit issues.write (AK-29). Ohne
+ * issues.read (z. B. nach Deaktivierung) leer, damit kein Request auf …/ausgaben entsteht.
+ */
+export function AusgabeDetailRoute() {
+  const { coinId, ausgabeId } = ausgabeDetailApi.useParams()
+  const { benutzer } = useBenutzerKontext()
+  return hatBerechtigung(benutzer, 'issues.read') ? (
+    <AusgabeDetailSeite
+      key={`${coinId}/${ausgabeId}`}
+      coinId={coinId}
+      ausgabeId={ausgabeId}
+      darfZertifikat={hatBerechtigung(benutzer, 'issues.write')}
+    />
   ) : null
 }
 

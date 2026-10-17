@@ -16,11 +16,18 @@ internal sealed class CoinKatalogRepository(CoinDbContext db) : ICoinKatalogRepo
             .FromSql($"SELECT * FROM coin_typ WHERE lower(name) = lower({name}) AND lower(herausgeber) = lower({herausgeber})")
             .AnyAsync(ct);
 
+    /// <summary>Nächste Kennung aus <c>coin_kennung_seq</c> (ADR-0027 Punkt 2); nicht zurückgerollt, Lücken sind zulässig.</summary>
+    public async Task<string?> KennungVergebenAsync(CancellationToken ct) =>
+        await db.Database.SqlQuery<string>($"SELECT coin_kennung_neu() AS \"Value\"").SingleAsync(ct);
+
     public async Task<bool> HinzufuegenAsync(CoinTyp coin, CancellationToken ct)
     {
         var datensatz = new CoinTypDatensatz
         {
             Id = coin.Id,
+            // Normalfall: vom Katalog vorab vergeben (KennungVergebenAsync). Absicherung, falls ein Aufrufer ohne Kennung
+            // speichert: Dann vergibt der Spalten-Default coin_kennung_neu(), EF liest sie per RETURNING zurück.
+            Kennung = coin.Kennung,
             Name = coin.Name,
             Herausgeber = coin.Herausgeber,
             Auflage = coin.Auflage,
@@ -54,6 +61,12 @@ internal sealed class CoinKatalogRepository(CoinDbContext db) : ICoinKatalogRepo
         }
 
         await transaktion.CommitAsync(ct);
+        // Absicherung (siehe oben): die per Default vergebene Kennung in den Domain-Coin übernehmen.
+        if (coin.Kennung is null && datensatz.Kennung is { } vergeben)
+        {
+            coin.KennungSetzen(vergeben);
+        }
+
         return true;
     }
 

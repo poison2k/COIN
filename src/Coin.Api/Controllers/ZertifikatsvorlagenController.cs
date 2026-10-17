@@ -5,7 +5,6 @@ using Coin.Domain.Benutzer;
 using Coin.Domain.Vorlagen;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Net.Http.Headers;
 
 namespace Coin.Api.Controllers;
 
@@ -22,7 +21,6 @@ public sealed class ZertifikatsvorlagenController(ZertifikatsvorlageService serv
     /// <summary>Wie beim Motivbild: Kestrel-Grenze über der eigenen Grenze, damit die Aktion selbst mit 413 antwortet.</summary>
     private const long KestrelUploadLimitBytes = 32L * 1024 * 1024;
 
-    private const string DocxContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     private const string DateiFeld = "datei";
     private const string CoinRoute = "/api/coins/{id:guid}/zertifikatsvorlage";
 
@@ -97,15 +95,8 @@ public sealed class ZertifikatsvorlagenController(ZertifikatsvorlageService serv
         _ => throw new InvalidOperationException("Unbekanntes Ergebnis beim Download."),
     };
 
-    /// <summary>Download-Härtung (AK-6, ADR-0024 Punkt 4): nie inline, kein Sniffing, Sandbox; Name nur aus ASCII ohne Eingaben.</summary>
-    private FileContentResult Download(byte[] inhalt, string dateiname)
-    {
-        var headers = Response.Headers;
-        headers[HeaderNames.XContentTypeOptions] = "nosniff";
-        headers[HeaderNames.ContentSecurityPolicy] = "default-src 'none'; sandbox";
-        headers[HeaderNames.ContentDisposition] = $"attachment; filename=\"{dateiname}\"";
-        return File(inhalt, DocxContentType);
-    }
+    /// <summary>Download-Härtung (AK-6, ADR-0024 Punkt 4) über den gemeinsamen Helfer <see cref="DateiDownload"/>.</summary>
+    private FileContentResult Download(byte[] inhalt, string dateiname) => this.Docx(inhalt, dateiname);
 
     private ActionResult DateiFehler(params string[] meldungen) =>
         this.Validierungsfehler(new Dictionary<string, string[]> { [DateiFeld] = meldungen });

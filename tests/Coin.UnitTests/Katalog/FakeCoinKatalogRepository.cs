@@ -23,6 +23,21 @@ internal sealed class FakeCoinKatalogRepository : ICoinKatalogRepository
 
     public int AnzahlBildSpeichernAufrufe { get; private set; }
 
+    private int _naechsteKennung = 1;
+
+    /// <summary>Anzahl der Aufrufe von <see cref="KennungVergebenAsync"/>.</summary>
+    public int AnzahlKennungVergebenAufrufe { get; private set; }
+
+    /// <summary>
+    /// zertifikat-erzeugen (AK-1): vergibt aufsteigende Kennungen <c>C0001</c>, <c>C0002</c>, … wie die Sequenz
+    /// <c>coin_kennung_seq</c>; jeder Aufruf verbraucht eine Nummer (auch wenn der Coin danach abgelehnt wird).
+    /// </summary>
+    public Task<string?> KennungVergebenAsync(CancellationToken ct)
+    {
+        AnzahlKennungVergebenAufrufe++;
+        return Task.FromResult<string?>($"C{_naechsteKennung++:D4}");
+    }
+
     public Task<bool> ExistiertAsync(string name, string herausgeber, CancellationToken ct) =>
         Task.FromResult(_coins.Any(c =>
             string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase) &&

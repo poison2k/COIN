@@ -7,11 +7,21 @@ namespace Coin.Infrastructure.Persistenz;
 
 internal sealed class CoinTypKonfiguration : IEntityTypeConfiguration<CoinTypDatensatz>
 {
+    /// <summary>Eindeutiger Index der Kennung (zertifikat-erzeugen AK-1).</summary>
+    public const string IndexKennung = "ux_coin_typ_kennung";
+
+    /// <summary>Funktion für den Spalten-Default; vergibt die Kennung aus <c>coin_kennung_seq</c> (ADR-0027 Punkt 2).</summary>
+    public const string KennungFunktion = "coin_kennung_neu()";
+
     public void Configure(EntityTypeBuilder<CoinTypDatensatz> builder)
     {
-        builder.ToTable("coin_typ", t => t.HasCheckConstraint(
-            "ck_coin_typ_auflage",
-            $"auflage IS NULL OR auflage BETWEEN {CoinTyp.AuflageMin} AND {CoinTyp.AuflageMax}"));
+        builder.ToTable("coin_typ", t =>
+        {
+            t.HasCheckConstraint(
+                "ck_coin_typ_auflage",
+                $"auflage IS NULL OR auflage BETWEEN {CoinTyp.AuflageMin} AND {CoinTyp.AuflageMax}");
+            t.HasCheckConstraint("ck_coin_typ_kennung", "kennung ~ '^C[0-9]{4,}$'");
+        });
 
         builder.HasKey(c => c.Id);
         builder.Property(c => c.Id).ValueGeneratedNever();
@@ -19,6 +29,8 @@ internal sealed class CoinTypKonfiguration : IEntityTypeConfiguration<CoinTypDat
         builder.Property(c => c.Herausgeber).HasMaxLength(CoinTyp.HerausgeberMaxLaenge).IsRequired();
         builder.Property(c => c.Beschreibung).HasMaxLength(CoinTyp.BeschreibungMaxLaenge);
         builder.Property(c => c.ErstelltAm).HasColumnType("timestamp with time zone").IsRequired();
+        builder.Property(c => c.Kennung).HasMaxLength(CoinKennung.MaxLaenge).IsRequired().HasDefaultValueSql(KennungFunktion);
+        builder.HasIndex(c => c.Kennung).IsUnique().HasDatabaseName(IndexKennung);
 
         // Eindeutiger Index auf (lower(name), lower(herausgeber)) wird in der Migration per SQL angelegt.
         builder.HasOne(c => c.Bild)

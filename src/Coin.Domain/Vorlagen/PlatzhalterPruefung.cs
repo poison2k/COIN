@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Coin.Domain.Zertifikate;
 
 namespace Coin.Domain.Vorlagen;
 
@@ -9,6 +10,8 @@ namespace Coin.Domain.Vorlagen;
 /// Eine leere Liste bedeutet „bestanden“. Platzhalter gelten streng nach Schreibweise (F9).
 /// Die Prüfung läuft linear zur Textlänge (ein Durchlauf je Absatz, keine regulären Ausdrücke) und speichert je
 /// Meldung höchstens <see cref="MaxWerteJeMeldung"/> Werte; weitere Vorkommen werden nur gezählt (Rev. 3, W3).
+/// Neue Uploads dürfen höchstens <see cref="PlatzhalterErsetzung.MaxVorkommen"/> bekannte Platzhalter enthalten
+/// (zertifikat-erzeugen AK-14, F11); die Meldung dazu steht nach den übrigen.
 /// </summary>
 public static class PlatzhalterPruefung
 {
@@ -17,6 +20,10 @@ public static class PlatzhalterPruefung
 
     /// <summary>Höchstzahl der Werte je Meldung; weitere werden als „und {n} weitere“ zusammengefasst.</summary>
     public const int MaxWerteJeMeldung = 20;
+
+    /// <summary>Meldung bei mehr als <see cref="PlatzhalterErsetzung.MaxVorkommen"/> Platzhaltern (AK-14).</summary>
+    public static readonly string ZuVieleMeldung =
+        $"Die Vorlage enthält mehr als {PlatzhalterErsetzung.MaxVorkommen} Platzhalter. Bitte die Anzahl verringern.";
 
     private static readonly CultureInfo Deutsch = CultureInfo.GetCultureInfo("de-DE");
 
@@ -30,10 +37,11 @@ public static class PlatzhalterPruefung
         var gefunden = new HashSet<string>(StringComparer.Ordinal);
         var unbekannt = new Werteliste();
         var unvollstaendig = new Werteliste();
+        long vorkommen = 0;
 
         foreach (var absatz in absatztexte)
         {
-            Zerlegen(absatz ?? string.Empty, bekannt, gefunden, unbekannt, unvollstaendig);
+            vorkommen += Zerlegen(absatz ?? string.Empty, bekannt, gefunden, unbekannt, unvollstaendig);
         }
 
         var meldungen = new List<string>();
@@ -53,18 +61,24 @@ public static class PlatzhalterPruefung
             meldungen.Add($"Unvollständige Platzhalter: {unvollstaendig.Text(w => $"„{w}“")}.");
         }
 
+        if (vorkommen > PlatzhalterErsetzung.MaxVorkommen)
+        {
+            meldungen.Add(ZuVieleMeldung);
+        }
+
         return meldungen;
     }
 
     /// <summary>
     /// Sucht in einem Absatz vollständige, unbekannte und unvollständige Platzhalter in einem Durchlauf: Jede Stelle
-    /// des Texts wird höchstens einmal betrachtet.
+    /// des Texts wird höchstens einmal betrachtet. Liefert die Zahl der bekannten Platzhalter.
     /// </summary>
-    private static void Zerlegen(
+    private static int Zerlegen(
         string text, HashSet<string> bekannt, HashSet<string> gefunden, Werteliste unbekannt, Werteliste unvollstaendig)
     {
         var position = 0;
         var i = 0;
+        var anzahl = 0;
         while (i + 1 < text.Length)
         {
             if (text[i] == '}' && text[i + 1] == '}')
@@ -97,13 +111,14 @@ public static class PlatzhalterPruefung
             {
                 // „{{“ ohne folgendes „}}“: Ausschnitt bis zum Absatzende.
                 unvollstaendig.Merken(text.AsSpan(auf));
-                return;
+                return anzahl;
             }
 
             var platzhalter = text.AsSpan(auf, ende + 2 - auf);
             if (platzhalter.Length <= LaengsterBekannter && bekannt.Contains(platzhalter.ToString()))
             {
                 gefunden.Add(platzhalter.ToString());
+                anzahl++;
             }
             else
             {
@@ -113,6 +128,8 @@ public static class PlatzhalterPruefung
             i = ende + 2;
             position = i;
         }
+
+        return anzahl;
     }
 
     /// <summary>

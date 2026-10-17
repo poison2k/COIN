@@ -180,9 +180,10 @@ export function dateinameAusContentDisposition(header: string | null): string | 
 /**
  * Lädt eine Datei per `fetch` mit Bearer-Token wie `sende` und liefert sie als Blob samt Dateiname aus
  * `Content-Disposition` (zertifikatsvorlagen, AK-30). Das Token steht nie in der URL. Fehler werden wie bei
- * `bildeAb` abgebildet; 403 `benutzer_deaktiviert` löst die Deaktiviert-Reaktion aus.
+ * `bildeAb` abgebildet (mit `optionen`, z. B. `konfliktDetail`); 403 `benutzer_deaktiviert` löst die
+ * Deaktiviert-Reaktion aus.
  */
-export async function ladeDatei(url: string): Promise<ApiErgebnis<Datei>> {
+export async function ladeDatei(url: string, optionen: SendeOptionen = {}): Promise<ApiErgebnis<Datei>> {
   try {
     const headers = new Headers()
     const token = await holeToken()
@@ -193,7 +194,7 @@ export async function ladeDatei(url: string): Promise<ApiErgebnis<Datei>> {
       const dateiname = dateinameAusContentDisposition(antwort.headers.get('Content-Disposition'))
       return { art: 'ok', daten: { blob: await antwort.blob(), dateiname } }
     }
-    const ergebnis = await bildeAb<Datei>(antwort, [])
+    const ergebnis = await bildeAb<Datei>(antwort, [], optionen)
     if (ergebnis.art === 'keinZugriff' && ergebnis.grund === 'deaktiviert') beiDeaktiviert?.()
     return ergebnis
   } catch {

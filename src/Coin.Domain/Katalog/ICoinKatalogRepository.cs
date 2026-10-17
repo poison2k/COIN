@@ -7,6 +7,13 @@ public interface ICoinKatalogRepository
     /// <summary>Prüft ohne Beachtung von Groß-/Kleinschreibung, ob Name und Herausgeber schon vergeben sind.</summary>
     Task<bool> ExistiertAsync(string name, string herausgeber, CancellationToken ct);
 
+    /// <summary>
+    /// Vergibt die nächste Coin-Kennung aus der Sequenz (zertifikat-erzeugen AK-1, ADR-0027 Punkt 2). Der Katalog ruft das
+    /// vor der Duplikatprüfung auf, damit jeder gültige Anlegeversuch genau eine Nummer verbraucht; ein abgelehntes
+    /// Duplikat hinterlässt eine Lücke (zulässig). <c>null</c> = keine Vorabvergabe; die Kennung entsteht dann beim Einfügen.
+    /// </summary>
+    Task<string?> KennungVergebenAsync(CancellationToken ct);
+
     /// <summary>Speichert einen neuen Coin. <c>false</c>, wenn der eindeutige Index verletzt wurde (Duplikat).</summary>
     Task<bool> HinzufuegenAsync(CoinTyp coin, CancellationToken ct);
 

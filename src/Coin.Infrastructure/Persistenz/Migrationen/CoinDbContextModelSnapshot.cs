@@ -147,6 +147,12 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                         .HasColumnType("character varying(500)")
                         .HasColumnName("storno_grund");
 
+                    b.Property<string>("Zertifikatsnummer")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("zertifikatsnummer");
+
                     b.HasKey("Id")
                         .HasName("pk_ausgabe");
 
@@ -166,6 +172,11 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                     b.HasIndex(new[] { "CoinId", "ExemplarNummer" }, "ux_ausgabe_exemplar_aktiv")
                         .IsUnique()
                         .HasDatabaseName("ux_ausgabe_exemplar_aktiv")
+                        .HasFilter("storniert_am IS NULL");
+
+                    b.HasIndex(new[] { "Zertifikatsnummer" }, "ux_ausgabe_zertifikatsnummer_aktiv")
+                        .IsUnique()
+                        .HasDatabaseName("ux_ausgabe_zertifikatsnummer_aktiv")
                         .HasFilter("storniert_am IS NULL");
 
                     b.ToTable("ausgabe", null, t =>
@@ -359,6 +370,14 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                         .HasColumnType("character varying(200)")
                         .HasColumnName("herausgeber");
 
+                    b.Property<string>("Kennung")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("kennung")
+                        .HasDefaultValueSql("coin_kennung_neu()");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -368,9 +387,15 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                     b.HasKey("Id")
                         .HasName("pk_coin_typ");
 
+                    b.HasIndex("Kennung")
+                        .IsUnique()
+                        .HasDatabaseName("ux_coin_typ_kennung");
+
                     b.ToTable("coin_typ", null, t =>
                         {
                             t.HasCheckConstraint("ck_coin_typ_auflage", "auflage IS NULL OR auflage BETWEEN 1 AND 1000000");
+
+                            t.HasCheckConstraint("ck_coin_typ_kennung", "kennung ~ '^C[0-9]{4,}$'");
                         });
                 });
 
@@ -437,6 +462,59 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                     b.ToTable("vorlage_audit", null, t =>
                         {
                             t.HasCheckConstraint("ck_vorlage_audit_art", "(art = 'Hochgeladen' AND version IS NOT NULL AND vorherige_version IS NULL) OR (art = 'Ersetzt' AND version IS NOT NULL AND vorherige_version IS NOT NULL) OR (art = 'Zurueckgesetzt' AND version IS NULL AND vorherige_version IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.ZertifikatAuditDatensatz", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AkteurId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("akteur_id");
+
+                    b.Property<string>("Art")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("character varying(15)")
+                        .HasColumnName("art");
+
+                    b.Property<Guid>("AusgabeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ausgabe_id");
+
+                    b.Property<Guid>("CoinId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("coin_id");
+
+                    b.Property<int?>("VorlageVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("vorlage_version");
+
+                    b.Property<DateTimeOffset>("Zeitpunkt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("zeitpunkt");
+
+                    b.Property<string>("Zertifikatsnummer")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("zertifikatsnummer");
+
+                    b.HasKey("Id")
+                        .HasName("pk_zertifikat_audit");
+
+                    b.HasIndex("AkteurId")
+                        .HasDatabaseName("ix_zertifikat_audit_akteur_id");
+
+                    b.HasIndex("AusgabeId")
+                        .HasDatabaseName("ix_zertifikat_audit_ausgabe");
+
+                    b.ToTable("zertifikat_audit", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_zertifikat_audit_art", "art = 'Heruntergeladen'");
                         });
                 });
 
@@ -593,6 +671,23 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_vorlage_audit_coin_typ_coin_id");
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.ZertifikatAuditDatensatz", b =>
+                {
+                    b.HasOne("Coin.Infrastructure.Persistenz.BenutzerDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("AkteurId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_zertifikat_audit_benutzer_akteur_id");
+
+                    b.HasOne("Coin.Infrastructure.Persistenz.AusgabeDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("AusgabeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_zertifikat_audit_ausgabe_ausgabe_id");
                 });
 
             modelBuilder.Entity("Coin.Infrastructure.Persistenz.ZertifikatVorlageDatensatz", b =>

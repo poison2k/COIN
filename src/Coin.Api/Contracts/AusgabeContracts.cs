@@ -89,6 +89,7 @@ public sealed record StornoResponse(DateTimeOffset Am, AkteurResponse Von, strin
 public sealed record AusgabeResponse(
     Guid Id,
     int ExemplarNummer,
+    string Zertifikatsnummer,
     EmpfaengerResponse Empfaenger,
     DateOnly Datum,
     string Gelegenheit,
@@ -105,6 +106,7 @@ public sealed record AusgabeResponse(
         return new AusgabeResponse(
             a.Id,
             a.ExemplarNummer,
+            a.Zertifikatsnummer,
             new EmpfaengerResponse(g.EmpfaengerName, g.EmpfaengerDienstgrad, g.EmpfaengerDienststelle),
             g.Datum,
             g.Gelegenheit,

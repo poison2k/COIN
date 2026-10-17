@@ -90,9 +90,10 @@ public class AusgabeDatenbankTests(PostgresFixture fixture) : AusgabenTestBasis(
 
         var fehler = await AusgabeDb.RohAusfuehrenAsync(
             $"""
-            INSERT INTO ausgabe (id, coin_id, exemplar_nummer, empfaenger_name, datum, gelegenheit, begruendung,
-                                 ausgebende_stelle, erfasst_am, erfasst_von, storniert_am)
-            VALUES (gen_random_uuid(), '{coinId}', 1, 'Test', DATE '2026-10-01', 'G', 'B', 'S', now(), '{adminId}', now())
+            INSERT INTO ausgabe (id, coin_id, exemplar_nummer, zertifikatsnummer, empfaenger_name, datum, gelegenheit,
+                                 begruendung, ausgebende_stelle, erfasst_am, erfasst_von, storniert_am)
+            VALUES (gen_random_uuid(), '{coinId}', 1, 'T-Check-0001', 'Test', DATE '2026-10-01', 'G', 'B', 'S', now(),
+                    '{adminId}', now())
             """);
 
         Assert.Equal(PostgresErrorCodes.CheckViolation, SqlState(fehler));

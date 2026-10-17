@@ -96,6 +96,9 @@ public partial class EndpunktInventarTests(PostgresFixture fixture) : Integratio
     [InlineData("GET /api/coins/{id}/ausgaben", "issues.read")]
     [InlineData("POST /api/coins/{id}/ausgaben", "issues.write")]
     [InlineData("POST /api/coins/{id}/ausgaben/{ausgabeId}/storno", "issues.write")]
+    // zertifikat-erzeugen (Abschnitt 5.1, AK-19, AK-22): Ausgabe lesen und Zertifikat herunterladen.
+    [InlineData("GET /api/coins/{id}/ausgaben/{ausgabeId}", "issues.read")]
+    [InlineData("GET /api/coins/{id}/ausgaben/{ausgabeId}/zertifikat", "issues.write")]
     public void Endpunkte_der_Coin_Ausgaben_verlangen_ihre_Policy_und_sind_nicht_anonym(string name, string policy)
     {
         // coin-ausgaben AK-15, AK-32 (ADR-0021 Punkt 2 und 5).

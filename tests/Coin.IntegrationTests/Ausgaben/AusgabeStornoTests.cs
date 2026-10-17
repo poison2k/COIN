@@ -88,7 +88,8 @@ public class AusgabeStornoTests(PostgresFixture fixture) : AusgabenTestBasis(fix
 
         var nachher = await StornierenAsync(coinId, vorher.GetProperty("id").GetGuid());
 
-        foreach (var feld in new[] { "id", "exemplarNummer", "empfaenger", "datum", "gelegenheit", "begruendung", "ausgebendeStelle", "erfasstAm", "erfasstVon" })
+        // zertifikat-erzeugen (AK-5): auch die Zertifikatsnummer bleibt beim Storno unverändert.
+        foreach (var feld in new[] { "id", "exemplarNummer", "zertifikatsnummer", "empfaenger", "datum", "gelegenheit", "begruendung", "ausgebendeStelle", "erfasstAm", "erfasstVon" })
         {
             Assert.Equal(vorher.GetProperty(feld).GetRawText(), nachher.GetProperty(feld).GetRawText());
         }
@@ -299,15 +300,8 @@ public class AusgabeStornoTests(PostgresFixture fixture) : AusgabenTestBasis(fix
         Assert.Equal("Max Beispiel", Assert.Single(await AusgabeDb.AusgabenAsync()).EmpfaengerName);
     }
 
-    [Fact]
-    public async Task Es_gibt_keinen_Einzelabruf_einer_Ausgabe()
-    {
-        var (coinId, ausgabeId) = await AusgabeAsync();
-
-        using var antwort = await Client.GetAsync($"{AusgabenUrl(coinId)}/{ausgabeId}");
-
-        Assert.Contains(antwort.StatusCode, new[] { HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed });
-    }
+    // zertifikat-erzeugen (AK-22): Der Einzelabruf GET …/ausgaben/{ausgabeId} ist jetzt vorgesehen; abgedeckt in
+    // ZertifikatDownloadTests (Format, 404) und ZertifikatRechteTests (Rollen, 403 vor 404).
 
     [Fact]
     public async Task Storno_Antwort_ist_JSON_der_Ausgabe()

@@ -26,7 +26,11 @@ internal sealed class AusgabeRepository(CoinDbContext db) : IAusgabeRepository
                 return null;
             }
 
-            return new CoinSperre(db, transaktion, coinId, zeilen[0]);
+            // Die Kennung ist unveränderlich (Trigger); gelesen unter derselben Sperre (zertifikat-erzeugen AK-3).
+            var kennung = await db.Database
+                .SqlQuery<string>($"SELECT kennung AS \"Value\" FROM coin_typ WHERE id = {coinId}")
+                .SingleAsync(ct);
+            return new CoinSperre(db, transaktion, coinId, zeilen[0], kennung);
         }
         catch
         {
@@ -120,23 +124,34 @@ internal sealed class AusgabeRepository(CoinDbContext db) : IAusgabeRepository
         return zeile is null ? null : Eintrag(zeile);
     }
 
+    public async Task<AusgabeEintrag?> FindenAsync(Guid coinId, Guid ausgabeId, CancellationToken ct)
+    {
+        var zeile = await Lesesicht(db.Ausgaben.AsNoTracking().Where(a => a.Id == ausgabeId && a.CoinId == coinId))
+            .FirstOrDefaultAsync(ct);
+        return zeile is null ? null : Eintrag(zeile);
+    }
+
     private static IQueryable<AusgabeZeile> Lesesicht(IQueryable<AusgabeDatensatz> abfrage) =>
         abfrage.Select(a => new AusgabeZeile(
             a,
             a.Erfasser.Anzeigename,
             a.Stornierer != null ? a.Stornierer.Anzeigename : null));
 
-    private static AusgabeEintrag Eintrag(AusgabeZeile zeile)
+    private static AusgabeEintrag Eintrag(AusgabeZeile zeile) =>
+        Eintrag(zeile.Ausgabe, zeile.ErfasserName, zeile.StorniererName);
+
+    /// <summary>Lesesicht einer Ausgabe aus Datensatz und Akteursnamen (auch für <see cref="ZertifikatRepository"/>).</summary>
+    internal static AusgabeEintrag Eintrag(AusgabeDatensatz a, string erfasserName, string? storniererName)
     {
-        var a = zeile.Ausgabe;
         return new AusgabeEintrag(
             a.Id,
             a.ExemplarNummer,
+            a.Zertifikatsnummer,
             Angaben(a),
             a.ErfasstAm.ToUniversalTime(),
-            new Akteur(a.ErfasstVon, zeile.ErfasserName),
+            new Akteur(a.ErfasstVon, erfasserName),
             a is { StorniertAm: { } am, StorniertVon: { } von, StornoGrund: { } grund }
-                ? new StornoEintrag(am.ToUniversalTime(), new Akteur(von, zeile.StorniererName ?? string.Empty), grund)
+                ? new StornoEintrag(am.ToUniversalTime(), new Akteur(von, storniererName ?? string.Empty), grund)
                 : null);
     }
 
@@ -147,9 +162,12 @@ internal sealed class AusgabeRepository(CoinDbContext db) : IAusgabeRepository
     private sealed record AusgabeZeile(AusgabeDatensatz Ausgabe, string ErfasserName, string? StorniererName);
 
     /// <summary>Transaktion mit gesperrter Coin-Zeile; Entsorgen ohne Abschließen rollt zurück.</summary>
-    private sealed class CoinSperre(CoinDbContext db, IDbContextTransaction transaktion, Guid coinId, int? auflage) : ICoinSperre
+    private sealed class CoinSperre(CoinDbContext db, IDbContextTransaction transaktion, Guid coinId, int? auflage, string kennung)
+        : ICoinSperre
     {
         public int? Auflage { get; } = auflage;
+
+        public string Kennung { get; } = kennung;
 
         public async Task<int?> NaechsteFreieNummerAsync(CancellationToken ct)
         {
@@ -175,20 +193,27 @@ internal sealed class AusgabeRepository(CoinDbContext db) : IAusgabeRepository
         public async Task<bool> AusgabeHinzufuegenAsync(Ausgabe ausgabe, CancellationToken ct)
         {
             var g = ausgabe.Angaben;
+            var nummer = ausgabe.Zertifikatsnummer
+                ?? throw new InvalidOperationException("Eine Ausgabe ohne Zertifikatsnummer kann nicht gespeichert werden.");
             try
             {
                 await db.Database.ExecuteSqlInterpolatedAsync(
                     $"""
-                    INSERT INTO ausgabe (id, coin_id, exemplar_nummer, empfaenger_name, empfaenger_dienstgrad,
-                                         empfaenger_dienststelle, datum, gelegenheit, begruendung, ausgebende_stelle,
-                                         erfasst_am, erfasst_von)
-                    VALUES ({ausgabe.Id}, {ausgabe.CoinId}, {ausgabe.ExemplarNummer}, {g.EmpfaengerName},
+                    INSERT INTO ausgabe (id, coin_id, exemplar_nummer, zertifikatsnummer, empfaenger_name,
+                                         empfaenger_dienstgrad, empfaenger_dienststelle, datum, gelegenheit, begruendung,
+                                         ausgebende_stelle, erfasst_am, erfasst_von)
+                    VALUES ({ausgabe.Id}, {ausgabe.CoinId}, {ausgabe.ExemplarNummer}, {nummer}, {g.EmpfaengerName},
                             {g.EmpfaengerDienstgrad}, {g.EmpfaengerDienststelle}, {g.Datum}, {g.Gelegenheit},
                             {g.Begruendung}, {g.AusgebendeStelle}, {ausgabe.ErfasstAm}, {ausgabe.ErfasstVon})
                     """,
                     ct);
             }
-            catch (PostgresException ex) when (ex is { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: AusgabeKonfiguration.IndexAktiv })
+            // Beide partiellen Indizes trotz Sperre verletzt → 409 exemplar_ausgegeben, nie 500 (AK-4).
+            catch (PostgresException ex) when (ex is
+            {
+                SqlState: PostgresErrorCodes.UniqueViolation,
+                ConstraintName: AusgabeKonfiguration.IndexAktiv or AusgabeKonfiguration.IndexZertifikatsnummerAktiv,
+            })
             {
                 return false;
             }
@@ -208,7 +233,8 @@ internal sealed class AusgabeRepository(CoinDbContext db) : IAusgabeRepository
             var storno = a is { StorniertAm: { } am, StorniertVon: { } von, StornoGrund: { } grund }
                 ? new Storno(am, von, grund)
                 : null;
-            return Ausgabe.Wiederherstellen(a.Id, a.CoinId, a.ExemplarNummer, Angaben(a), a.ErfasstVon, a.ErfasstAm, storno);
+            return Ausgabe.Wiederherstellen(
+                a.Id, a.CoinId, a.ExemplarNummer, a.Zertifikatsnummer, Angaben(a), a.ErfasstVon, a.ErfasstAm, storno);
         }
 
         public async Task StornoSpeichernAsync(Ausgabe ausgabe, CancellationToken ct)

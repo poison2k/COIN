@@ -26,11 +26,19 @@ public sealed class Ausgabe
     public const int StornoGrundMaxLaenge = 500;
 
     private Ausgabe(
-        Guid id, Guid coinId, int exemplarNummer, AusgabeAngaben angaben, Guid erfasstVon, DateTimeOffset erfasstAm, Storno? storno)
+        Guid id,
+        Guid coinId,
+        int exemplarNummer,
+        string? zertifikatsnummer,
+        AusgabeAngaben angaben,
+        Guid erfasstVon,
+        DateTimeOffset erfasstAm,
+        Storno? storno)
     {
         Id = id;
         CoinId = coinId;
         ExemplarNummer = exemplarNummer;
+        Zertifikatsnummer = zertifikatsnummer;
         Angaben = angaben;
         ErfasstVon = erfasstVon;
         ErfasstAm = erfasstAm;
@@ -43,6 +51,12 @@ public sealed class Ausgabe
 
     public int ExemplarNummer { get; }
 
+    /// <summary>
+    /// Zertifikatsnummer <c>&lt;Kennung&gt;-&lt;Exemplar&gt;</c> (zertifikat-erzeugen AK-3, ADR-0027 Punkt 4), unter der Coin-Sperre
+    /// gebildet und danach unveränderlich. <c>null</c> nur bei Ausgaben, die ohne Nummer erzeugt wurden (nicht speicherbar).
+    /// </summary>
+    public string? Zertifikatsnummer { get; }
+
     public AusgabeAngaben Angaben { get; }
 
     public Guid ErfasstVon { get; }
@@ -51,18 +65,26 @@ public sealed class Ausgabe
 
     public Storno? Storno { get; private set; }
 
-    /// <summary>Neue Ausgabe; Nummer, Erfasser und Zeit kommen vom Server.</summary>
-    public static Ausgabe Erstellen(Guid coinId, int exemplarNummer, AusgabeAngaben angaben, Guid erfasstVon, DateTimeOffset erfasstAm)
+    /// <summary>Neue Ausgabe; Exemplar, Zertifikatsnummer, Erfasser und Zeit kommen vom Server.</summary>
+    public static Ausgabe Erstellen(
+        Guid coinId, int exemplarNummer, AusgabeAngaben angaben, Guid erfasstVon, DateTimeOffset erfasstAm, string? zertifikatsnummer = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(exemplarNummer, 1);
         ArgumentNullException.ThrowIfNull(angaben);
-        return new Ausgabe(Guid.CreateVersion7(), coinId, exemplarNummer, angaben, erfasstVon, erfasstAm, null);
+        return new Ausgabe(Guid.CreateVersion7(), coinId, exemplarNummer, zertifikatsnummer, angaben, erfasstVon, erfasstAm, null);
     }
 
     /// <summary>Stellt eine gespeicherte Ausgabe wieder her (nur für die Persistenz, ohne erneute Prüfung).</summary>
     public static Ausgabe Wiederherstellen(
-        Guid id, Guid coinId, int exemplarNummer, AusgabeAngaben angaben, Guid erfasstVon, DateTimeOffset erfasstAm, Storno? storno) =>
-        new(id, coinId, exemplarNummer, angaben, erfasstVon, erfasstAm, storno);
+        Guid id,
+        Guid coinId,
+        int exemplarNummer,
+        string zertifikatsnummer,
+        AusgabeAngaben angaben,
+        Guid erfasstVon,
+        DateTimeOffset erfasstAm,
+        Storno? storno) =>
+        new(id, coinId, exemplarNummer, zertifikatsnummer, angaben, erfasstVon, erfasstAm, storno);
 
     /// <summary>Storniert die Ausgabe (Grund Pflicht, höchstens 500 Zeichen nach dem Trimmen; nur einmal).</summary>
     public StornoErgebnis Stornieren(string? grund, Guid akteurId, DateTimeOffset jetzt)

@@ -18,6 +18,12 @@ public sealed class CoinKatalogService(ICoinKatalogRepository repository, TimePr
             return new CoinAnlegenErgebnis.Ungueltig(ergebnis.Fehler);
         }
 
+        // Kennung vor der Duplikatprüfung: Auch ein abgelehntes Duplikat verbraucht eine Nummer (AK-1, Lücken zulässig).
+        if (await repository.KennungVergebenAsync(ct) is { } kennung)
+        {
+            coin.KennungSetzen(kennung);
+        }
+
         // Vorabprüfung für eine klare Antwort; gleichzeitige Anfragen fängt der eindeutige Index ab.
         if (await repository.ExistiertAsync(coin.Name, coin.Herausgeber, ct)
             || !await repository.HinzufuegenAsync(coin, ct))

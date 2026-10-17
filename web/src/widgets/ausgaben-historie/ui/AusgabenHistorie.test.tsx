@@ -1,14 +1,17 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Ausgabe } from '@/entities/ausgabe'
 import { ausgabeKonfliktAntwort, erstelleFakeApi, testAusgabe, testCoin, type FakeApi } from '../../../../test/fakeApi'
 import { gibEin, meldungMit, seitentext } from '../../../../test/hilfen'
+import { zeigeMitRouter } from '../../../../test/router'
 import { AusgabenHistorie } from '../index'
 
 // Feature coin-ausgaben, AK-22 und AK-24: Widget „Ausgabehistorie“ mit Tabelle, Blättern (Seite lokal) und
 // „Stornieren“ je aktiver Zeile (Prop darfStornieren). Nach einer Änderung meldet es onGeaendert, damit die
 // Kennzahlen neu laden. Props { coinId, darfStornieren, onGeaendert }.
+// zertifikat-erzeugen (AK-24): Die Historie enthält jetzt Router-Links zur Ausgabe-Seite und rendert deshalb in einem
+// Memory-Router; darfZertifikat ist hier aus, die Zertifikat-Spalte prüft AusgabenHistorie.zertifikat.test.tsx.
 
 const COIN_ID = '0199a1b2-0000-7000-8000-0000000000d1'
 const GET = /^\/api\/coins\/[^/]+\/ausgaben$/
@@ -40,7 +43,14 @@ beforeEach(() => {
 
 function zeige(darfStornieren = true) {
   const user = userEvent.setup()
-  render(<AusgabenHistorie coinId={COIN_ID} darfStornieren={darfStornieren} onGeaendert={onGeaendert} />)
+  zeigeMitRouter(() => (
+    <AusgabenHistorie
+      coinId={COIN_ID}
+      darfStornieren={darfStornieren}
+      darfZertifikat={false}
+      onGeaendert={onGeaendert}
+    />
+  ))
   return { user }
 }
 

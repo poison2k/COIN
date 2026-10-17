@@ -39,13 +39,15 @@ public sealed class PostgresFixture : IAsyncLifetime
         var db = scope.ServiceProvider.GetRequiredService<CoinDbContext>();
         // coin-ausgaben (Abschnitt 4) und zertifikatsvorlagen (Abschnitt 6): die neuen Tabellen ausdrücklich mit
         // aufgeführt. Nur vorhandene Tabellen, damit die Tests auch vor der Migration „Zertifikatsvorlagen“ laufen.
+        // zertifikat-erzeugen (Abschnitt 6): zertifikat_audit ergänzt; die Sequenz coin_kennung_seq setzt TRUNCATE
+        // nicht zurück, Tests erwarten deshalb keine festen Kennungen.
         await db.Database.ExecuteSqlRawAsync(
             """
             DO $$
             DECLARE liste text;
             BEGIN
               SELECT string_agg(quote_ident(t), ', ') INTO liste
-              FROM unnest(ARRAY['vorlage_audit', 'zertifikat_vorlage', 'ausgabe_audit', 'ausgabe', 'exemplar', 'coin_typ', 'benutzer']) AS t
+              FROM unnest(ARRAY['zertifikat_audit', 'vorlage_audit', 'zertifikat_vorlage', 'ausgabe_audit', 'ausgabe', 'exemplar', 'coin_typ', 'benutzer']) AS t
               WHERE to_regclass(t) IS NOT NULL;
               EXECUTE 'TRUNCATE ' || liste || ' CASCADE';
             END $$;

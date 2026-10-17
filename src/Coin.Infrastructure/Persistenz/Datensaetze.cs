@@ -15,6 +15,12 @@ public sealed class CoinTypDatensatz
 
     public DateTimeOffset ErstelltAm { get; set; }
 
+    /// <summary>
+    /// Kennung <c>C0042</c> (zertifikat-erzeugen AK-1, ADR-0027). <c>null</c> beim Einfügen = Vergabe per Default
+    /// <c>coin_kennung_neu()</c>; die Spalte selbst ist Pflicht und per Trigger unveränderlich.
+    /// </summary>
+    public string? Kennung { get; set; }
+
     /// <summary>Aktive Version der Zertifikatsvorlage; <c>null</c> = Standardvorlage (ADR-0023 Punkt 3).</summary>
     public int? AktiveVorlageVersion { get; set; }
 
@@ -105,6 +111,9 @@ public sealed class AusgabeDatensatz
 
     public int ExemplarNummer { get; set; }
 
+    /// <summary>Zertifikatsnummer (zertifikat-erzeugen AK-3, ADR-0027 Punkt 4); eindeutig unter den aktiven Ausgaben.</summary>
+    public string Zertifikatsnummer { get; set; } = string.Empty;
+
     public string EmpfaengerName { get; set; } = string.Empty;
 
     public string? EmpfaengerDienstgrad { get; set; }
@@ -155,4 +164,28 @@ public sealed class AusgabeAuditDatensatz
     public string Art { get; set; } = string.Empty;
 
     public string? Grund { get; set; }
+}
+
+/// <summary>
+/// Persistenzmodell der Tabelle <c>zertifikat_audit</c> (zertifikat-erzeugen Abschnitt 6, ADR-0029): je erfolgreichem
+/// Download ein Eintrag, ohne Empfängerdaten und ohne Dateiinhalt; nur per SQL-INSERT, unveränderlich per Trigger.
+/// <see cref="VorlageVersion"/> <c>null</c> = Standardvorlage.
+/// </summary>
+public sealed class ZertifikatAuditDatensatz
+{
+    public Guid Id { get; set; }
+
+    public DateTimeOffset Zeitpunkt { get; set; }
+
+    public Guid AkteurId { get; set; }
+
+    public Guid AusgabeId { get; set; }
+
+    public Guid CoinId { get; set; }
+
+    public string Zertifikatsnummer { get; set; } = string.Empty;
+
+    public int? VorlageVersion { get; set; }
+
+    public string Art { get; set; } = string.Empty;
 }

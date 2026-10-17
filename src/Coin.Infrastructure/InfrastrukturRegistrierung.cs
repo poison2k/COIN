@@ -2,8 +2,10 @@ using Coin.Domain.Ausgaben;
 using Coin.Domain.Benutzer;
 using Coin.Domain.Katalog;
 using Coin.Domain.Vorlagen;
+using Coin.Domain.Zertifikate;
 using Coin.Infrastructure.Persistenz;
 using Coin.Infrastructure.Vorlagen;
+using Coin.Infrastructure.Zertifikate;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,11 +31,17 @@ public static class InfrastrukturRegistrierung
         services.AddScoped<IBenutzerRepository, BenutzerRepository>();
         services.AddScoped<IBenutzerverwaltungRepository, BenutzerverwaltungRepository>();
         services.AddScoped<IZertifikatsvorlageRepository, ZertifikatsvorlageRepository>();
+        services.AddScoped<IZertifikatRepository, ZertifikatRepository>();
 
         // Word-Vorlagen (ADR-0022, ADR-0024): zustandslos; die Standardvorlage wird je Prozess einmal erzeugt.
         services.AddSingleton<IDocxAnalyse, DocxAnalyse>();
         services.AddSingleton<IDocxBereinigung, DocxBereinigung>();
-        services.AddSingleton<IStandardvorlage, StandardvorlageErzeuger>();
+        services.AddSingleton<StandardvorlageErzeuger>();
+        services.AddSingleton<IStandardvorlage>(sp => sp.GetRequiredService<StandardvorlageErzeuger>());
+        services.AddSingleton<IStandardzertifikat>(sp => sp.GetRequiredService<StandardvorlageErzeuger>());
+
+        // Zertifikate (ADR-0028): prozessweit ein Erzeuger, damit die Grenze gleichzeitiger Erzeugungen greift (AK-16).
+        services.AddSingleton<IZertifikatErzeuger, ZertifikatErzeuger>();
         return services;
     }
 

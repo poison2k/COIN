@@ -4,6 +4,7 @@ using Coin.Domain.Ausgaben;
 using Coin.Domain.Benutzer;
 using Coin.Domain.Katalog;
 using Coin.Domain.Vorlagen;
+using Coin.Domain.Zertifikate;
 using Coin.Infrastructure;
 using Coin.Infrastructure.Persistenz;
 using Microsoft.AspNetCore.Cors.Infrastructure;
@@ -29,6 +30,9 @@ builder.Services.AddSingleton<IVorlagenProtokoll, VorlagenProtokoll>();
 builder.Services.AddSingleton(sp => new VorlagenAufbereitung(
     sp.GetRequiredService<IDocxAnalyse>(), sp.GetRequiredService<IDocxBereinigung>(), sp.GetRequiredService<IVorlagenProtokoll>()));
 builder.Services.AddScoped<ZertifikatsvorlageService>();
+// Zertifikate (zertifikat-erzeugen AK-17): feste Warnung ohne Inhalte; der Erzeuger selbst ist ein Singleton (AK-16).
+builder.Services.AddSingleton<IZertifikatProtokoll, ZertifikatProtokoll>();
+builder.Services.AddScoped<ZertifikatService>();
 builder.Services.AddUrlsNichtProtokollieren();
 builder.Services.AddInfrastruktur(builder.Configuration);
 

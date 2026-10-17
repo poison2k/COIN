@@ -180,6 +180,44 @@ public class StandardvorlageTests(PostgresFixture fixture) : VorlagenTestBasis(f
         Assert.Contains(fusszeilen, f => Text(DocxLeser.Xml(docx, f).Root!).Contains("{{Zertifikat.Nummer}}", StringComparison.Ordinal));
     }
 
+    // ---------- zertifikat-erzeugen AK-12 (F8): Dienststelle in einem eigenen Absatz ----------
+
+    [Fact]
+    public async Task Dienstgrad_und_Name_stehen_ohne_Dienststelle_in_einem_Absatz()
+    {
+        var (urkunde, _) = Abschnitte(await StandardvorlageAsync());
+
+        Assert.Contains(urkunde, absatz => Text(absatz) == "{{Empfaenger.Dienstgrad}} {{Empfaenger.Name}}");
+    }
+
+    [Fact]
+    public async Task Dienststelle_steht_allein_in_einem_eigenen_Absatz()
+    {
+        var (urkunde, _) = Abschnitte(await StandardvorlageAsync());
+
+        Assert.Single(urkunde, absatz => Text(absatz) == "{{Empfaenger.Dienststelle}}");
+    }
+
+    [Fact]
+    public async Task Dienststellen_Absatz_folgt_direkt_auf_den_Namens_Absatz()
+    {
+        var (urkunde, _) = Abschnitte(await StandardvorlageAsync());
+        var texte = urkunde.Where(e => e.Name == W + "p").Select(Text).ToList();
+
+        var name = texte.IndexOf("{{Empfaenger.Dienstgrad}} {{Empfaenger.Name}}");
+
+        Assert.True(name >= 0 && name + 1 < texte.Count, "Absatz mit Dienstgrad und Name fehlt.");
+        Assert.Equal("{{Empfaenger.Dienststelle}}", texte[name + 1]);
+    }
+
+    [Fact]
+    public async Task Vor_der_Dienststelle_steht_kein_Komma()
+    {
+        var docx = await StandardvorlageAsync();
+
+        Assert.DoesNotContain(DocxLeser.Absatztexte(docx), t => t.Contains(", {{Empfaenger.Dienststelle}}", StringComparison.Ordinal));
+    }
+
     // ---------- AK-4: Erläuterung ----------
 
     [Fact]
@@ -231,6 +269,8 @@ public class StandardvorlageTests(PostgresFixture fixture) : VorlagenTestBasis(f
     [InlineData("Coin.Name", "Name des Coins", "ja", "Einsatzkontingent Beispiel 2025")]
     [InlineData("Empfaenger.Name", "Name des Empfängers", "ja", "Max Beispiel")]
     [InlineData("Coin.Auflage", "Auflage des Coins", "nein", "500")]
+    // zertifikat-erzeugen Rev. 2 (Abschnitt 1.2): neues Beispiel der Zertifikatsnummer.
+    [InlineData("Zertifikat.Nummer", "Eindeutige Nummer des Zertifikats", "ja", "C0042-0012")]
     public async Task Erlaeuterungstabelle_zeigt_Bedeutung_Pflicht_und_Beispiel_aus_dem_Katalog(
         string name, string bedeutung, string pflicht, string beispiel)
     {

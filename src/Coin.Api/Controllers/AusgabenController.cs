@@ -9,7 +9,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Coin.Api.Controllers;
 
 /// <summary>
-/// Ausgaben eines Coins (coin-ausgaben AK-6 bis AK-14): Historie lesen (<c>issues.read</c>), erfassen und stornieren
+/// Ausgaben eines Coins (coin-ausgaben AK-6 bis AK-14, zertifikat-erzeugen AK-22): Historie und einzelne Ausgabe lesen
+/// (<c>issues.read</c>), erfassen und stornieren
 /// (<c>issues.write</c>). Antworten enthalten Personendaten und werden nicht zwischengespeichert. Keine Logik hier,
 /// nur Abbildung auf <see cref="AusgabeService"/>.
 /// </summary>
@@ -32,6 +33,15 @@ public sealed class AusgabenController(AusgabeService service, IAktuellerBenutze
             AbfrageErgebnis<Domain.Gemeinsam.Seite<AusgabeEintrag>>.CoinNichtGefunden => CoinNichtGefunden(),
             _ => throw new InvalidOperationException("Unbekanntes Ergebnis der Historie."),
         };
+    }
+
+    /// <summary>Eine Ausgabe des Coins (zertifikat-erzeugen AK-22, F5), aktiv oder storniert.</summary>
+    [HttpGet("{ausgabeId:guid}")]
+    [Authorize(Policy = Berechtigungen.IssuesRead)]
+    public async Task<ActionResult<AusgabeResponse>> Lesen([FromRoute] Guid id, [FromRoute] Guid ausgabeId, CancellationToken ct)
+    {
+        var ausgabe = await service.AusgabeAsync(id, ausgabeId, ct);
+        return ausgabe is null ? AusgabeNichtGefunden() : Ok(AusgabeResponse.Aus(ausgabe));
     }
 
     [HttpPost]
@@ -69,8 +79,7 @@ public sealed class AusgabenController(AusgabeService service, IAktuellerBenutze
         {
             AusgabeStornierenErgebnis.Storniert storniert => Ok(AusgabeResponse.Aus(storniert.Ausgabe)),
             AusgabeStornierenErgebnis.Ungueltig ungueltig => this.Validierungsfehler(ungueltig.Fehler),
-            AusgabeStornierenErgebnis.NichtGefunden => Problem(
-                statusCode: StatusCodes.Status404NotFound, title: "Ausgabe nicht gefunden"),
+            AusgabeStornierenErgebnis.NichtGefunden => AusgabeNichtGefunden(),
             AusgabeStornierenErgebnis.BereitsStorniert => this.ProblemMitCode(
                 StatusCodes.Status409Conflict, "Storno nicht möglich", "Diese Ausgabe ist bereits storniert.", "bereits_storniert"),
             _ => throw new InvalidOperationException("Unbekanntes Ergebnis beim Stornieren."),
@@ -79,6 +88,9 @@ public sealed class AusgabenController(AusgabeService service, IAktuellerBenutze
 
     private ObjectResult Konflikt(string code, string detail) =>
         this.ProblemMitCode(StatusCodes.Status409Conflict, KonfliktTitel, detail, code);
+
+    private ObjectResult AusgabeNichtGefunden() =>
+        Problem(statusCode: StatusCodes.Status404NotFound, title: "Ausgabe nicht gefunden");
 
     private ObjectResult CoinNichtGefunden() =>
         Problem(statusCode: StatusCodes.Status404NotFound, title: "Coin nicht gefunden");

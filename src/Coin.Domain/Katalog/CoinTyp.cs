@@ -34,6 +34,12 @@ public sealed class CoinTyp
     public DateTimeOffset ErstelltAm { get; }
 
     /// <summary>
+    /// Unveränderliche Kennung (zertifikat-erzeugen AK-1, ADR-0027), z. B. <c>C0042</c>. Vergeben von der Datenbank; vor dem
+    /// Speichern <c>null</c>, danach bzw. beim Wiederherstellen gesetzt.
+    /// </summary>
+    public string? Kennung { get; private set; }
+
+    /// <summary>
     /// Motivbild des Coins (AK-9). Im API-Ablauf wird das Bild über einen eigenen Endpunkt gesetzt (ADR-0006)
     /// und direkt per Repository gespeichert; Bild und <see cref="BildSetzen"/> bilden die Regel „höchstens ein Bild,
     /// Ersetzen erlaubt“ im Domänenmodell ab und werden von Unit-Tests abgesichert.
@@ -64,8 +70,24 @@ public sealed class CoinTyp
 
     /// <summary>Stellt einen gespeicherten Coin wieder her (nur für die Persistenz, ohne erneute Prüfung).</summary>
     public static CoinTyp Wiederherstellen(
-        Guid id, string name, string herausgeber, int? auflage, string? beschreibung, DateTimeOffset erstelltAm) =>
-        new(id, name, herausgeber, auflage, beschreibung, erstelltAm.ToUniversalTime());
+        Guid id, string name, string herausgeber, int? auflage, string? beschreibung, DateTimeOffset erstelltAm, string? kennung = null) =>
+        new(id, name, herausgeber, auflage, beschreibung, erstelltAm.ToUniversalTime()) { Kennung = kennung };
+
+    /// <summary>Setzt die vergebene Kennung einmalig (ADR-0027 Punkt 3: danach unveränderlich).</summary>
+    public void KennungSetzen(string kennung)
+    {
+        if (!CoinKennung.IstGueltig(kennung))
+        {
+            throw new ArgumentException("Die Coin-Kennung hat kein gültiges Format.", nameof(kennung));
+        }
+
+        if (Kennung is not null && Kennung != kennung)
+        {
+            throw new InvalidOperationException("Die Kennung eines Coins ist unveränderlich.");
+        }
+
+        Kennung = kennung;
+    }
 
     /// <summary>Setzt das Motivbild; ein vorhandenes Bild wird ersetzt (AK-9, AK-21).</summary>
     public void BildSetzen(CoinBild bild)

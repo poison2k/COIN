@@ -22,6 +22,9 @@ public interface IAusgabeRepository
 
     /// <summary>Eine Ausgabe in der Lesesicht oder <c>null</c>.</summary>
     Task<AusgabeEintrag?> FindenAsync(Guid ausgabeId, CancellationToken ct);
+
+    /// <summary>Eine Ausgabe des Coins in der Lesesicht oder <c>null</c> (unbekannter Coin, unbekannte oder fremde Ausgabe).</summary>
+    Task<AusgabeEintrag?> FindenAsync(Guid coinId, Guid ausgabeId, CancellationToken ct);
 }
 
 /// <summary>Gesperrte Coin-Zeile in einer laufenden Transaktion. Alle Änderungen werden erst mit Abschließen gültig.</summary>
@@ -29,6 +32,9 @@ public interface ICoinSperre : IAsyncDisposable
 {
     /// <summary>Auflage des Coins zum Zeitpunkt der Sperre.</summary>
     int? Auflage { get; }
+
+    /// <summary>Unveränderliche Kennung des Coins (zertifikat-erzeugen AK-1, ADR-0027).</summary>
+    string Kennung { get; }
 
     /// <summary>Kleinste Nummer ohne aktive Ausgabe oder <c>null</c>, wenn alle ausgegeben sind.</summary>
     Task<int?> NaechsteFreieNummerAsync(CancellationToken ct);
@@ -40,8 +46,9 @@ public interface ICoinSperre : IAsyncDisposable
     Task<int?> HoechsteJeAusgegebeneNummerAsync(CancellationToken ct);
 
     /// <summary>
-    /// Speichert eine neue Ausgabe samt Audit-Eintrag „Erfasst“. <c>false</c>, wenn der Index
-    /// <c>ux_ausgabe_exemplar_aktiv</c> verletzt wurde (die Transaktion ist dann nicht mehr verwendbar).
+    /// Speichert eine neue Ausgabe samt Audit-Eintrag „Erfasst“. <c>false</c>, wenn einer der partiellen Indizes
+    /// <c>ux_ausgabe_exemplar_aktiv</c> oder <c>ux_ausgabe_zertifikatsnummer_aktiv</c> verletzt wurde (die Transaktion ist
+    /// dann nicht mehr verwendbar).
     /// </summary>
     Task<bool> AusgabeHinzufuegenAsync(Ausgabe ausgabe, CancellationToken ct);
 

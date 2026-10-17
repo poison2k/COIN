@@ -1,23 +1,23 @@
 import type { ReactNode } from 'react'
 import { formatiereKalenderdatum, formatiereTag, formatiereZahl } from '@/shared/lib/format'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
+import { ausgabeStatusText } from '../model/status'
 import type { Ausgabe } from '../model/types'
 
 export interface AusgabenTabelleProps {
   /** Ausgaben in der Reihenfolge der API (neueste zuerst). */
   ausgaben: Ausgabe[]
+  /**
+   * Inhalt der Spalte „Zertifikat“ vor „Status“ (zertifikat-erzeugen, AK-24), z. B. Link und Download-Button; ohne
+   * Angabe gibt es die Spalte nicht.
+   */
+  zertifikat?: (ausgabe: Ausgabe) => ReactNode
   /** Optionale Aktion je Ausgabe (z. B. „Stornieren“); `null` = keine. */
   aktion?: (ausgabe: Ausgabe) => ReactNode
 }
 
-/** Status als Text: „aktiv“ oder „storniert am {Datum} von {Name}: {Grund}“ (AK-22). */
-function statusText(ausgabe: Ausgabe): string {
-  const storno = ausgabe.storno
-  return storno ? `storniert am ${formatiereTag(storno.am)} von ${storno.von.name}: ${storno.grund}` : 'aktiv'
-}
-
 /** Ausgabehistorie eines Coins (AK-22). Alle Freitexte als Text, nie als HTML. */
-export function AusgabenTabelle({ ausgaben, aktion }: AusgabenTabelleProps) {
+export function AusgabenTabelle({ ausgaben, zertifikat, aktion }: AusgabenTabelleProps) {
   return (
     <Table>
       <TableCaption className="sr-only">Ausgabehistorie</TableCaption>
@@ -30,6 +30,7 @@ export function AusgabenTabelle({ ausgaben, aktion }: AusgabenTabelleProps) {
           <TableHead scope="col">Begründung</TableHead>
           <TableHead scope="col">Ausgebende Stelle</TableHead>
           <TableHead scope="col">Erfasst</TableHead>
+          {zertifikat && <TableHead scope="col">Zertifikat</TableHead>}
           <TableHead scope="col">Status</TableHead>
           {aktion && (
             <TableHead scope="col">
@@ -63,7 +64,8 @@ export function AusgabenTabelle({ ausgaben, aktion }: AusgabenTabelleProps) {
                 {formatiereTag(ausgabe.erfasstAm)}
               </time>
             </TableCell>
-            <TableCell className="whitespace-normal">{statusText(ausgabe)}</TableCell>
+            {zertifikat && <TableCell>{zertifikat(ausgabe)}</TableCell>}
+            <TableCell className="whitespace-normal">{ausgabeStatusText(ausgabe)}</TableCell>
             {aktion && <TableCell>{aktion(ausgabe)}</TableCell>}
           </TableRow>
         ))}

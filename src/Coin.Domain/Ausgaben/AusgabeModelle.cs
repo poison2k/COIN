@@ -25,14 +25,19 @@ public sealed record Akteur(Guid Id, string Name);
 /// <summary>Storno in der Lesesicht.</summary>
 public sealed record StornoEintrag(DateTimeOffset Am, Akteur Von, string Grund);
 
-/// <summary>Ausgabe in der Lesesicht (Historie und Antworten der schreibenden Endpunkte).</summary>
+/// <summary>Ausgabe in der Lesesicht (Historie, Einzelabruf und Antworten der schreibenden Endpunkte).</summary>
 public sealed record AusgabeEintrag(
     Guid Id,
     int ExemplarNummer,
+    string Zertifikatsnummer,
     AusgabeAngaben Angaben,
     DateTimeOffset ErfasstAm,
     Akteur ErfasstVon,
-    StornoEintrag? Storno);
+    StornoEintrag? Storno)
+{
+    /// <summary>Ohne Werte, damit keine Personendaten in Logs landen (zertifikat-erzeugen AK-21).</summary>
+    public override string ToString() => nameof(AusgabeEintrag);
+}
 
 /// <summary>Ergebnis von <see cref="AusgabeService.ErfassenAsync"/>.</summary>
 public abstract record AusgabeErfassenErgebnis

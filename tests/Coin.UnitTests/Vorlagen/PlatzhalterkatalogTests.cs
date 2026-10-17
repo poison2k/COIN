@@ -84,7 +84,8 @@ public partial class PlatzhalterkatalogTests
 
     [Theory]
     [InlineData("Coin.Name", "Name des Coins", "Einsatzkontingent Beispiel 2025")]
-    [InlineData("Zertifikat.Nummer", "Eindeutige Nummer des Zertifikats", "wird beim Ausstellen vergeben")]
+    // zertifikat-erzeugen Rev. 2 (Abschnitt 1.2, AK-32): Beispiel „C0042-0012“ statt „wird beim Ausstellen vergeben“.
+    [InlineData("Zertifikat.Nummer", "Eindeutige Nummer des Zertifikats", "C0042-0012")]
     [InlineData("Ausgabe.AusgebendeStelle", "Ausgebende Stelle oder Person", "Kommandeur Beispielbataillon 1")]
     public void Bedeutung_und_Beispiel_stehen_wie_im_Entwurf(string name, string bedeutung, string beispiel)
     {

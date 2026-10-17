@@ -43,7 +43,8 @@ public class AusgabeErfassenTests(PostgresFixture fixture) : AusgabenTestBasis(f
         var json = await ErfasseAsync(coinId);
 
         Assert.Equal(
-            ["ausgebendeStelle", "begruendung", "datum", "empfaenger", "erfasstAm", "erfasstVon", "exemplarNummer", "gelegenheit", "id", "storno"],
+            // zertifikat-erzeugen (Abschnitt 5.3, AK-3): zusätzlich zertifikatsnummer.
+            ["ausgebendeStelle", "begruendung", "datum", "empfaenger", "erfasstAm", "erfasstVon", "exemplarNummer", "gelegenheit", "id", "storno", "zertifikatsnummer"],
             Feldnamen(json));
     }
 

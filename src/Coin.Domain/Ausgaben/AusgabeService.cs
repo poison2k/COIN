@@ -1,5 +1,6 @@
 using Coin.Domain.Gemeinsam;
 using Coin.Domain.Katalog;
+using Coin.Domain.Zertifikate;
 
 namespace Coin.Domain.Ausgaben;
 
@@ -55,6 +56,10 @@ public sealed class AusgabeService(IAusgabeRepository repository, ICoinKatalogRe
             ? new AbfrageErgebnis<Seite<AusgabeEintrag>>.CoinNichtGefunden()
             : new AbfrageErgebnis<Seite<AusgabeEintrag>>.Gefunden(liste);
     }
+
+    /// <summary>Eine Ausgabe des Coins (zertifikat-erzeugen AK-22); <c>null</c> bei unbekanntem Coin oder unbekannter bzw. fremder Ausgabe.</summary>
+    public Task<AusgabeEintrag?> AusgabeAsync(Guid coinId, Guid ausgabeId, CancellationToken ct) =>
+        repository.FindenAsync(coinId, ausgabeId, ct);
 
     /// <summary>
     /// Erfasst eine Ausgabe. Reihenfolge (AK-8): Angaben (400) → Coin (404) → Auflage unbekannt (409) →
@@ -113,7 +118,8 @@ public sealed class AusgabeService(IAusgabeRepository repository, ICoinKatalogRe
                 return new AusgabeErfassenErgebnis.KeinExemplarFrei();
             }
 
-            ausgabe = Ausgabe.Erstellen(coinId, nummer, angaben, akteurId, jetzt);
+            // Zertifikatsnummer unter der Sperre aus Kennung und Exemplar (zertifikat-erzeugen AK-3, ADR-0027 Punkt 4).
+            ausgabe = Ausgabe.Erstellen(coinId, nummer, angaben, akteurId, jetzt, Zertifikatsnummer.Bilden(sperre.Kennung, nummer));
             if (!await sperre.AusgabeHinzufuegenAsync(ausgabe, ct))
             {
                 return new AusgabeErfassenErgebnis.ExemplarAusgegeben(nummer);

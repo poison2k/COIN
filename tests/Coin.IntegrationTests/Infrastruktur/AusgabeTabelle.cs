@@ -156,27 +156,56 @@ public sealed class AusgabeTabelle(string connectionString)
 
     /// <summary>
     /// Fügt eine aktive Ausgabe per SQL ein (an der API vorbei, AK-9). Wirft bei Constraint-Verletzung.
+    /// zertifikat-erzeugen (AK-4): <c>zertifikatsnummer</c> ist Pflicht; ohne Angabe eine eindeutige Testnummer, damit
+    /// nur der Index greift, um den es dem Test geht. <paramref name="storniert"/> fügt die Ausgabe gleich storniert ein.
     /// </summary>
-    public async Task<Guid> AktiveAusgabeEinfuegenAsync(Guid coinId, int nummer, Guid erfasstVon, string empfaenger = "Test Direkt")
+    public async Task<Guid> AktiveAusgabeEinfuegenAsync(
+        Guid coinId, int nummer, Guid erfasstVon, string empfaenger = "Test Direkt", string? zertifikatsnummer = null, bool storniert = false)
     {
         var id = Guid.CreateVersion7();
+        var stornoSpalten = storniert ? ", storniert_am, storniert_von, storno_grund" : string.Empty;
+        var stornoWerte = storniert ? ", now(), @von, 'Test Storno'" : string.Empty;
         await using var verbindung = await OeffnenAsync();
         await using var befehl = new NpgsqlCommand(
-            """
-            INSERT INTO ausgabe (id, coin_id, exemplar_nummer, empfaenger_name, datum, gelegenheit, begruendung,
-                                 ausgebende_stelle, erfasst_am, erfasst_von)
-            VALUES (@id, @coin, @nr, @name, DATE '2026-10-01', 'Test Gelegenheit', 'Test Begründung', 'Test Stelle',
-                    now(), @von)
+            $"""
+            INSERT INTO ausgabe (id, coin_id, exemplar_nummer, zertifikatsnummer, empfaenger_name, datum, gelegenheit,
+                                 begruendung, ausgebende_stelle, erfasst_am, erfasst_von{stornoSpalten})
+            VALUES (@id, @coin, @nr, @zertifikat, @name, DATE '2026-10-01', 'Test Gelegenheit', 'Test Begründung',
+                    'Test Stelle', now(), @von{stornoWerte})
             """,
             verbindung);
         befehl.Parameters.AddWithValue("id", id);
         befehl.Parameters.AddWithValue("coin", coinId);
         befehl.Parameters.AddWithValue("nr", nummer);
+        befehl.Parameters.AddWithValue("zertifikat", zertifikatsnummer ?? $"T{Guid.NewGuid():N}"[..20]);
         befehl.Parameters.AddWithValue("name", empfaenger);
         befehl.Parameters.AddWithValue("von", erfasstVon);
         await befehl.ExecuteNonQueryAsync();
         return id;
     }
+
+    /// <summary><c>ausgabe.zertifikatsnummer</c> einer Ausgabe (zertifikat-erzeugen, AK-3).</summary>
+    public async Task<string?> ZertifikatsnummerAsync(Guid ausgabeId)
+    {
+        await using var verbindung = await OeffnenAsync();
+        await using var befehl = new NpgsqlCommand("SELECT zertifikatsnummer FROM ausgabe WHERE id = @id", verbindung);
+        befehl.Parameters.AddWithValue("id", ausgabeId);
+        return await befehl.ExecuteScalarAsync() as string;
+    }
+
+    /// <summary><c>coin_typ.kennung</c> eines Coins (zertifikat-erzeugen, AK-1).</summary>
+    public async Task<string?> KennungAsync(Guid coinId)
+    {
+        await using var verbindung = await OeffnenAsync();
+        await using var befehl = new NpgsqlCommand("SELECT kennung FROM coin_typ WHERE id = @id", verbindung);
+        befehl.Parameters.AddWithValue("id", coinId);
+        return await befehl.ExecuteScalarAsync() as string;
+    }
+
+    /// <summary>Storniert eine Ausgabe direkt per SQL (an der API vorbei; der Trigger erlaubt nur das Storno).</summary>
+    public Task<Exception?> PerSqlStornierenAsync(Guid ausgabeId, Guid von) =>
+        RohAusfuehrenAsync(
+            $"UPDATE ausgabe SET storniert_am = now(), storniert_von = '{von}', storno_grund = 'Test Storno per SQL' WHERE id = '{ausgabeId}'");
 
     /// <summary>
     /// Lässt das nächste INSERT einer Ausgabe am Index <c>ux_ausgabe_exemplar_aktiv</c> scheitern: Ein Test-Trigger

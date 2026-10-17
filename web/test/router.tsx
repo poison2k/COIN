@@ -20,6 +20,8 @@ const ZIELE = [
   '/coins/neu',
   '/coins/$coinId',
   '/coins/$coinId/ausgaben/neu',
+  // zertifikat-erzeugen: Ziel des Links zur Ausgabe-Seite (AK-24, AK-27).
+  '/coins/$coinId/ausgaben/$ausgabeId',
   '/coins/$coinId/bearbeiten',
   '/kein-zugriff',
 ] as const

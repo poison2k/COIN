@@ -1,4 +1,5 @@
 using Coin.Domain.Vorlagen;
+using Coin.Domain.Zertifikate;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -9,20 +10,29 @@ namespace Coin.Infrastructure.Vorlagen;
 /// Erzeugt die Standardvorlage mit dem OpenXML SDK (zertifikatsvorlagen AK-2 bis AK-5, Abschnitt 4.2, ADR-0022): A4
 /// hochkant, Ränder 2 cm, eine Schrift, Urkundentext mit allen Platzhaltern (je Platzhalter genau ein Run),
 /// <c>{{Zertifikat.Nummer}}</c> in der Fußzeile und nach einem Seitenumbruch die Erläuterung mit einer Tabelle aus dem
-/// <see cref="Platzhalterkatalog"/>. Metadatenfrei bis auf den Autor „C.O.I.N.“. Je Prozess einmal erzeugt.
+/// <see cref="Platzhalterkatalog"/>. Metadatenfrei bis auf den Autor „C.O.I.N.“. Je Prozess einmal erzeugt. Die
+/// Dienststelle steht in einem eigenen Absatz ohne Komma (zertifikat-erzeugen F8). Als <see cref="IStandardzertifikat"/>
+/// liefert sie die Zertifikatsfassung ohne die Erläuterung (F7).
 /// </summary>
-internal sealed class StandardvorlageErzeuger : IStandardvorlage
+internal sealed class StandardvorlageErzeuger : IStandardvorlage, IStandardzertifikat
 {
     private const string Schrift = "Arial";
 
     /// <summary>2 cm in Twips (1 cm = 567 Twips).</summary>
     private const int Rand = 1134;
 
-    private readonly Lazy<byte[]> _inhalt = new(Erzeugen);
+    private readonly Lazy<byte[]> _inhalt = new(() => Erzeugen(mitErlaeuterung: true));
+
+    private readonly Lazy<byte[]> _zertifikatsfassung = new(() => Erzeugen(mitErlaeuterung: false));
 
     public byte[] Inhalt => _inhalt.Value;
 
-    internal static byte[] Erzeugen()
+    byte[] IStandardzertifikat.Inhalt => _zertifikatsfassung.Value;
+
+    internal static byte[] Erzeugen() => Erzeugen(mitErlaeuterung: true);
+
+    /// <summary>Standardvorlage; ohne <paramref name="mitErlaeuterung"/> die Zertifikatsfassung (F7).</summary>
+    internal static byte[] Erzeugen(bool mitErlaeuterung)
     {
         using var puffer = new MemoryStream();
         using (var dokument = WordprocessingDocument.Create(puffer, WordprocessingDocumentType.Document))
@@ -37,7 +47,8 @@ internal sealed class StandardvorlageErzeuger : IStandardvorlage
             fusszeile.Footer = new Footer(
                 Absatz(JustificationValues.Center, null, Lauf("Zertifikat Nr. "), Platzhalter("Zertifikat.Nummer")));
 
-            haupt.Document = new Document(new Body([.. Urkunde(), .. Erlaeuterung(), Abschnitt(haupt.GetIdOfPart(fusszeile))]));
+            haupt.Document = new Document(new Body(
+                [.. Urkunde(), .. mitErlaeuterung ? Erlaeuterung() : [], Abschnitt(haupt.GetIdOfPart(fusszeile))]));
         }
 
         return puffer.ToArray();
@@ -54,8 +65,8 @@ internal sealed class StandardvorlageErzeuger : IStandardvorlage
         Absatz(JustificationValues.Left, null),
         Absatz(JustificationValues.Left, null, Lauf("Dieses Exemplar wurde verliehen an")),
         Absatz(JustificationValues.Left, null,
-            Platzhalter("Empfaenger.Dienstgrad"), Lauf(" "), Platzhalter("Empfaenger.Name", fett: true), Lauf(", "),
-            Platzhalter("Empfaenger.Dienststelle")),
+            Platzhalter("Empfaenger.Dienstgrad"), Lauf(" "), Platzhalter("Empfaenger.Name", fett: true)),
+        Absatz(JustificationValues.Left, null, Platzhalter("Empfaenger.Dienststelle")),
         Absatz(JustificationValues.Left, null,
             Lauf("am "), Platzhalter("Ausgabe.Datum"), Lauf(" anlässlich "), Platzhalter("Ausgabe.Gelegenheit"), Lauf(".")),
         Absatz(JustificationValues.Left, null, Lauf("Begründung: "), Platzhalter("Ausgabe.Begruendung")),

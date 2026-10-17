@@ -1,7 +1,10 @@
+import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
 import { AusgabenTabelle, ladeAusgaben, type Ausgabe } from '@/entities/ausgabe'
 import { AusgabeStornieren } from '@/features/ausgabe-stornieren'
+import { ZertifikatHerunterladen } from '@/features/zertifikat-herunterladen'
 import type { ApiErgebnis, Seite } from '@/shared/api'
+import { ROUTEN } from '@/shared/config'
 import { useFokusBeiLadefehler } from '@/shared/lib/hooks'
 import { Blaettern, seitenAnzahl } from '@/shared/ui/blaettern'
 
@@ -14,6 +17,8 @@ export interface AusgabenHistorieProps {
   coinId: string
   /** Button „Stornieren“ je aktiver Ausgabe (issues.write). */
   darfStornieren: boolean
+  /** Button „Zertifikat herunterladen“ je Ausgabe (issues.write, zertifikat-erzeugen AK-24). */
+  darfZertifikat: boolean
   /** Nach einem Storno, damit die Kennzahlen neu laden. */
   onGeaendert: () => void
 }
@@ -21,8 +26,10 @@ export interface AusgabenHistorieProps {
 /**
  * Abschnitt „Ausgabehistorie“ der Detailseite (coin-ausgaben AK-22, AK-24): Tabelle, Blättern (Seite lokal) und
  * „Stornieren“ je aktiver Zeile. Nach einem Storno erscheint eine Statusmeldung mit Fokus; die Historie lädt neu.
+ * Spalte „Zertifikat“ (zertifikat-erzeugen AK-24): Nummer als Link zur Ausgabe-Seite und, mit `darfZertifikat`, der
+ * Download; nach 409 `ausgabe_storniert` lädt die Historie neu.
  */
-export function AusgabenHistorie({ coinId, darfStornieren, onGeaendert }: AusgabenHistorieProps) {
+export function AusgabenHistorie({ coinId, darfStornieren, darfZertifikat, onGeaendert }: AusgabenHistorieProps) {
   const [seite, setSeite] = useState(1)
   const [neuLaden, setNeuLaden] = useState(0)
   const [geladen, setGeladen] = useState<Geladen | null>(null)
@@ -117,6 +124,30 @@ export function AusgabenHistorie({ coinId, darfStornieren, onGeaendert }: Ausgab
             {daten.eintraege.length > 0 ? (
               <AusgabenTabelle
                 ausgaben={daten.eintraege}
+                zertifikat={(ausgabe) => (
+                  <div className="grid justify-items-start gap-2">
+                    <Link
+                      to={ROUTEN.ausgabeDetail}
+                      params={{ coinId, ausgabeId: ausgabe.id }}
+                      aria-label={
+                        ausgabe.storno === null
+                          ? `Ausgabe ${ausgabe.zertifikatsnummer} anzeigen`
+                          : `Stornierte Ausgabe ${ausgabe.zertifikatsnummer} anzeigen`
+                      }
+                      className="rounded-sm font-mono tabular-nums underline underline-offset-4 outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      {ausgabe.zertifikatsnummer}
+                    </Link>
+                    {darfZertifikat && (
+                      <ZertifikatHerunterladen
+                        coinId={coinId}
+                        ausgabe={ausgabe}
+                        variante="zeile"
+                        onStorniertErkannt={() => setNeuLaden((n) => n + 1)}
+                      />
+                    )}
+                  </div>
+                )}
                 aktion={
                   darfStornieren
                     ? (ausgabe) =>

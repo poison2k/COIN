@@ -30,7 +30,7 @@ export interface CoinDetailBerechtigungen {
   exemplare: boolean
   /** Abschnitt „Ausgabehistorie“ (issues.read). */
   historie: boolean
-  /** „Ausgabe erfassen“ und „Stornieren“ (issues.write). */
+  /** „Ausgabe erfassen“, „Stornieren“ und „Zertifikat herunterladen“ (issues.write). */
   erfassen: boolean
   /** „Auflage ändern“ (coins.write). */
   auflage: boolean
@@ -187,6 +187,7 @@ export function CoinDetailSeite({
         <AusgabenHistorie
           coinId={coin.id}
           darfStornieren={berechtigungen.erfassen}
+          darfZertifikat={berechtigungen.erfassen}
           onGeaendert={() => setExemplareNeuLaden((n) => n + 1)}
         />
       )}

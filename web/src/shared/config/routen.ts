@@ -8,6 +8,8 @@ export const ROUTEN = {
   coinDetail: '/coins/$coinId',
   /** Ausgabe erfassen, nur mit issues.write (coin-ausgaben, AK-26). */
   coinAusgabeNeu: '/coins/$coinId/ausgaben/neu',
+  /** Seite einer einzelnen Ausgabe, nur mit issues.read (zertifikat-erzeugen, AK-27). */
+  ausgabeDetail: '/coins/$coinId/ausgaben/$ausgabeId',
   /** Coin bearbeiten mit Motivbild und Zertifikatsvorlage, nur mit coins.write (zertifikatsvorlagen, AK-26). */
   coinBearbeiten: '/coins/$coinId/bearbeiten',
   /** Rückkehr vom Identitätsanbieter (Redirect-URI, AK-24). */

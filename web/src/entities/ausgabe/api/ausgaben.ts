@@ -23,3 +23,12 @@ export function ladeAusgaben(coinId: string, { status, seite }: AusgabenAnfrage)
     [200],
   )
 }
+
+/** GET /api/coins/{id}/ausgaben/{ausgabeId} – eine Ausgabe, aktiv oder storniert (nur mit issues.read, AK-22). */
+export function ladeAusgabe(coinId: string, ausgabeId: string): Promise<ApiErgebnis<Ausgabe>> {
+  return sende<Ausgabe>(
+    `/api/coins/${encodeURIComponent(coinId)}/ausgaben/${encodeURIComponent(ausgabeId)}`,
+    { method: 'GET', headers: { Accept: 'application/json' } },
+    [200],
+  )
+}

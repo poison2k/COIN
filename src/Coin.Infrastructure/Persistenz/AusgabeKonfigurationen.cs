@@ -1,4 +1,5 @@
 using Coin.Domain.Ausgaben;
+using Coin.Domain.Zertifikate;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -19,6 +20,7 @@ internal sealed class ExemplarKonfiguration : IEntityTypeConfiguration<ExemplarD
 internal sealed class AusgabeKonfiguration : IEntityTypeConfiguration<AusgabeDatensatz>
 {
     public const string IndexAktiv = "ux_ausgabe_exemplar_aktiv";
+    public const string IndexZertifikatsnummerAktiv = "ux_ausgabe_zertifikatsnummer_aktiv";
     public const string IndexExemplar = "ix_ausgabe_exemplar";
 
     public void Configure(EntityTypeBuilder<AusgabeDatensatz> builder)
@@ -30,6 +32,7 @@ internal sealed class AusgabeKonfiguration : IEntityTypeConfiguration<AusgabeDat
 
         builder.HasKey(a => a.Id);
         builder.Property(a => a.Id).ValueGeneratedNever();
+        builder.Property(a => a.Zertifikatsnummer).HasMaxLength(Zertifikatsnummer.MaxLaenge).IsRequired();
         builder.Property(a => a.EmpfaengerName).HasMaxLength(AusgabeAngaben.EmpfaengerNameMaxLaenge).IsRequired();
         builder.Property(a => a.EmpfaengerDienstgrad).HasMaxLength(AusgabeAngaben.EmpfaengerDienstgradMaxLaenge);
         builder.Property(a => a.EmpfaengerDienststelle).HasMaxLength(AusgabeAngaben.EmpfaengerDienststelleMaxLaenge);
@@ -52,6 +55,12 @@ internal sealed class AusgabeKonfiguration : IEntityTypeConfiguration<AusgabeDat
             .IsUnique()
             .HasFilter("storniert_am IS NULL")
             .HasDatabaseName(IndexAktiv);
+
+        // Eindeutig nur unter den aktiven Ausgaben: Eine Neuausgabe nach Storno trägt dieselbe Nummer (ADR-0027 Punkt 5).
+        builder.HasIndex(a => a.Zertifikatsnummer, IndexZertifikatsnummerAktiv)
+            .IsUnique()
+            .HasFilter("storniert_am IS NULL")
+            .HasDatabaseName(IndexZertifikatsnummerAktiv);
 
         // Nicht partiell: stützt den Fremdschlüssel-Check beim Löschen von Exemplaren (Auflage senken), der auch
         // stornierte Ausgaben berücksichtigen muss, und die höchste je ausgegebene Nummer (ADR-0020).
@@ -86,5 +95,28 @@ internal sealed class AusgabeAuditKonfiguration : IEntityTypeConfiguration<Ausga
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_ausgabe_audit_ausgabe_ausgabe_id");
         builder.HasIndex(a => a.AusgabeId).HasDatabaseName("ix_ausgabe_audit_ausgabe");
+    }
+}
+
+internal sealed class ZertifikatAuditKonfiguration : IEntityTypeConfiguration<ZertifikatAuditDatensatz>
+{
+    public void Configure(EntityTypeBuilder<ZertifikatAuditDatensatz> builder)
+    {
+        builder.ToTable("zertifikat_audit", t => t.HasCheckConstraint(
+            "ck_zertifikat_audit_art", $"art = '{ZertifikatAuditEintrag.ArtHeruntergeladen}'"));
+
+        builder.HasKey(a => a.Id);
+        builder.Property(a => a.Id).ValueGeneratedNever();
+        builder.Property(a => a.Zeitpunkt).HasColumnType("timestamp with time zone").IsRequired();
+        builder.Property(a => a.Zertifikatsnummer).HasMaxLength(Zertifikatsnummer.MaxLaenge).IsRequired();
+        builder.Property(a => a.Art).HasMaxLength(15).IsRequired();
+
+        builder.HasOne<BenutzerDatensatz>().WithMany().HasForeignKey(a => a.AkteurId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<AusgabeDatensatz>()
+            .WithMany()
+            .HasForeignKey(a => a.AusgabeId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_zertifikat_audit_ausgabe_ausgabe_id");
+        builder.HasIndex(a => a.AusgabeId).HasDatabaseName("ix_zertifikat_audit_ausgabe");
     }
 }

@@ -247,6 +247,9 @@ public partial class EndpunktTabelleTests(PostgresFixture fixture) : Integration
     [InlineData("GET /api/coins/{id}/ausgaben", "issues.read")]
     [InlineData("POST /api/coins/{id}/ausgaben", "issues.write")]
     [InlineData("POST /api/coins/{id}/ausgaben/{ausgabeId}/storno", "issues.write")]
+    // zertifikat-erzeugen (Abschnitt 5.4).
+    [InlineData("GET /api/coins/{id}/ausgaben/{ausgabeId}", "issues.read")]
+    [InlineData("GET /api/coins/{id}/ausgaben/{ausgabeId}/zertifikat", "issues.write")]
     public void Neue_Endpunkte_verlangen_die_Berechtigung_laut_Entwurf(string name, string zugriff)
     {
         var endpunkt = Assert.Single(Endpunkte(), e => e.Name == name).Endpunkt;

@@ -17,7 +17,7 @@ public static class Platzhalterkatalog
     [
         new("Coin.Name", true, "Name des Coins", "Einsatzkontingent Beispiel 2025"),
         new("Exemplar.Nummer", true, "Nummer des Exemplars", "12"),
-        new("Zertifikat.Nummer", true, "Eindeutige Nummer des Zertifikats", "wird beim Ausstellen vergeben"),
+        new("Zertifikat.Nummer", true, "Eindeutige Nummer des Zertifikats", "C0042-0012"),
         new("Empfaenger.Name", true, "Name des Empfängers", "Max Beispiel"),
         new("Coin.Herausgeber", false, "Herausgeber des Coins", "Beispielbataillon 1"),
         new("Coin.Beschreibung", false, "Beschreibung des Coins", "Optionaler Text"),
