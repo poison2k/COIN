@@ -361,9 +361,10 @@ Härtung der Prüfung nicht vertrauenswürdiger DOCX im Sinne von F8 und F10, *(
 | `Ausgabe.Begruendung` | nein | Begründung der Ausgabe | Herausragende Leistung |
 | `Ausgabe.AusgebendeStelle` | nein | Ausgebende Stelle oder Person | Kommandeur Beispielbataillon 1 |
 
-Formatierung der Werte (Datum, Zahlen) und das Verhalten leerer optionaler Felder legt das spätere Feature „Zertifikate erzeugen“ fest.
+Formatierung der Werte (Datum, Zahlen) und das Verhalten leerer optionaler Felder: siehe [zertifikat-erzeugen](zertifikat-erzeugen.md) Abschnitt 4 und [platzhalter.md](../platzhalter.md#beim-erzeugen). Beispiel für `Zertifikat.Nummer` seitdem „C0042-0012“.
 
 ### 4.2 Aufbau der Standardvorlage (Wortlaut darf der developer glätten)
+Seit zertifikat-erzeugen (F8) steht `{{Empfaenger.Dienststelle}}` in einem eigenen Absatz ohne Komma unter Dienstgrad und Name; Zertifikate nutzen eine Fassung ohne „Erläuterung der Platzhalter“ (F7).
 ```
                          Echtheitszertifikat
                            {{Coin.Name}}

@@ -6,24 +6,44 @@ Status: Entwurf. Offene Punkte sind mit [?] markiert und müssen vom Auftraggebe
 Jeder Benutzer hat genau eine feste Rolle oder keine. Welche Rolle welche Berechtigung hat, legt die
 Rechtematrix im Code fest ([berechtigungen.md](berechtigungen.md), ADR-0016). Rollen vergeben
 Administratoren in der Benutzerverwaltung.
-- **Administrator**: verwaltet Coins, Exemplare, Ausgaben, Benutzer (umgesetzt: Coins erfassen und bearbeiten, Auflage ändern, Zertifikatsvorlagen verwalten, Ausgaben lesen, erfassen und stornieren, Benutzer und Rollen verwalten, Audit-Log lesen)
-- **Sachbearbeiter**: erfasst Ausgaben, stellt Zertifikate aus [?] (umgesetzt: Coins erfassen und bearbeiten, Auflage ändern, Zertifikatsvorlagen verwalten, Ausgaben lesen, erfassen und stornieren)
-- **Betrachter**: sieht den Katalog und je Coin die Kennzahlen und den Status der Exemplare, aber keine Ausgaben und keine Empfängerdaten (entschieden 2026-10-08, F2, ADR-0021).
+- **Administrator**: verwaltet Coins, Exemplare, Ausgaben, Benutzer (umgesetzt: Coins erfassen und bearbeiten, Auflage ändern, Zertifikatsvorlagen verwalten, Ausgaben lesen, erfassen und stornieren, Benutzer und Rollen verwalten, Audit-Log lesen, Zertifikate herunterladen)
+- **Sachbearbeiter**: erfasst Ausgaben, stellt Zertifikate aus (umgesetzt: Coins erfassen und bearbeiten, Auflage ändern, Zertifikatsvorlagen verwalten, Ausgaben lesen, erfassen und stornieren, Zertifikate herunterladen mit `issues.write`, `docs/features/zertifikat-erzeugen.md`)
+- **Betrachter**: sieht den Katalog und je Coin die Kennzahlen und den Status der Exemplare, aber keine Ausgaben, keine Empfängerdaten und keine Zertifikate (entschieden 2026-10-08, F2, ADR-0021).
 - **Öffentlichkeit**: prüft ein Zertifikat per Link/QR-Code, ohne Anmeldung; sieht den Coin-Katalog lesend, ohne Anmeldung
 
 ## Funktionen (Stichpunkte)
 1. Coin-Katalog: anlegen, bearbeiten, ansehen, Liste mit Suche und Filter (teilweise umgesetzt, `docs/features/coin-katalog.md`, `docs/features/katalog-seiten.md`, `docs/features/zertifikatsvorlagen.md`: anlegen auf eigener Seite, ansehen, Liste mit Suche in Name/Herausgeber und Blättern, bearbeiten auf der Seite „Coin bearbeiten“ (Stammdaten, Motivbild ersetzen); noch ohne Filter und Löschen)
 2. Exemplare: Seriennummern pro Coin, Status (verfügbar, ausgegeben, ungültig) (teilweise umgesetzt, `docs/features/coin-ausgaben.md`: Exemplare 1 bis Auflage, Status verfügbar/ausgegeben, Kennzahlen, Auflage ändern; noch ohne Status „ungültig“)
 3. Ausgaben (früher „Verleihungen“): Empfänger, Datum, Gelegenheit, Begründung, ausgebende Stelle (umgesetzt, `docs/features/coin-ausgaben.md`: erfassen, stornieren mit Grund, Historie; Empfänger als Freitext). Lesen mit `issues.read`, Erfassen und Stornieren mit `issues.write`, beide nur Administrator und Sachbearbeiter (ADR-0021). Ausgabedaten kommen nie in das öffentliche Coin-DTO. Nicht enthalten: Bearbeiten (Korrektur = Storno + neue Ausgabe), Rückgabe, Import.
-4. Zertifikate: eindeutige Nummer, digital signiert, PDF-Ausgabe, öffentliche Prüfseite (teilweise umgesetzt, `docs/features/zertifikatsvorlagen.md`: Word-Vorlage je Coin – Standardvorlage herunterladen, eigene Vorlage hochladen (geprüft und bereinigt), Versionen, Zurücksetzen; Platzhalter in `docs/platzhalter.md`. Noch nicht: Zertifikate ausstellen, Nummer, Signatur, PDF, Prüfseite)
+4. Zertifikate: Nummer, digital signiert, PDF-Ausgabe, öffentliche Prüfseite – zusammenhängende Anforderung, siehe Abschnitt [Zertifikate](#zertifikate) (teilweise umgesetzt: Vorlage, Nummer, Erzeugung als DOCX, Download mit Audit; offen: Signatur, PDF, QR-Code, Prüfseite).
 5. Detailansicht eines Coins mit Ausgabehistorie (umgesetzt, `docs/features/katalog-seiten.md`, `docs/features/coin-ausgaben.md`: Stammdaten, Motivbild, Abschnitt „Exemplare“ mit `coins.read`, Abschnitt „Ausgabehistorie“ mit `issues.read`)
 6. Benutzer- und Rollenverwaltung mit Audit-Log (umgesetzt, `docs/features/rollen-benutzerverwaltung.md`): Benutzer suchen, Rolle zuweisen oder entziehen, Benutzer deaktivieren und reaktivieren; Schutz des letzten aktiven Administrators; jede Rollen- und Statusänderung im Audit-Log
 
+## Zertifikate
+Ein Zertifikat ist der Echtheitsnachweis für eine Ausgabe. Es entsteht in dieser Reihenfolge; die
+Platzhalter `{{Gruppe.Feld}}` aus dem Platzhalterkatalog ([platzhalter.md](platzhalter.md),
+`Coin.Domain.Vorlagen.Platzhalterkatalog`) verbinden Vorlage und Erzeugung.
+
+| Schritt | Inhalt | Stand |
+|---|---|---|
+| 1. Vorlage | Je Coin eine Word-Vorlage (.docx): Standardvorlage aus dem Backend, eigene Vorlage hochladen (geprüft gegen den Platzhalterkatalog und die Namespace-Positivliste, bereinigt um persönliche Dokumenteigenschaften), Versionen, eine aktive Vorlage, Zurücksetzen; Recht `coins.write`; Audit `vorlage_audit` | umgesetzt (`docs/features/zertifikatsvorlagen.md`, ADR-0022 bis ADR-0026, Entscheidungen F1–F16 unten) |
+| 2. Nummer | Jede Ausgabe erhält bei der Erfassung einmalig eine unveränderliche Zertifikatsnummer `<Coin-Kennung>-<Exemplar, mind. vierstellig>`, z. B. `C0042-0012`; Coin-Kennung `C` + laufende Nummer per DB-Sequenz. Eine Neuausgabe desselben Exemplars nach Storno erhält dieselbe Nummer; eindeutig ist sie unter den aktiven Ausgaben | umgesetzt (`docs/features/zertifikat-erzeugen.md`, ADR-0027) |
+| 3. Erzeugung | Zu jeder aktiven Ausgabe wird die aktive Vorlage des Coins (sonst die Standardvorlage ohne Erläuterungsseite) kopiert und alle Platzhalter in Text, Tabellen, Kopf- und Fußzeilen, Fuß-/Endnoten und Textfeldern durch die Werte ersetzt (Formatierung bleibt, Werte als Text, keine erneute Ersetzung, Coin-Daten im aktuellen Stand, leere Felder leer); die Originalvorlage bleibt unverändert, Verarbeitung nur im Speicher; höchstens 200 Platzhalter je Vorlage | umgesetzt (ADR-0028) |
+| 4. Download und Audit | Download als `Zertifikat_<Nummer>.docx` aus der Ausgabehistorie und von der neuen Seite der Ausgabe, nur mit `issues.write`; stornierte Ausgaben abgelehnt; jeder Download im Audit `zertifikat_audit` (wer, wann, Nummer, Ausgabe), ohne Empfängerdaten, ohne Lese-Endpunkt | umgesetzt (ADR-0029) |
+| 5. Signatur | Zertifikat digital signieren (privater Schlüssel nie im Repository) | offen |
+| 6. PDF | PDF-Ausgabe | offen |
+| 7. QR-Code und Prüfseite | Öffentliche Prüfung per Link/QR-Code ohne Personendaten; muss stornierte Ausgaben trotz gleicher Nummer erkennen (ADR-0027 „Folgen“) | offen |
+
+Wird die Vorlage eines Coins ersetzt, erzeugen neue Downloads mit der dann aktiven Vorlage; Nummer und
+Ausgabedaten bleiben gleich. Nicht vorgesehen: Sammel- oder Serienausdruck, Archivierung erzeugter Dateien.
+Der Platzhalterkatalog bleibt für die Erzeugung unverändert (13 Platzhalter, 4 Pflicht); bestehende
+Vorlagen bleiben gültig.
+
 ## Datenmodell (grob)
-Coin, Exemplar (Seriennummer), Ausgabe (Person, Datum, Gelegenheit), Zertifikat (Nummer, Signatur, Ausstelldatum), Benutzer/Rolle.
+Coin (mit Kennung), Exemplar (Seriennummer), Ausgabe (Person, Datum, Gelegenheit, Zertifikatsnummer), Zertifikatsvorlage (Versionen je Coin), Zertifikat (Nummer, Signatur, Ausstelldatum – Signatur und Ausstelldatum offen), Benutzer/Rolle.
 
 ## Nichtfunktionale Anforderungen
-- Datenschutz: Zugriff auf Personendaten nur nach Rolle, Änderungen nachvollziehbar (Audit-Log). Umgesetzt für Rollen- und Statusänderungen von Benutzern (ADR-0017) sowie für das Erfassen und Stornieren von Ausgaben (ADR-0020, ohne Empfängerdaten) und für Upload und Zurücksetzen von Zertifikatsvorlagen (ADR-0023). Stammdatenänderungen an Coins werden nicht protokolliert (zertifikatsvorlagen F3).
+- Datenschutz: Zugriff auf Personendaten nur nach Rolle, Änderungen nachvollziehbar (Audit-Log). Umgesetzt für Rollen- und Statusänderungen von Benutzern (ADR-0017) sowie für das Erfassen und Stornieren von Ausgaben (ADR-0020, ohne Empfängerdaten) und für Upload und Zurücksetzen von Zertifikatsvorlagen (ADR-0023) und für den Download von Zertifikaten (ADR-0029). Stammdatenänderungen an Coins werden nicht protokolliert (zertifikatsvorlagen F3). Zertifikate enthalten Personendaten; sie landen nicht in Logs und werden auf dem Server nicht zwischengespeichert.
 - Zertifikate fälschungssicher (Signatur), Prüfung ohne Preisgabe von Personendaten
 - Betrieb: noch offen [?] (lokal, Intranet, Cloud)
 
@@ -54,7 +74,7 @@ Coin, Exemplar (Seriennummer), Ausgabe (Person, Datum, Gelegenheit), Zertifikat 
   - F8: Das Datum der Ausgabe ist Pflicht, ein reines Datum und darf nicht in der Zukunft liegen (heute nach Europe/Berlin).
   - F9: Die Obergrenze der Auflage bleibt 1.000.000.
   - F10: Ausgaben samt Empfängerdaten und ihr Audit werden vorerst unbegrenzt aufbewahrt; das Löschkonzept kommt als eigenes späteres Feature.
-- Entschieden (2026-10-09, 2026-10-14, 2026-10-16, zertifikatsvorlagen F1–F16, ADR-0022 bis ADR-0026):
+- Entschieden (2026-10-09, 2026-10-14, 2026-10-16, zertifikatsvorlagen F1–F16, ADR-0022 bis ADR-0026; Anforderung „Zertifikate“, Schritt 1):
   - F1/F2: Untergrenze der Auflage bleibt die höchste je ausgegebene Nummer; der Dialog „Auflage ändern“ bleibt auf der Detailseite.
   - F3/F4: Stammdatenänderungen ohne Audit; bei gleichzeitigem Bearbeiten gewinnt der Letzte. Löst coin-ausgaben F3 („kein weiteres Bearbeiten“) ab (ADR-0025).
   - F5: Das Motivbild ist auf „Coin bearbeiten“ ersetzbar, nicht löschbar.
@@ -66,6 +86,16 @@ Coin, Exemplar (Seriennummer), Ausgabe (Person, Datum, Gelegenheit), Zertifikat 
   - F14: Diagramme, SmartArt, Freihand, 3D-Modelle, SharePoint-Metadaten und Vertraulichkeitsbezeichnungen werden abgelehnt; eingebettete Schriften bleiben erlaubt.
   - F15: SVG-Grafiken werden abgelehnt, auch mit PNG-Rückfall (eigene Meldung).
   - F16: Signaturzeilen (Word: Einfügen › Signaturzeile) werden abgelehnt (Erweiterungsmeldung); die Unterschrift entsteht beim Ausstellen.
+- Entschieden (2026-10-16, zertifikat-erzeugen F1–F12, ADR-0027 bis ADR-0029; Anforderung „Zertifikate“, Schritte 2–4):
+  - F1: Coin-Kennung `C` + mindestens vierstellige laufende Nummer (`C0042`), per DB-Sequenz, unveränderlich, Lücken zulässig; dass sie Anzahl und Reihenfolge der Coins verrät, ist akzeptiert. Nicht im öffentlichen Coin-DTO.
+  - F2: Eine Neuausgabe desselben Exemplars nach Storno erhält dieselbe Zertifikatsnummer; eindeutig ist sie unter den aktiven Ausgaben, im Audit steht immer die Ausgabe dazu. Bewusste Abweichung von „eindeutig“; Restrisiko für die Prüfseite.
+  - F3/F4: Exemplarnummer mindestens vierstellig, darüber ungekürzt; bestehende Ausgaben (auch stornierte) erhalten die Nummer ihres Exemplars.
+  - F5/F12: Neue Seite der einzelnen Ausgabe mit `issues.read`; Download nur mit `issues.write`.
+  - F6: Coin-Daten im Zertifikat immer im aktuellen Stand.
+  - F7/F8: Standardvorlage im Zertifikat ohne Erläuterungsseite; leere optionale Felder bleiben leer, Dienststelle in eigener Zeile.
+  - F9: Kein Lese-Endpunkt für das Download-Audit.
+  - F10: Datum `TT.MM.JJJJ`, Zahlen ohne Tausenderpunkt.
+  - F11: Höchstens 200 Platzhalter je Vorlage (neue Uploads und Erzeugung).
 - [?] Welche Schutzstufe haben die Daten, und wo darf die Anwendung betrieben werden?
 - [?] Sprache der Oberfläche (nur Deutsch oder auch Englisch)?
 

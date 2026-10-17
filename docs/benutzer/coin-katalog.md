@@ -15,7 +15,8 @@ Links befindet sich die Seitenleiste:
 
 - **Startseite**: Begrüßung mit kurzer Einleitung und dem Button **Zum Katalog**.
 - **Katalog**: Liste aller Coins mit Suche. Der Eintrag ist auch auf der Detailseite eines Coins, auf
-  **Coin hinzufügen** und auf **Coin bearbeiten** hervorgehoben.
+  **Coin hinzufügen**, **Coin bearbeiten** und den Seiten zu Ausgaben (**Ausgabe erfassen**,
+  **Ausgabe**) hervorgehoben.
 - **Benutzerverwaltung**: nur für Administratoren (siehe [Benutzerverwaltung](benutzerverwaltung.md)).
 
 Rechts in der Kopfzeile stehen **Anmelden** bzw. Ihr Name und **Abmelden**.
@@ -142,6 +143,11 @@ Formular.
 Mit **Abbrechen** kehren Sie ohne Speichern zum Katalog zurück.
 
 Einen angelegten Coin können Sie später auf **Coin bearbeiten** ändern, aber nicht löschen.
+
+Jeder neue Coin erhält automatisch eine feste **Kennung** aus `C` und einer laufenden Nummer (z. B.
+`C0042`). Sie wird in der Oberfläche nicht eigens angezeigt, ändert sich auch beim Bearbeiten von Name
+oder Herausgeber nicht und bildet den ersten Teil der Zertifikatsnummer jeder Ausgabe (siehe
+[Zertifikatsnummer](ausgaben.md#zertifikatsnummer)). Lücken in der Nummernfolge sind normal.
 
 Mit einer Auflage legt C.O.I.N. gleich die Exemplare 1 bis zur Auflage an. Bei sehr großen Auflagen
 dauert das Speichern spürbar länger.

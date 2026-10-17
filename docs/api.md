@@ -20,8 +20,10 @@ In der Umgebung `Development` liefert `GET /openapi/v1.json` das OpenAPI-Dokumen
 | `POST` | `/api/coins/{id}/zertifikatsvorlage/zuruecksetzen` | auf die Standardvorlage zurücksetzen | `coins.write` |
 | `GET` | `/api/coins/{id}/exemplare` | Kennzahlen und Exemplare mit Status | `coins.read` |
 | `GET` | `/api/coins/{id}/ausgaben` | Ausgabehistorie mit Empfängerdaten | `issues.read` |
+| `GET` | `/api/coins/{id}/ausgaben/{ausgabeId}` | Eine Ausgabe abrufen (aktiv oder storniert) | `issues.read` |
 | `POST` | `/api/coins/{id}/ausgaben` | Ausgabe erfassen | `issues.write` |
 | `POST` | `/api/coins/{id}/ausgaben/{ausgabeId}/storno` | Ausgabe stornieren | `issues.write` |
+| `GET` | `/api/coins/{id}/ausgaben/{ausgabeId}/zertifikat` | Zertifikat der Ausgabe (DOCX) herunterladen | `issues.write` |
 | `GET` | `/api/me` | Angemeldeten Benutzer abrufen | angemeldet |
 | `GET` | `/api/benutzer` | Benutzer suchen und auflisten | `users.manage` |
 | `PUT` | `/api/benutzer/{id}/rolle` | Rolle zuweisen oder entziehen | `users.manage` |
@@ -105,7 +107,8 @@ curl.exe -H "Authorization: Bearer <access-token>" http://localhost:5172/api/me
 Zugelassen ist genau ein Origin aus `Frontend:Ursprung` (Development: `http://localhost:5173`),
 Methoden `GET`, `POST`, `PUT`, Header `Authorization` und `Content-Type`, ohne
 `Access-Control-Allow-Credentials`. Freigegeben ist der Antwort-Header `Content-Disposition`
-(`Access-Control-Expose-Headers`), damit das Frontend den Dateinamen der Vorlagen-Downloads lesen kann.
+(`Access-Control-Expose-Headers`), damit das Frontend den Dateinamen der Vorlagen- und
+Zertifikat-Downloads lesen kann.
 Andere Origins erhalten keinen `Access-Control-Allow-Origin`.
 Ist `Frontend:Ursprung` nicht gesetzt, sendet die API keine CORS-Header.
 
@@ -324,7 +327,8 @@ Der Parameter `v` ändert sich, wenn sich der Bildinhalt ändert, und dient nur 
 der Server wertet ihn nicht aus. Antworten enthalten nie Bilddaten.
 
 Die Coin-Antwort enthält genau diese sieben Felder und keine Personendaten (z. B. keinen Ersteller),
-weil sie öffentlich abrufbar ist.
+weil sie öffentlich abrufbar ist. Auch die Coin-Kennung (siehe [POST /api/coins](#post-apicoins))
+gehört nicht dazu; sie erscheint nur als Teil der Zertifikatsnummer in Ausgabe-Antworten.
 
 ## Fehlerformat
 
@@ -347,8 +351,9 @@ Objekt `errors` (Schlüssel → Liste deutscher Meldungen). Mehrere ungültige F
 | `exemplarNummer`, `empfaengerName`, `empfaengerDienstgrad`, `empfaengerDienststelle`, `datum`, `gelegenheit`, `begruendung`, `ausgebendeStelle` | Ausgabe erfassen |
 | `grund` | Storno |
 
-ProblemDetails mit fachlichem Fehlergrund (`403`, `409`) tragen zusätzlich die Erweiterung `code`
-(z. B. `keine_berechtigung`, `letzter_administrator`, `exemplar_ausgegeben`, `coin_existiert`). Ausnahme:
+ProblemDetails mit fachlichem Fehlergrund (`403`, `409`, beim Zertifikat-Download auch `500`) tragen
+zusätzlich die Erweiterung `code` (z. B. `keine_berechtigung`, `letzter_administrator`,
+`exemplar_ausgegeben`, `coin_existiert`, `ausgabe_storniert`, `zertifikat_fehler`). Ausnahme:
 `409` von `POST /api/coins` (Duplikat) trägt keinen `code`.
 
 ### Titel
@@ -435,7 +440,12 @@ Regeln:
 - Ein Coin mit gleichem `name` und `herausgeber` (ohne Beachtung von Groß-/Kleinschreibung, nach dem
   Trimmen) ist ein Duplikat. Gleicher Name bei anderem Herausgeber ist erlaubt. Ein eindeutiger
   Datenbankindex sichert das auch bei gleichzeitigen Anfragen.
-- Mitgesendete Felder `id`, `erstelltAm` und `bildUrl` werden ignoriert.
+- Mitgesendete Felder `id`, `erstelltAm`, `bildUrl` und `kennung` werden ignoriert.
+- Jeder Coin erhält eine unveränderliche **Coin-Kennung**: `C` und eine laufende Nummer mit
+  mindestens 4 Ziffern (`C0001` … `C9999`, dann `C10000`), aus der Sequenz `coin_kennung_seq`
+  ([ADR-0027](adr/0027-coin-kennung-und-zertifikatsnummer.md)). Sie wird nach der Feldprüfung und
+  **vor** der Duplikatprüfung vergeben; ein `409` verbraucht also eine Nummer, Lücken sind zulässig.
+  `PUT /api/coins/{id}` ändert sie nie.
 - Mit `auflage: N` entstehen in derselben Transaktion die Exemplare 1 bis N (alle verfügbar), mit
   `auflage: null` keine. Bei großen Auflagen (bis 1.000.000) dauert das Anlegen spürbar länger.
 
@@ -635,14 +645,21 @@ Grundlage: [ADR-0020](adr/0020-exemplare-und-ausgaben-datenmodell.md),
 - Eine **Ausgabe** dokumentiert, welches Exemplar an wen, wann, wobei und wofür ausgegeben wurde.
   Sie wird nie geändert oder gelöscht, sondern höchstens einmal storniert. Danach ist das Exemplar
   wieder verfügbar; die stornierte Ausgabe bleibt in der Historie.
-- Alle fünf Endpunkte tragen `Cache-Control: no-store`. `401`/`403` kommen vor allen fachlichen
-  Prüfungen; ohne Berechtigung gibt es also auch für eine unbekannte Coin-Id `403`, nie `404`.
+- Jede Ausgabe trägt eine **Zertifikatsnummer** `<Coin-Kennung>-<Exemplar>`, das Exemplar mit
+  mindestens 4 Ziffern (`C0042-0012`, ab Exemplar 10.000 ungekürzt, z. B. `C0042-12345`). Sie wird
+  beim Erfassen gebildet und nie geändert. Eine Neuausgabe desselben Exemplars nach einem Storno
+  erhält **dieselbe** Nummer; eindeutig ist sie nur unter den aktiven Ausgaben. Eine Ausgabe
+  eindeutig bezeichnet nur ihre `id` ([ADR-0027](adr/0027-coin-kennung-und-zertifikatsnummer.md)).
+- Alle sechs Endpunkte dieses Abschnitts und der [Zertifikat-Download](#zertifikate) tragen
+  `Cache-Control: no-store`. `401`/`403` kommen vor allen fachlichen Prüfungen; ohne Berechtigung
+  gibt es also auch für eine unbekannte Coin-Id `403`, nie `404`.
 - Schreibende Endpunkte verlangen `Content-Type: application/json` (sonst `415`). Erfassen, Storno
   und Auflage ändern laufen je Coin nacheinander (Sperre der Coin-Zeile). Bei jedem Fehler wird
   nichts gespeichert.
 - Personendaten (Empfänger, Gelegenheit, Begründung, ausgebende Stelle, Storno-Grund) gibt es nur
-  über `GET …/ausgaben` und in den Antworten von `POST …/ausgaben` und `…/storno`. Fehlermeldungen
-  nennen höchstens Exemplar-Nummern. `GET /api/coins` und `GET /api/coins/{id}` bleiben unverändert.
+  über `GET …/ausgaben`, `GET …/ausgaben/{ausgabeId}`, in den Antworten von `POST …/ausgaben` und
+  `…/storno` und im Zertifikat. Fehlermeldungen nennen höchstens Exemplar-Nummern.
+  `GET /api/coins` und `GET /api/coins/{id}` bleiben unverändert.
 - Jedes Erfassen und jedes Storno schreibt in derselben Transaktion einen unveränderlichen
   Audit-Eintrag (Tabelle `ausgabe_audit`, ohne Empfängerdaten). Einen Lese-Endpunkt dafür gibt es nicht.
 
@@ -693,12 +710,31 @@ Verlangt `issues.read` (Administrator, Sachbearbeiter). Betrachter erhalten `403
 | `401` / `403` | wie oben (`issues.read`) | ProblemDetails |
 | `404 Not Found` | Coin unbekannt | ProblemDetails, `title` „Coin nicht gefunden“ |
 
+### GET /api/coins/{id}/ausgaben/{ausgabeId}
+
+Liefert eine Ausgabe des Coins im [Ausgabe-Format](#datenformat-ausgabe), aktiv oder storniert.
+Verlangt `issues.read`. Grundlage der Seite „Ausgabe“ im Frontend.
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | gefunden | Ausgabe |
+| `401` / `403` | wie oben (`issues.read`) | ProblemDetails |
+| `404 Not Found` | Coin unbekannt, Ausgabe unbekannt oder sie gehört zu einem anderen Coin | ProblemDetails, `title` „Ausgabe nicht gefunden“ |
+
+Prüfreihenfolge: `401` → `403` → `404`.
+
+```powershell
+Invoke-RestMethod -Uri http://localhost:5172/api/coins/<id>/ausgaben/<ausgabeId> `
+  -Headers @{ Authorization = "Bearer <access-token>" }
+```
+
 ### Datenformat Ausgabe
 
 ```json
 {
   "id": "0199c1a2-3b4c-7d5e-8f60-718293a4b5c6",
   "exemplarNummer": 12,
+  "zertifikatsnummer": "C0042-0012",
   "empfaenger": { "name": "Max Beispiel", "dienstgrad": "Hauptmann", "dienststelle": "Beispielbataillon 1" },
   "datum": "2026-10-01",
   "gelegenheit": "Truppenbesuch",
@@ -712,8 +748,9 @@ Verlangt `issues.read` (Administrator, Sachbearbeiter). Betrachter erhalten `403
 
 | Feld | Bedeutung |
 |---|---|
-| `id` | GUID der Ausgabe (für das Storno) |
+| `id` | GUID der Ausgabe (für Einzelabruf, Storno und Zertifikat) |
 | `exemplarNummer` | Nummer des ausgegebenen Exemplars |
+| `zertifikatsnummer` | `<Coin-Kennung>-<Exemplar, mind. 4 Ziffern>`, unveränderlich; bei einer Neuausgabe nach Storno gleich der stornierten Ausgabe |
 | `empfaenger` | `name` (Pflicht), `dienstgrad` und `dienststelle` (je `null`, wenn leer) |
 | `datum` | Tag der Ausgabe, `JJJJ-MM-TT` ohne Uhrzeit |
 | `gelegenheit`, `begruendung`, `ausgebendeStelle` | Freitext |
@@ -741,9 +778,12 @@ Erfasst eine Ausgabe. Verlangt `issues.write`. `Content-Type: application/json`.
 - `exemplarNummer` fehlend oder `null`: die kleinste Nummer ohne aktive Ausgabe (auch eine nach
   einem Storno wieder frei gewordene).
 - Texte werden getrimmt; leere optionale Texte werden `null`. Mitgesendete Felder `id`,
-  `erfasstVon`, `erfasstAm` und `storno` werden ignoriert; Erfasser und Zeit setzt der Server.
-- Ein Exemplar ist höchstens einmal aktiv ausgegeben. Das sichert ein eindeutiger Datenbankindex auch
-  bei gleichzeitigen Anfragen; eine Verletzung ergibt `409 exemplar_ausgegeben`, nie `500`.
+  `erfasstVon`, `erfasstAm`, `storno` und `zertifikatsnummer` werden ignoriert; Erfasser, Zeit und
+  Zertifikatsnummer setzt der Server (Nummer unter der Sperre aus Coin-Kennung und Exemplar).
+- Ein Exemplar ist höchstens einmal aktiv ausgegeben, eine Zertifikatsnummer höchstens einmal aktiv
+  vergeben. Das sichern zwei partielle eindeutige Indizes auch bei gleichzeitigen Anfragen
+  (`ux_ausgabe_exemplar_aktiv`, `ux_ausgabe_zertifikatsnummer_aktiv`); eine Verletzung ergibt
+  `409 exemplar_ausgegeben`, nie `500`.
 
 Feldregeln (`400`, Schlüssel = Feldname):
 
@@ -761,7 +801,7 @@ Feldregeln (`400`, Schlüssel = Feldname):
 
 | Status | Wann | Body |
 |---|---|---|
-| `201 Created` | erfasst | Ausgabe (ohne `Location`, es gibt keinen Einzelabruf) |
+| `201 Created` | erfasst | Ausgabe mit `zertifikatsnummer` (ohne `Location`-Header) |
 | `400 Bad Request` | Feldregel verletzt, `exemplarNummer` außerhalb der Auflage, kein gültiges JSON (`errors.anfrage`) | ValidationProblemDetails |
 | `401` / `403` | wie oben (`issues.write`) | ProblemDetails |
 | `404 Not Found` | Coin unbekannt | ProblemDetails, `title` „Coin nicht gefunden“ |
@@ -825,6 +865,65 @@ derselben Ausgabe gelingt genau eines.
 | `409 Conflict` | Senkung unter die höchste je ausgegebene Nummer {m} | `title` „Änderung nicht möglich“, `code` `auflage_zu_klein`, `detail` „Die Auflage kann nicht unter {m} gesenkt werden, weil Exemplar Nr. {m} ausgegeben wurde.“ |
 | `415 Unsupported Media Type` | Content-Type nicht `application/json` | ProblemDetails |
 
+## Zertifikate
+
+Grundlage: [ADR-0027](adr/0027-coin-kennung-und-zertifikatsnummer.md),
+[ADR-0028](adr/0028-zertifikat-erzeugen-im-speicher.md),
+[ADR-0029](adr/0029-audit-der-zertifikat-downloads.md), Feature
+[zertifikat-erzeugen](features/zertifikat-erzeugen.md). Werte und Formate der Platzhalter:
+[platzhalter.md](platzhalter.md#beim-erzeugen).
+
+### GET /api/coins/{id}/ausgaben/{ausgabeId}/zertifikat
+
+Erzeugt das Zertifikat einer **aktiven** Ausgabe als DOCX und liefert es aus. Verlangt `issues.write`
+(Administrator, Sachbearbeiter; der Betrachter und `issues.read` allein reichen nicht). Kein
+Request-Body, keine Content-Type-Prüfung.
+
+- Quelle ist die beim Request aktive eigene Vorlage des Coins, ohne eigene Vorlage die Standardvorlage
+  **ohne** den Abschnitt „Erläuterung der Platzhalter“. Wird die Vorlage später ersetzt oder
+  zurückgesetzt, nutzt der nächste Download die dann aktive; Nummer und Ausgabedaten bleiben gleich.
+- Coin-Werte stammen aus dem aktuellen Stand des Coins, die übrigen aus der Ausgabe. Die gespeicherte
+  Vorlage bleibt unverändert. Erzeugt wird nur im Speicher; das Ergebnis wird weder gespeichert noch
+  zwischengespeichert.
+- Je API-Prozess laufen höchstens 2 Erzeugungen gleichzeitig; weitere warten, ohne eigenen Statuscode.
+- Jeder erfolgreiche Download schreibt genau einen unveränderlichen Eintrag in `zertifikat_audit`
+  (Zeitpunkt, Akteur, `ausgabe_id`, `coin_id`, Zertifikatsnummer, Vorlagenversion – `NULL` bei der
+  Standardvorlage –, Art `Heruntergeladen`), ohne Empfängerdaten und ohne Dateiinhalt. Der Eintrag
+  entsteht atomar mit der Prüfung, dass die Ausgabe noch aktiv ist; abgelehnte Requests schreiben
+  nichts. Einen Lese-Endpunkt dafür gibt es nicht.
+
+Antwort-Header bei `200`:
+
+| Header | Wert |
+|---|---|
+| `Content-Type` | `application/vnd.openxmlformats-officedocument.wordprocessingml.document` |
+| `Content-Disposition` | `attachment; filename="Zertifikat_<Zertifikatsnummer>.docx"`, z. B. `Zertifikat_C0042-0012.docx`; passt die gespeicherte Nummer nicht zum Muster `C<mind. 4 Ziffern>-<4–7 Ziffern>`, `Zertifikat.docx` |
+| `X-Content-Type-Options` | `nosniff` |
+| `Content-Security-Policy` | `default-src 'none'; sandbox` |
+| `Cache-Control` | `no-store` |
+
+`Access-Control-Expose-Headers: Content-Disposition` wie unter [CORS](#cors).
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | erzeugt und protokolliert | DOCX |
+| `401` / `403` | wie oben (`issues.write`); `403` auch bei unbekannter Id | ProblemDetails |
+| `404 Not Found` | Coin unbekannt, Ausgabe unbekannt oder sie gehört zu einem anderen Coin | ProblemDetails, `title` „Ausgabe nicht gefunden“ |
+| `409 Conflict` | Ausgabe storniert (auch wenn das Storno zwischen Laden und Audit geschieht) | `title` „Zertifikat nicht möglich“, `code` `ausgabe_storniert`, `detail` „Für eine stornierte Ausgabe kann kein Zertifikat heruntergeladen werden.“ |
+| `409 Conflict` | aktive Vorlage enthält mehr als 200 Platzhaltervorkommen (alle Teile zusammen) | `title` „Zertifikat nicht möglich“, `code` `vorlage_zu_viele_platzhalter`, `detail` „Die aktive Vorlage enthält mehr als 200 Platzhalter. Bitte eine angepasste Vorlage hochladen.“ |
+| `500 Internal Server Error` | Vorlage nicht lesbar oder Ergebnis nicht schreibbar | `title` „Zertifikat nicht möglich“, `code` `zertifikat_fehler`, `detail` „Das Zertifikat konnte nicht erzeugt werden. Bitte später erneut versuchen.“ |
+
+Prüfreihenfolge: `401` → `403` → `404` → `409 ausgabe_storniert` → `409 vorlage_zu_viele_platzhalter`
+→ `500 zertifikat_fehler` → Audit (`409 ausgabe_storniert`, falls inzwischen storniert) → `200`.
+Bei einem Exemplar mit stornierter und aktiver Ausgabe gleicher Nummer liefert die `ausgabeId` der
+stornierten `409`, die der aktiven `200`. Fehlermeldungen enthalten keine Werte der Ausgabe. Bei
+`500` schreibt die API genau eine Warnung `2501` (siehe [Protokollierung](#protokollierung)).
+
+```powershell
+Invoke-WebRequest -Uri http://localhost:5172/api/coins/<id>/ausgaben/<ausgabeId>/zertifikat `
+  -Headers @{ Authorization = "Bearer <access-token>" } -OutFile Zertifikat.docx
+```
+
 ## Zertifikatsvorlagen
 
 Grundlage: [ADR-0022](adr/0022-openxml-sdk-fuer-word-vorlagen.md),
@@ -834,7 +933,7 @@ Grundlage: [ADR-0022](adr/0022-openxml-sdk-fuer-word-vorlagen.md),
 [zertifikatsvorlagen](features/zertifikatsvorlagen.md). Platzhalter: [platzhalter.md](platzhalter.md),
 erlaubte Namespaces: [word-namespaces.md](word-namespaces.md).
 
-- Je Coin gibt es eine Word-Vorlage (.docx) für das spätere Echtheitszertifikat. Ohne eigene Vorlage gilt
+- Je Coin gibt es eine Word-Vorlage (.docx) für das Echtheitszertifikat (siehe [Zertifikate](#zertifikate)). Ohne eigene Vorlage gilt
   die **Standardvorlage**: vom Server erzeugt, für alle Coins gleich, nie gespeichert.
 - Hochgeladene Vorlagen werden geprüft, **bereinigt** und als neue Version (1, 2, …) gespeichert; die
   neue Version ist sofort aktiv. Frühere Versionen bleiben unverändert abrufbar, lassen sich aber nicht
@@ -902,7 +1001,9 @@ Antwort-Header bei `200`:
 
 Die Standardvorlage (A4 hochkant, Überschrift „Echtheitszertifikat“, alle 13 Platzhalter, am Ende der
 Abschnitt „Erläuterung der Platzhalter“) erzeugt der Server mit dem OpenXML SDK; im Repository liegt keine
-DOCX-Datei. Sie besteht die eigene Upload-Prüfung ohne Befund.
+DOCX-Datei. Sie besteht die eigene Upload-Prüfung ohne Befund. Die Dienststelle steht darin in einem
+eigenen Absatz unter Dienstgrad und Name. Für Zertifikate verwendet der Server eine Fassung ohne den
+Erläuterungsabschnitt.
 
 | Status | Wann | Body |
 |---|---|---|
@@ -990,6 +1091,7 @@ späteren Stufen laufen dann nicht mehr.
 | 9 | „Es fehlen Pflichtplatzhalter: {{Coin.Name}}, {{Empfaenger.Name}}.“ | Pflichtplatzhalter fehlt (Katalogreihenfolge) |
 | 9 | „Unbekannte Platzhalter: {{Empfaenger.Nam}}. Erlaubt sind nur die Platzhalter aus der Standardvorlage.“ | `{{…}}` nicht im Katalog; Schreibweise streng (`{{ Coin.Name }}` und `{{coin.name}}` sind unbekannt) |
 | 9 | „Unvollständige Platzhalter: „{{Coin.Name“.“ | `{{` ohne `}}` im selben Absatz bzw. umgekehrt |
+| 9 | „Die Vorlage enthält mehr als 200 Platzhalter. Bitte die Anzahl verringern.“ | mehr als 200 Vorkommen bekannter Platzhalter, alle geprüften Teile zusammen (gilt für neue Uploads; gespeicherte Versionen werden nicht nachgeprüft) |
 | 10 | „Die Datei konnte nicht verarbeitet werden. Bitte in Word erneut als Word-Dokument (.docx) speichern und erneut hochladen.“ | Bereinigung schlägt fehl, bereinigte Fassung größer als 5 MiB oder besteht die Nachprüfung nicht (nie `500`) |
 
 Mehrere Meldungen derselben Stufe erscheinen gemeinsam als eigene Einträge: in Stufe 6 SVG zuerst, in
@@ -1050,7 +1152,8 @@ Nummer.
 ## Allgemein
 
 Unerwartete Serverfehler liefern `500` als ProblemDetails ohne interne Details, Titel „Ein
-unerwarteter Fehler ist aufgetreten.“
+unerwarteter Fehler ist aufgetreten.“ Ausnahme: Fehler beim Erzeugen eines Zertifikats liefern den
+fachlichen Titel „Zertifikat nicht möglich“ mit `code` `zertifikat_fehler`.
 
 ## Protokollierung
 
@@ -1082,3 +1185,15 @@ Zusätzlich schreibt der Vorlagen-Upload in zwei Fällen genau eine Warnung der 
 | `2402` | `VorlageNachpruefungFehlgeschlagen` | „Nachprüfung einer bereinigten Zertifikatsvorlage fehlgeschlagen.“ |
 
 Abgelehnte Uploads (Stufen 1 bis 9) und abgelehnte Namespaces werden nicht geloggt.
+
+Schlägt die Erzeugung eines Zertifikats fehl (`500 zertifikat_fehler`), schreibt die Kategorie
+`Coin.Api.Http.ZertifikatProtokoll` genau eine Warnung, ohne Ausnahmeobjekt, Stacktrace, Werte der
+Ausgabe, Coin-Daten, Zertifikatsnummer oder Dateiinhalt; der allgemeine Exception-Handler protokolliert
+dazu nichts:
+
+| EventId | Name | Meldung |
+|---|---|---|
+| `2501` | `ZertifikatErzeugungFehlgeschlagen` | „Erzeugung eines Zertifikats fehlgeschlagen.“ |
+
+Abgelehnte Downloads (`403`, `404`, `409`) stehen nur im Request-Protokoll (Route
+`/api/coins/{id}/ausgaben/{ausgabeId}/zertifikat`).

@@ -6,14 +6,14 @@ wurde. Beides finden Sie auf der Detailseite eines Coins (siehe [Coin-Katalog](c
 
 ## Wer sieht was
 
-| | Stammdaten und Bild | Exemplare und Kennzahlen | Ausgabehistorie | Ausgabe erfassen, stornieren | Auflage ändern |
-|---|---|---|---|---|---|
-| ohne Anmeldung, ohne Rolle oder deaktiviert | ja | – | – | – | – |
-| Betrachter | ja | ja | – | – | – |
-| Sachbearbeiter, Administrator | ja | ja | ja | ja | ja |
+| | Stammdaten und Bild | Exemplare und Kennzahlen | Ausgabehistorie, Seite „Ausgabe“ | Ausgabe erfassen, stornieren | Zertifikat herunterladen | Auflage ändern |
+|---|---|---|---|---|---|---|
+| ohne Anmeldung, ohne Rolle oder deaktiviert | ja | – | – | – | – | – |
+| Betrachter | ja | ja | – | – | – | – |
+| Sachbearbeiter, Administrator | ja | ja | ja | ja | ja | ja |
 
-Betrachter sehen nur Zahlen und den Status der Exemplare, nie Namen von Empfängern oder andere
-Angaben zu einer Ausgabe. Abschnitte ohne Berechtigung erscheinen gar nicht.
+Betrachter sehen nur Zahlen und den Status der Exemplare, nie Namen von Empfängern, Zertifikate oder
+andere Angaben zu einer Ausgabe. Abschnitte und Buttons ohne Berechtigung erscheinen gar nicht.
 
 ## Abschnitt „Exemplare“
 
@@ -45,9 +45,63 @@ zuerst, auch stornierte:
 | Datum | Tag der Ausgabe |
 | Gelegenheit, Begründung, Ausgebende Stelle | wie erfasst |
 | Erfasst | wer die Ausgabe eingetragen hat und wann |
+| Zertifikat | die Zertifikatsnummer (z. B. `C0042-0012`) als Link zur Seite [„Ausgabe“](#seite-ausgabe), darunter der Button **Zertifikat herunterladen** (siehe [Zertifikat herunterladen](#zertifikat-herunterladen)) |
 | Status | „aktiv“ oder „storniert am {Datum} von {Name}: {Grund}“ |
 
 Gibt es noch keine Ausgaben, steht dort „Für diesen Coin wurden noch keine Ausgaben erfasst.“
+
+## Zertifikatsnummer
+
+Jede Ausgabe erhält beim Erfassen automatisch eine **Zertifikatsnummer**. Sie besteht aus der
+Kennung des Coins (`C` und mindestens vier Ziffern, z. B. `C0042`) und der Exemplar-Nummer mit
+mindestens vier Ziffern, z. B. `C0042-0012` für Exemplar Nr. 12. Ab Exemplar 10.000 hat die Nummer
+entsprechend mehr Stellen (`C0042-12345`). Die Nummer lässt sich nicht ändern; sie steht auf dem
+Zertifikat und in der Ausgabehistorie.
+
+Die Nummer gehört zum Exemplar: Wird eine Ausgabe storniert und dasselbe Exemplar erneut ausgegeben,
+erhält die neue Ausgabe **dieselbe** Zertifikatsnummer. In der Historie stehen dann zwei Zeilen mit
+dieser Nummer, eine davon mit Storno-Vermerk. Ein früher ausgedrucktes Zertifikat der stornierten
+Ausgabe sieht genauso nummeriert aus wie das neue. Ziehen Sie alte Ausdrucke deshalb nach einem
+Storno ein.
+
+## Zertifikat herunterladen
+
+Nur für Sachbearbeiter und Administratoren. Der Button **Zertifikat herunterladen** steht in der
+Ausgabehistorie in der Spalte **Zertifikat** und auf der Seite [„Ausgabe“](#seite-ausgabe).
+
+1. Klicken Sie auf **Zertifikat herunterladen**. Während des Downloads ist der Button gesperrt.
+2. Der Browser speichert das Zertifikat als Word-Datei, z. B. `Zertifikat_C0042-0012.docx`.
+
+Das Zertifikat entsteht bei jedem Klick neu aus der Vorlage, die für den Coin **gerade** gilt (eigene
+Vorlage oder Standardvorlage, siehe [Zertifikatsvorlagen](zertifikatsvorlagen.md#beim-erzeugen-eines-zertifikats)).
+Name, Herausgeber, Beschreibung und Auflage des Coins kommen aus dem aktuellen Stand, alle übrigen
+Angaben aus der Ausgabe. C.O.I.N. speichert die erzeugte Datei nicht; jeder Download wird mit
+Zeitpunkt, Benutzer und Zertifikatsnummer protokolliert.
+
+Für **stornierte** Ausgaben ist der Button gesperrt; ein Zertifikat gibt es dann nicht mehr. Wurde
+die Ausgabe gerade erst von jemand anderem storniert, erscheint beim Klick „Diese Ausgabe wurde
+inzwischen storniert. Ein Zertifikat kann nicht mehr heruntergeladen werden.“, und die Anzeige wird
+aktualisiert.
+
+## Seite „Ausgabe“
+
+Ein Klick auf die Zertifikatsnummer in der Ausgabehistorie öffnet die Seite einer einzelnen Ausgabe
+(`/coins/…/ausgaben/…`), für Sachbearbeiter und Administratoren. Sie zeigt:
+
+- als Überschrift „Ausgabe von Exemplar Nr. …“, darunter den Namen des Coins als Link zur Detailseite,
+- **Zertifikatsnummer**, **Empfänger**, **Dienstgrad** und **Dienststelle** (nur wenn angegeben),
+  **Datum**, **Gelegenheit**, **Begründung** (mit Zeilenumbrüchen), **Ausgebende Stelle**,
+  **Erfasst** (wer und wann) und **Status** wie in der Historie,
+- den Button **Zertifikat herunterladen**; bei einer stornierten Ausgabe gesperrt mit dem Hinweis
+  „Für stornierte Ausgaben kann kein Zertifikat heruntergeladen werden.“,
+- **Zurück zum Coin**.
+
+Solange die Seite lädt, steht dort „Ausgabe wird geladen …“. Gibt es die Ausgabe nicht (z. B. bei
+einer falsch abgetippten Adresse), erscheint „Ausgabe nicht gefunden“ mit **Zurück zum Coin** bzw.
+**Zum Katalog**. Ohne Anmeldung werden Sie zur Anmeldung geschickt und kommen danach zurück; als
+Betrachter oder ohne Rolle führt die Adresse zur Seite **Kein Zugriff** (siehe
+[Anmeldung](anmeldung.md#seite-kein-zugriff)). Stornieren lässt sich eine Ausgabe nur in der
+Ausgabehistorie.
 
 ## Ausgabe erfassen
 
@@ -92,8 +146,9 @@ Seite **Kein Zugriff** (siehe [Anmeldung](anmeldung.md#seite-kein-zugriff)).
 3. Klicken Sie auf **Stornieren**. Mit **Abbrechen** oder Escape schließen Sie den Dialog ohne Änderung.
 
 Danach erscheint „Ausgabe von Exemplar Nr. … wurde storniert.“ Die Ausgabe bleibt mit ihrem
-Storno-Vermerk in der Historie, das Exemplar ist wieder verfügbar. Ein Storno lässt sich nicht
-rückgängig machen; erfassen Sie bei Bedarf eine neue Ausgabe.
+Storno-Vermerk und ihrer Zertifikatsnummer in der Historie, das Exemplar ist wieder verfügbar. Ihr
+Zertifikat lässt sich nicht mehr herunterladen. Ein Storno lässt sich nicht rückgängig machen;
+erfassen Sie bei Bedarf eine neue Ausgabe (bei demselben Exemplar mit derselben Zertifikatsnummer).
 
 ## Auflage ändern
 
@@ -126,5 +181,10 @@ Fehler zu einzelnen Feldern stehen direkt unter dem Feld; Ihre Eingaben bleiben 
 | „Alle Exemplare dieses Coins sind ausgegeben.“ | Es gibt kein freies Exemplar mehr. |
 | „Diese Ausgabe ist bereits storniert.“ | Jemand hat sie gerade storniert; die Historie zeigt den aktuellen Stand. |
 | „Bitte einen Grund für das Storno angeben.“ | Grund eintragen. |
+| „Diese Ausgabe wurde inzwischen storniert. Ein Zertifikat kann nicht mehr heruntergeladen werden.“ | Jemand hat die Ausgabe gerade storniert; die Anzeige zeigt den aktuellen Stand. |
+| „Die aktive Vorlage enthält mehr als 200 Platzhalter. Bitte eine angepasste Vorlage hochladen.“ | Auf **Coin bearbeiten** eine Vorlage mit weniger Platzhaltern hochladen (siehe [Zertifikatsvorlagen](zertifikatsvorlagen.md)). |
+| „Das Zertifikat konnte nicht heruntergeladen werden. Bitte später erneut versuchen.“ | Technisches Problem; später erneut versuchen. Tritt es immer wieder auf, die Vorlage in Word neu speichern und hochladen. |
+| „Sie sind nicht berechtigt, Zertifikate herunterzuladen.“ | Ihrem Konto fehlt die nötige Rolle. Wenden Sie sich an einen Administrator. |
+| „Die Ausgabe konnte nicht geladen werden. Bitte später erneut versuchen.“ | Technisches Problem auf der Seite „Ausgabe“, z. B. keine Verbindung zum Server. |
 | „Sie sind nicht berechtigt, …“ | Ihrem Konto fehlt die nötige Rolle. Wenden Sie sich an einen Administrator. |
 | „Die Exemplare konnten nicht geladen werden. Bitte später erneut versuchen.“ | Technisches Problem, z. B. keine Verbindung zum Server. |

@@ -1,8 +1,9 @@
 # Zertifikatsvorlagen – Anleitung
 
-Zu jedem Coin gibt es eine Word-Vorlage (.docx) für das spätere Echtheitszertifikat. Sie laden die
-**Standardvorlage** herunter, gestalten sie in Word zu einer Urkunde und laden sie wieder hoch. Das
-Ausstellen von Zertifikaten selbst gibt es in dieser Version noch nicht.
+Zu jedem Coin gibt es eine Word-Vorlage (.docx) für das Echtheitszertifikat. Sie laden die
+**Standardvorlage** herunter, gestalten sie in Word zu einer Urkunde und laden sie wieder hoch. Aus der
+Vorlage, die gerade gilt, entsteht beim Herunterladen das Zertifikat einer Ausgabe (siehe
+[Zertifikat herunterladen](ausgaben.md#zertifikat-herunterladen)).
 
 Zertifikatsvorlagen verwalten nur angemeldete Benutzer mit der Rolle Administrator oder Sachbearbeiter.
 Alle anderen sehen keine Schaltflächen dafür.
@@ -31,19 +32,22 @@ Während des Downloads ist der jeweilige Button gesperrt. Klappt es nicht, ersch
 nicht heruntergeladen werden. Bitte später erneut versuchen.“
 
 Die Standardvorlage enthält eine Urkunde mit der Überschrift „Echtheitszertifikat“, alle Platzhalter in
-Beispielsätzen und am Ende den Abschnitt „Erläuterung der Platzhalter“. Diesen Abschnitt können Sie vor
-dem Druck löschen.
+Beispielsätzen (die Dienststelle in einer eigenen Zeile unter Dienstgrad und Name) und am Ende auf einer
+neuen Seite den Abschnitt „Erläuterung der Platzhalter“. Diesen Abschnitt können Sie in Ihrer eigenen
+Vorlage löschen. Hat ein Coin keine eigene Vorlage, entsteht das Zertifikat aus der Standardvorlage
+**ohne** diesen Abschnitt.
 
 ## Vorlage in Word gestalten
 
-Die Vorlage enthält **Platzhalter** wie `{{Coin.Name}}`. Sie werden später beim Ausstellen eines
-Zertifikats durch die echten Werte ersetzt. Die Liste aller Platzhalter steht in
-[Platzhalter](../platzhalter.md).
+Die Vorlage enthält **Platzhalter** wie `{{Coin.Name}}`. Sie werden beim Herunterladen eines
+Zertifikats durch die echten Werte ersetzt (siehe [unten](#beim-erzeugen-eines-zertifikats)). Die Liste
+aller Platzhalter steht in [Platzhalter](../platzhalter.md).
 
 Platzhalter:
 
 - Pflicht sind `{{Coin.Name}}`, `{{Exemplar.Nummer}}`, `{{Zertifikat.Nummer}}` und `{{Empfaenger.Name}}`.
-  Die übrigen dürfen fehlen. Jeder Platzhalter darf mehrfach vorkommen.
+  Die übrigen dürfen fehlen. Jeder Platzhalter darf mehrfach vorkommen, zusammen aber höchstens
+  **200-mal** in der ganzen Vorlage (Text, Kopf- und Fußzeilen usw.).
 - Schreibweise genau beibehalten: Groß- und Kleinschreibung zählt, keine Leerzeichen in den Klammern.
   `{{ Coin.Name }}` oder `{{coin.name}}` gelten als unbekannt.
 - Einen Platzhalter nicht auf mehrere Absätze verteilen. Formatieren (fett, Schriftart, Farbe) ist
@@ -78,6 +82,35 @@ Vor dem Hochladen in Word:
 - **Vertraulichkeitsbezeichnung** vor dem Hochladen entfernen bzw. eine Vorlage ohne Bezeichnung
   verwenden.
 - Eingebettete Schriften sind erlaubt.
+
+## Beim Erzeugen eines Zertifikats
+
+So setzt C.O.I.N. die Werte ein, wenn jemand ein Zertifikat herunterlädt:
+
+- **Formatierung**: Der Wert übernimmt die Formatierung des ersten Zeichens des Platzhalters (der
+  ersten `{`). Ist dort z. B. `{{Empfaenger.Name}}` fett und rot, steht der Name fett und rot im
+  Zertifikat. Formatieren Sie deshalb den ganzen Platzhalter einheitlich. Text davor und danach behält
+  seine eigene Formatierung.
+- **Zeilenumbrüche** in Begründung, Gelegenheit, Beschreibung oder ausgebender Stelle werden zu
+  Zeilenumbrüchen im selben Absatz (wie Umschalt+Eingabe in Word). Lange Texte werden nicht gekürzt;
+  planen Sie in der Vorlage genug Platz ein, besonders für die Begründung (bis 2000 Zeichen).
+- **Leere Felder**: Fehlt ein optionaler Wert (z. B. kein Dienstgrad, keine Dienststelle, keine
+  Beschreibung), bleibt die Stelle leer. Text um den Platzhalter herum (z. B. ein Komma) bleibt stehen;
+  setzen Sie optionale Platzhalter daher am besten in eine eigene Zeile, wie die Dienststelle in der
+  Standardvorlage.
+- **Formate**: Datum als `TT.MM.JJJJ` (z. B. 01.10.2026), Exemplar-Nummer und Auflage ohne
+  Tausenderpunkt (`12`, `1500`), Zertifikatsnummer wie `C0042-0012`.
+- **Aktueller Stand**: Name, Herausgeber, Beschreibung und Auflage des Coins stammen immer aus dem
+  aktuellen Stand. Ändern Sie den Coin auf **Coin bearbeiten**, zeigen danach heruntergeladene
+  Zertifikate die neuen Werte, auch für ältere Ausgaben.
+- **Aktuelle Vorlage**: Jeder Download verwendet die Vorlage, die gerade aktiv ist. Nach einem neuen
+  Upload oder dem Zurücksetzen sehen auch Zertifikate früherer Ausgaben anders aus; Nummer und Angaben
+  der Ausgabe bleiben gleich. Ihre gespeicherte Vorlage selbst wird dabei nie verändert.
+- **Felder** (z. B. Datum oder Seitenzahl): Platzhalter im angezeigten Ergebnis eines Felds werden
+  ersetzt. Aktualisiert Word das Feld später (z. B. mit F9 oder beim Drucken), gilt wieder das Ergebnis
+  des Felds.
+- Werte erscheinen immer als reiner Text. Sieht ein Wert selbst wie ein Platzhalter aus (z. B. eine
+  Begründung mit `{{Coin.Name}}`), steht er genau so im Zertifikat.
 
 ## Vorlage hochladen
 
@@ -145,6 +178,7 @@ Jedes Hochladen und Zurücksetzen wird mit Zeitpunkt und Benutzer protokolliert.
 | „Es fehlen Pflichtplatzhalter: …“ | Die genannten Platzhalter wieder einfügen. |
 | „Unbekannte Platzhalter: … Erlaubt sind nur die Platzhalter aus der Standardvorlage.“ | Schreibweise prüfen (Tippfehler, Leerzeichen, Groß-/Kleinschreibung). |
 | „Unvollständige Platzhalter: …“ | Fehlende `{{` oder `}}` ergänzen; der Platzhalter muss in einem Absatz stehen. |
+| „Die Vorlage enthält mehr als 200 Platzhalter. Bitte die Anzahl verringern.“ | Platzhalter streichen, bis höchstens 200 übrig sind (alle Stellen zusammen gezählt). |
 | „Die Datei konnte nicht verarbeitet werden. …“ | In Word erneut als .docx speichern und noch einmal hochladen. |
 | „Sie sind nicht berechtigt, Zertifikatsvorlagen hochzuladen.“ / „… zurückzusetzen.“ | Ihrem Konto fehlt die nötige Rolle. Wenden Sie sich an einen Administrator. |
 | „Ihr Benutzerkonto ist deaktiviert.“ | Siehe [Anmeldung](anmeldung.md#konto-deaktiviert). |

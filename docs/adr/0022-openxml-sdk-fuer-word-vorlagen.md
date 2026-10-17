@@ -1,6 +1,6 @@
 # ADR-0022: OpenXML SDK für Word-Vorlagen, Platzhalterkatalog im Code
 
-Status: Angenommen, umgesetzt (Entscheidungen des Auftraggebers vom 2026-10-09 in `docs/features/zertifikatsvorlagen.md`) · Datum: 2026-10-09 · Feature: [zertifikatsvorlagen](../features/zertifikatsvorlagen.md)
+Status: Angenommen, umgesetzt (Entscheidungen des Auftraggebers vom 2026-10-09 in `docs/features/zertifikatsvorlagen.md`) · Datum: 2026-10-09 · Feature: [zertifikatsvorlagen](../features/zertifikatsvorlagen.md) · Ergänzt durch: [ADR-0028](0028-zertifikat-erzeugen-im-speicher.md) (Ersetzung beim Erzeugen auf ZIP/XML-Ebene)
 
 ## Kontext
 Je Coin gibt es eine Word-Vorlage (.docx) für das Echtheitszertifikat. Das Backend muss eine Standardvorlage erzeugen (nicht als Binärdatei im Repo), hochgeladene Vorlagen lesen, prüfen und bereinigen und später Platzhalter ersetzen. Vorgaben: Platzhalter `{{Gruppe.Feld}}` aus einer zentralen Liste im Code, auch wenn Word sie auf mehrere Runs verteilt; Kopf- und Fußzeilen und Tabellen werden mitgeprüft. Das Backend läuft auf .NET 10, die Domain hat keine Abhängigkeiten nach außen.

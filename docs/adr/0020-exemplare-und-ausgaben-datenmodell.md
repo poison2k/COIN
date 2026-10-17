@@ -1,6 +1,6 @@
 # ADR-0020: Exemplare und Ausgaben – Datenmodell, Nebenläufigkeit, Audit
 
-Status: Angenommen, umgesetzt (Entscheidungen des Auftraggebers vom 2026-10-08, F4–F10 in `docs/features/coin-ausgaben.md`; Abweichungen unter „Umsetzung“) · Datum: 2026-10-08 · Feature: coin-ausgaben · Ergänzt: [ADR-0003](0003-persistenz-ef-core-postgresql.md), [ADR-0017](0017-audit-log-fuer-rollen-und-status.md)
+Status: Angenommen, umgesetzt (Entscheidungen des Auftraggebers vom 2026-10-08, F4–F10 in `docs/features/coin-ausgaben.md`; Abweichungen unter „Umsetzung“) · Datum: 2026-10-08 · Feature: coin-ausgaben · Ergänzt: [ADR-0003](0003-persistenz-ef-core-postgresql.md), [ADR-0017](0017-audit-log-fuer-rollen-und-status.md) · Ergänzt durch: [ADR-0027](0027-coin-kennung-und-zertifikatsnummer.md) (Zertifikatsnummer an `ausgabe`, Trigger erweitert), [ADR-0029](0029-audit-der-zertifikat-downloads.md)
 
 ## Kontext
 Verwalter dokumentieren, welches Exemplar eines Coins an wen ausgegeben wurde. Vorgaben des Auftraggebers:

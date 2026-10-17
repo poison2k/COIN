@@ -20,8 +20,8 @@ nicht verändern.
 |---|---|---|---|---|---|
 | `coins.read` | Exemplare und Kennzahlen lesen (Katalog selbst ist öffentlich) | ✓ | ✓ | ✓ | – |
 | `coins.write` | Coins anlegen und bearbeiten, Motivbild hochladen, Auflage ändern, Zertifikatsvorlagen herunterladen, hochladen und zurücksetzen | ✓ | ✓ | – | – |
-| `issues.read` | Ausgaben mit Empfängerdaten lesen | ✓ | ✓ | – | – |
-| `issues.write` | Ausgaben erfassen und stornieren | ✓ | ✓ | – | – |
+| `issues.read` | Ausgaben mit Empfängerdaten lesen (Liste und Einzelansicht) | ✓ | ✓ | – | – |
+| `issues.write` | Ausgaben erfassen und stornieren, Zertifikate herunterladen | ✓ | ✓ | – | – |
 | `users.manage` | Benutzer auflisten, Rolle und Status ändern | ✓ | – | – | – |
 | `audit.read` | Audit-Log lesen | ✓ | – | – | – |
 <!-- rechtematrix:ende -->
@@ -33,9 +33,12 @@ anderen die öffentlichen Endpunkte. Anonyme Besucher lesen nur die öffentliche
 übrigen Katalog-Endpunkte bleiben öffentlich (ADR-0014, ADR-0021).
 
 Exemplare und Ausgaben haben getrennte Lese-Endpunkte (ADR-0021): `GET …/exemplare` (`coins.read`)
-liefert nur Nummer, Status und Kennzahlen, Empfängerdaten gibt es nur über `GET …/ausgaben`
-(`issues.read`) und in den Antworten der schreibenden Ausgabe-Endpunkte (`issues.write`). Der
-Betrachter erhält deshalb nie Empfängerdaten.
+liefert nur Nummer, Status und Kennzahlen, Empfängerdaten gibt es nur über `GET …/ausgaben` und
+`GET …/ausgaben/{ausgabeId}` (`issues.read`) und in den Antworten der schreibenden
+Ausgabe-Endpunkte (`issues.write`). Der Betrachter erhält deshalb nie Empfängerdaten.
+
+Das Zertifikat einer Ausgabe (`GET …/ausgaben/{ausgabeId}/zertifikat`) enthält Empfängerdaten und
+verlangt `issues.write`, nicht `issues.read` (Feature zertifikat-erzeugen, ADR-0029).
 
 ## Endpunkte
 
@@ -53,8 +56,8 @@ Endpunkte ohne eigene Angabe fallen unter die Fallback-Policy (angemeldet und ak
 | `POST /api/coins`, `PUT /api/coins/{id}`, `PUT /api/coins/{id}/bild`, `PUT /api/coins/{id}/auflage` | `coins.write` |
 | `GET /api/zertifikatsvorlagen/standard`, `GET /api/coins/{id}/zertifikatsvorlage`, `GET /api/coins/{id}/zertifikatsvorlage/datei`, `GET /api/coins/{id}/zertifikatsvorlage/versionen/{version}/datei`, `POST /api/coins/{id}/zertifikatsvorlage/versionen`, `POST /api/coins/{id}/zertifikatsvorlage/zuruecksetzen` | `coins.write` |
 | `GET /api/coins/{id}/exemplare` | `coins.read` |
-| `GET /api/coins/{id}/ausgaben` | `issues.read` |
-| `POST /api/coins/{id}/ausgaben`, `POST /api/coins/{id}/ausgaben/{ausgabeId}/storno` | `issues.write` |
+| `GET /api/coins/{id}/ausgaben`, `GET /api/coins/{id}/ausgaben/{ausgabeId}` | `issues.read` |
+| `POST /api/coins/{id}/ausgaben`, `POST /api/coins/{id}/ausgaben/{ausgabeId}/storno`, `GET /api/coins/{id}/ausgaben/{ausgabeId}/zertifikat` | `issues.write` |
 | `GET /api/me` | angemeldet |
 | `GET /api/benutzer`, `PUT /api/benutzer/{id}/rolle`, `PUT /api/benutzer/{id}/status` | `users.manage` |
 | `GET /api/audit` | `audit.read` |

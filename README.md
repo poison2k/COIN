@@ -21,15 +21,22 @@ Webanwendung zur Verwaltung militärischer Gedenk-Coins der Bundeswehr. Umgesetz
   Sachbearbeiter und Administratoren erfassen Ausgaben (wer, wann, Gelegenheit, Begründung,
   ausgebende Stelle), stornieren sie mit Grund und ändern die Auflage. Ausgaben und ihr Audit sind
   unveränderlich (ADR-0020, ADR-0021).
-- **Zertifikatsvorlagen**: Je Coin eine Word-Vorlage (.docx) für das spätere Echtheitszertifikat.
+- **Zertifikatsvorlagen**: Je Coin eine Word-Vorlage (.docx) für das Echtheitszertifikat.
   Sachbearbeiter und Administratoren laden die vom Server erzeugte Standardvorlage herunter, gestalten
   sie in Word und laden sie wieder hoch. Der Server prüft die Datei als nicht vertrauenswürdig
-  (Platzhalter, Makros, externe Inhalte, Namespace-Positivliste), entfernt persönliche
-  Dokumenteigenschaften und speichert sie als neue, sofort aktive Version; frühere Versionen bleiben
-  abrufbar, Zurücksetzen auf die Standardvorlage ist möglich (ADR-0022 bis ADR-0024, ADR-0026,
-  [docs/platzhalter.md](docs/platzhalter.md), [docs/word-namespaces.md](docs/word-namespaces.md)).
+  (Platzhalter, höchstens 200 Vorkommen, Makros, externe Inhalte, Namespace-Positivliste), entfernt
+  persönliche Dokumenteigenschaften und speichert sie als neue, sofort aktive Version; frühere
+  Versionen bleiben abrufbar, Zurücksetzen auf die Standardvorlage ist möglich (ADR-0022 bis ADR-0024,
+  ADR-0026, [docs/platzhalter.md](docs/platzhalter.md), [docs/word-namespaces.md](docs/word-namespaces.md)).
+- **Zertifikat erzeugen**: Jeder Coin hat eine unveränderliche Kennung (`C0042`), jede Ausgabe eine
+  unveränderliche Zertifikatsnummer `<Kennung>-<Exemplar>` (`C0042-0012`; eine Neuausgabe desselben
+  Exemplars nach Storno erhält dieselbe Nummer). Mit `issues.write` laden Sachbearbeiter und
+  Administratoren zu jeder aktiven Ausgabe das Zertifikat als `Zertifikat_<Nummer>.docx` herunter,
+  aus der Ausgabehistorie oder von der neuen Seite einer einzelnen Ausgabe (`issues.read`). Der Server
+  ersetzt die Platzhalter der aktiven Vorlage nur im Speicher; jeder Download steht unveränderlich im
+  Audit `zertifikat_audit` (ADR-0027 bis ADR-0029).
 
-Zertifikate selbst (Nummer, Signatur, PDF, Prüfseite) folgen später.
+Noch offen sind Signatur, PDF, QR-Code und öffentliche Prüfseite der Zertifikate.
 
 - API: [docs/api.md](docs/api.md), Berechtigungen: [docs/berechtigungen.md](docs/berechtigungen.md)
 - Anleitung für Anwender: [docs/benutzer/anmeldung.md](docs/benutzer/anmeldung.md),
@@ -51,8 +58,8 @@ Zertifikate selbst (Nummer, Signatur, PDF, Prüfseite) folgen später.
 
 | Ordner | Inhalt |
 |---|---|
-| `src/Coin.Domain` | Fachlogik, Entitäten, Validierung (u. a. `Katalog/`, `Ausgaben/`, `Benutzer/`, `Vorlagen/` mit Platzhalterkatalog und Namespace-Positivliste) |
-| `src/Coin.Infrastructure` | EF Core, PostgreSQL, Migrationen (`Persistenz/Migrationen`), Prüfung, Bereinigung und Standardvorlage für Word-Dateien (`Vorlagen/`, NuGet `DocumentFormat.OpenXml`) |
+| `src/Coin.Domain` | Fachlogik, Entitäten, Validierung (u. a. `Katalog/`, `Ausgaben/`, `Benutzer/`, `Vorlagen/` mit Platzhalterkatalog und Namespace-Positivliste, `Zertifikate/` mit Zertifikatsnummer, Werten und Platzhalterersetzung) |
+| `src/Coin.Infrastructure` | EF Core, PostgreSQL, Migrationen (`Persistenz/Migrationen`), Prüfung, Bereinigung und Standardvorlage für Word-Dateien (`Vorlagen/`, NuGet `DocumentFormat.OpenXml`), Zertifikatserzeugung im Speicher (`Zertifikate/`) |
 | `src/Coin.Api` | ASP.NET Core Web API (Controller, DTOs, `Authentifizierung/`) |
 | `tests/Coin.UnitTests`, `tests/Coin.IntegrationTests` | xUnit-Tests |
 | `web/` | React-Frontend (Vite, TypeScript, Feature-Sliced Design), UI-Tests in `web/ui-tests` |
@@ -159,6 +166,30 @@ angewendet. In Development ist das OpenAPI-Dokument unter `/openapi/v1.json` abr
   `trg_zertifikat_vorlage_unveraenderlich` und `trg_vorlage_audit_unveraenderlich` brechen jedes `UPDATE`
   und `DELETE` ab; `TRUNCATE` bleibt möglich. Versionen und Audit werden vorerst unbegrenzt aufbewahrt.
   Die Dateien liegen als `bytea` in der Datenbank, nie im Dateisystem.
+- **Coin-Kennung und Zertifikatsnummer** (ADR-0027): `coin_typ.kennung` kommt aus der Sequenz
+  `coin_kennung_seq` (Funktion `coin_kennung_neu()`); der Trigger `trg_coin_typ_kennung_unveraenderlich`
+  verbietet jede Änderung. `ausgabe.zertifikatsnummer` ist über `trg_ausgabe_nur_storno` geschützt und
+  nur unter aktiven Ausgaben eindeutig (`ux_ausgabe_zertifikatsnummer_aktiv`). Lücken in der Kennungsfolge
+  (z. B. nach abgelehnten Duplikaten) sind normal. Inserts in `coin_typ` per SQL erhalten die Kennung
+  über den Spalten-Default.
+- **Zertifikat-Downloads** (Tabelle `zertifikat_audit`, ADR-0029): ein Eintrag je erfolgreichem
+  Download (`zeitpunkt`, `akteur_id`, `ausgabe_id`, `coin_id`, `zertifikatsnummer`, `vorlage_version`,
+  `NULL` = Standardvorlage), ohne Empfängerdaten. `trg_zertifikat_audit_unveraenderlich` bricht jedes
+  `UPDATE` und `DELETE` ab; `TRUNCATE` bleibt möglich; Aufbewahrung vorerst unbegrenzt. Einen
+  Lese-Endpunkt gibt es nicht, ausgewertet wird per SQL. Weil eine Neuausgabe nach Storno dieselbe
+  Nummer trägt, Downloads über `ausgabe_id` unterscheiden:
+
+  ```sql
+  SELECT z.zeitpunkt, b.anzeigename, z.ausgabe_id, z.vorlage_version
+  FROM zertifikat_audit z JOIN benutzer b ON b.id = z.akteur_id
+  WHERE z.zertifikatsnummer = 'C0042-0012' ORDER BY z.zeitpunkt;
+  ```
+
+  Erzeugte Zertifikate werden nirgends gespeichert; je Prozess laufen höchstens 2 Erzeugungen gleichzeitig.
+- **Warnung 2501**: Schlägt die Erzeugung eines Zertifikats fehl (`500 zertifikat_fehler`), schreibt die
+  Kategorie `Coin.Api.Http.ZertifikatProtokoll` genau eine Warnung `ZertifikatErzeugungFehlgeschlagen`
+  mit fester Meldung, ohne Ausnahme, Werte oder Dateiinhalt. Gehäufte Einträge deuten auf eine
+  gespeicherte Vorlage, die sich nicht verarbeiten lässt; Abhilfe ist ein neuer Upload der Vorlage.
 - **Arbeitsspeicher beim Vorlagen-Upload** (ADR-0024 Punkt 7): Prüfung und Bereinigung brauchen je
   Upload im ungünstigsten Fall etwa 200 MiB Working Set; je Prozess laufen höchstens 2 gleichzeitig,
   weitere warten (gemessene Spitze bei 8 parallelen Uploads etwa 518 MiB). Dafür Arbeitsspeicher
@@ -260,17 +291,18 @@ Routen:
 | `/` | öffentlich | Startseite |
 | `/coins` | öffentlich | Katalog mit Suche und Blättern; Suchparameter `suche` (≤ 100 Zeichen) und `seite` in der URL; Link „Coin hinzufügen“ nur mit `coins.write` |
 | `/coins/neu` | `coins.write` | Seite „Coin hinzufügen“ (Formular inkl. Motivbild, darunter „Standardvorlage herunterladen“); danach `replace` auf die Detailseite |
-| `/coins/$coinId` | öffentlich | Detailseite; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf. Link „Bearbeiten“ und „Auflage ändern“ mit `coins.write`, Abschnitt „Exemplare“ nur mit `coins.read` (Suchparameter `status` = `verfuegbar`/`ausgegeben` und `seite`), „Ausgabehistorie“ nur mit `issues.read`, „Ausgabe erfassen“/„Stornieren“ mit `issues.write` |
+| `/coins/$coinId` | öffentlich | Detailseite; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf. Link „Bearbeiten“ und „Auflage ändern“ mit `coins.write`, Abschnitt „Exemplare“ nur mit `coins.read` (Suchparameter `status` = `verfuegbar`/`ausgegeben` und `seite`), „Ausgabehistorie“ (mit Spalte „Zertifikat“: Nummer als Link zur Ausgabe-Seite) nur mit `issues.read`, „Ausgabe erfassen“/„Stornieren“/„Zertifikat herunterladen“ mit `issues.write` |
 | `/coins/$coinId/bearbeiten` | `coins.write` | Seite „Coin bearbeiten“: Stammdaten, Motivbild, Zertifikatsvorlage; nach dem Speichern der Stammdaten `replace` auf die Detailseite |
 | `/coins/$coinId/ausgaben/neu` | `issues.write` | Seite „Ausgabe erfassen“; danach `replace` auf die Detailseite |
+| `/coins/$coinId/ausgaben/$ausgabeId` | `issues.read` | Seite „Ausgabe“ (`ROUTEN.ausgabeDetail`): Angaben einer Ausgabe, „Zertifikat herunterladen“ mit `issues.write`; `coinId` oder `ausgabeId` keine GUID → „Ausgabe nicht gefunden“ ohne API-Aufruf |
 | `/benutzerverwaltung` | `users.manage` | Tabs „Benutzer“ und „Audit-Log“ |
 | `/anmeldung/rueckruf` | öffentlich | Rückkehr vom Keycloak (ohne App-Shell) |
 | `/abgemeldet` | öffentlich | Bestätigung nach dem Abmelden |
 | `/kein-zugriff` | nur angemeldet | Hinweis für Benutzer ohne Rolle, mit deaktiviertem Konto oder (mit `?grund=berechtigung`) mit Rolle ohne die nötige Berechtigung; alle anderen werden nach `/` geleitet |
 
 `/coins/neu` und `/coins/$coinId` sind Geschwister von `/coins`; das statische Segment `neu` geht
-vor dem Parameter. `/coins/$coinId/ausgaben/neu` und `/coins/$coinId/bearbeiten` sind ebenfalls
-Geschwister. Ungültige
+vor dem Parameter. `/coins/$coinId/ausgaben/neu`, `/coins/$coinId/ausgaben/$ausgabeId` und
+`/coins/$coinId/bearbeiten` sind ebenfalls Geschwister; `neu` geht auch hier vor `$ausgabeId`. Ungültige
 Suchparameter (`seite=0`, `seite=abc`, Seite über 2147483647, unbekannter `status`) gelten als
 Seite 1 bzw. „Alle“, ein zu langer Suchbegriff wird gekürzt; die URL führt also nie zu einem `400`.
 Die Erfolgsmeldungen nach dem Anlegen und Bearbeiten eines Coins und nach dem Erfassen einer Ausgabe
@@ -339,11 +371,15 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
   (Dateifeld mit Vorprüfung auf `.docx` und Größe), `features/vorlage-zuruecksetzen` (Button mit
   Bestätigungsdialog), `widgets/zertifikatsvorlage` (Abschnitt auf „Coin bearbeiten“).
 - Exemplare und Ausgaben: `entities/exemplar` (`ladeExemplare`, `Kennzahlen`, `ExemplarTabelle`,
-  Status-Badge), `entities/ausgabe` (`ladeAusgaben`, `AusgabenTabelle`), `features/ausgabe-erfassen`
+  Status-Badge), `entities/ausgabe` (`ladeAusgaben`, `ladeAusgabe`, `AusgabenTabelle` mit optionaler
+  Render-Prop `zertifikat` für die Spalte „Zertifikat“, `AusgabeDetails`), `features/ausgabe-erfassen`
   (`AusgabeFormular`), `features/ausgabe-stornieren` (Button mit Bestätigungsdialog),
-  `features/auflage-aendern` (Button mit Dialog), `widgets/coin-exemplare` (Kennzahlen, Filter,
-  Tabelle, Blättern, „Ausgabe erfassen“, „Auflage ändern“), `widgets/ausgaben-historie` (Historie mit
-  Storno), `pages/ausgabe-erfassen`. `pages/coin-detail` setzt die Widgets nach Berechtigung zusammen.
+  `features/zertifikat-herunterladen` (`ZertifikatHerunterladen`: Download per `ladeDatei`, Dateiname
+  nur nach Muster `Zertifikat_C….docx`, gesperrt per `aria-disabled` und dadurch fokussierbar, Alarm bei
+  Fehlern), `features/auflage-aendern` (Button mit Dialog), `widgets/coin-exemplare` (Kennzahlen,
+  Filter, Tabelle, Blättern, „Ausgabe erfassen“, „Auflage ändern“), `widgets/ausgaben-historie`
+  (Historie mit Storno, Link zur Ausgabe-Seite und Zertifikat-Download), `pages/ausgabe-erfassen`,
+  `pages/ausgabe-detail`. `pages/coin-detail` setzt die Widgets nach Berechtigung zusammen.
   Seiten nutzen keine Router-Hooks; Suche, Seite, Parameter und Navigation reicht
   `app/router/routen-komponenten.tsx` als Props durch.
 - Benutzerverwaltung: `entities/audit` (`AuditTabelle`, `GET /api/audit`), `features/rolle-zuweisen`
@@ -389,7 +425,7 @@ nur, wenn Index und Arbeitsstand übereinstimmen.
 
 | | `web/ui-tests` (`npm run test:ui`) | `e2e/` (`npx playwright test`) |
 |---|---|---|
-| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen: Routing, Seitenleiste, Tastaturbedienung, Darstellung | fachliche Abläufe über alle Schichten |
+| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen, Zertifikat-Download: Routing, Seitenleiste, Tastaturbedienung, Darstellung | fachliche Abläufe über alle Schichten |
 | API | gemockt per `page.route`; Proxy-Ziel absichtlich unerreichbar; jeder nicht gemockte `/api`-Aufruf lässt den Test scheitern | echte API (Release-Build) mit Wegwerf-PostgreSQL |
 | Anmeldung | Identitätsanbieter gemockt (`VITE_OIDC_AUTHORITY=http://127.0.0.1:9/realms/coin`) | echter Wegwerf-Keycloak |
 | Voraussetzungen | nur Node.js und Chromium | Docker, .NET 10 SDK, Node.js ≥ 22.18 |
@@ -477,9 +513,14 @@ Ablauf pro Lauf (ADR-0007, ADR-0015):
   herunter, legt einen Coin an, lädt die Datei auf „Coin bearbeiten“ zweimal hoch (Version 1 und 2),
   lädt Version 1 herunter, prüft die Ablehnung einer umbenannten Textdatei und als Betrachter, dass
   „Bearbeiten“ und die Vorlagen-Bedienelemente fehlen.
+  `zertifikat-erzeugen.spec.ts` legt als Sachbearbeiter einen Coin mit Auflage 5 an, erfasst eine
+  Ausgabe mit Umlauten im Empfängernamen, lädt das Zertifikat aus der Historie und von der Seite
+  „Ausgabe“ herunter, prüft den Dateinamen und den Inhalt von `word/document.xml` (Name und Nummer
+  vorhanden, kein `{{`; Hilfe `tests/hilfen/docx.ts`), storniert die Ausgabe (Button danach gesperrt)
+  und prüft als Betrachter, dass Button und Ausgabe-Seite nicht zugänglich sind.
 - Die Tests laufen nacheinander (`workers: 1`): Die Specs teilen sich Datenbank und Testkonten,
-  `benutzerverwaltung.spec.ts`, `katalog-seiten.spec.ts`, `coin-ausgaben.spec.ts` und
-  `zertifikatsvorlagen.spec.ts` brauchen `betrachter@test.local`
+  `benutzerverwaltung.spec.ts`, `katalog-seiten.spec.ts`, `coin-ausgaben.spec.ts`,
+  `zertifikatsvorlagen.spec.ts` und `zertifikat-erzeugen.spec.ts` brauchen `betrachter@test.local`
   (einmal entzogen/deaktiviert, einmal als aktiver Betrachter), und die oberste Audit-Zeile würde
   durch parallele Rollenvergaben verfälscht. Ein Lauf dauert etwa 2 Minuten.
 - Laufende Server werden nie wiederverwendet. Ist Port 5182, 5183 oder 5184 belegt, bricht der Lauf ab.
