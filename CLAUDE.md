@@ -22,6 +22,9 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
 - **Zertifikatsnummer**: `<Kennung>-<Exemplar, mind. 4-stellig>` (`C0042-0012`), je Ausgabe
   unveränderlich; eine Neuausgabe desselben Exemplars nach Storno erhält dieselbe Nummer
   (eindeutig nur unter aktiven Ausgaben)
+- **Block**: einer der fünf festen Bausteine der Startseite (`kopf`, `infotext`, `kennzahlen`,
+  `neueste`, `meistausgegeben`); ein- und ausschaltbar, Reihenfolge per Hoch/Runter
+- **Logo-Platz**: `bereitsteller` oder `software` im Kopfbereich der Startseite, je mit Alternativtext
 
 ## Technik
 - Backend: C# / .NET 10, ASP.NET Core Web API, EF Core, PostgreSQL
@@ -61,7 +64,7 @@ Frontend-Grundgerüst mit App-Shell (Startseite `/`, Katalog `/coins`, Sidebar, 
 Anmeldung über Keycloak (ADR-0012–0015). Rollen- und Benutzerverwaltung
 (`docs/features/rollen-benutzerverwaltung.md`, ADR-0016–0019): Administratoren vergeben Rollen und
 deaktivieren/reaktivieren Benutzer unter `/benutzerverwaltung`; Berechtigungen `coins.read`/
-`coins.write`/`users.manage`/`audit.read`/`issues.read`/`issues.write` aus der festen Rechtematrix im Code
+`coins.write`/`users.manage`/`audit.read`/`issues.read`/`issues.write`/`startpage.manage` aus der festen Rechtematrix im Code
 (`docs/berechtigungen.md`); Audit-Log für Rollen- und Statusänderungen (`benutzer_audit`,
 unveränderlich per Trigger, unbegrenzt aufbewahrt). Der erste Administrator kommt per
 `Bootstrap:AdminEmails`. Exemplare und Ausgaben (`docs/features/coin-ausgaben.md`, ADR-0020/0021):
@@ -78,7 +81,14 @@ per Sequenz `coin_kennung_seq`, Zertifikatsnummer bei Erfassung der Ausgabe; Sei
 `/coins/{id}/ausgaben/{ausgabeId}` mit `issues.read`; Download `Zertifikat_<Nummer>.docx` aus der
 aktiven Vorlage (sonst Standardvorlage ohne Erläuterung) mit `issues.write`, Ersetzung nur im
 Speicher, höchstens 200 Platzhalter; jeder Download in `zertifikat_audit` (unveränderlich per
-Trigger, kein Lese-Endpunkt). Noch nicht vorhanden: Signatur, PDF, QR-Code/Prüfseite,
+Trigger, kein Lese-Endpunkt). Konfigurierbare Startseite (`docs/features/startseite.md`,
+ADR-0030–0032): `/` mit bis zu fünf Blöcken (`GET /api/startseite` mit `coins.read`, Aggregation in
+SQL, keine Personendaten), ohne Konfiguration Standardstartseite; Kopfbereich und Logos öffentlich
+(`GET /api/startseite/kopf`, `GET /api/startseite/logos/{platz}`); Pflege auf
+`/verwaltung/startseite` mit `startpage.manage` (nur Administrator, `PUT` multipart mit Version,
+`409` bei Konflikt); Infotext als Markdown über `MarkdownText` (`react-markdown`, kein rohes HTML);
+Logos nur PNG/JPEG/WebP; `startseite_audit` unveränderlich per Trigger, ohne Lese-Endpunkt und
+ohne Textinhalte. Noch nicht vorhanden: Signatur, PDF, QR-Code/Prüfseite,
 Löschkonzept für Audit, Empfängerdaten und Vorlagenversionen.
 Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup im `README.md`.
 `dotnet build` ohne Warnungen ist Pflicht, `TreatWarningsAsErrors` ist aber (noch) nicht gesetzt.
@@ -121,7 +131,8 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
 - Die öffentliche Zertifikatsprüfung zeigt nur das Nötige und keine Personendaten.
 - Alle Endpunkte sind standardmäßig geschützt (FallbackPolicy). Öffentlich nur ausdrücklich per
   `[AllowAnonymous]` mit Begründung im ADR; der Endpunkt-Inventartest muss mitgezogen werden.
-  Öffentliche DTOs enthalten keine Personendaten.
+  Öffentlich sind genau die drei Katalog-GETs (ADR-0014) sowie `GET /api/startseite/kopf` und
+  `GET /api/startseite/logos/{platz}` (ADR-0032). Öffentliche DTOs enthalten keine Personendaten.
 - Token-Prüfparameter (Issuer, Audience, Lebensdauer, Signatur, `azp`) stehen fest im Code und sind
   nicht per Konfiguration abschaltbar. Rollen-Claims aus Tokens werden nie ausgewertet.
 - Tokens, Authorization-Header, E-Mail-Adressen und Namen werden nie geloggt.
@@ -142,6 +153,8 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
 - Erzeugte Zertifikate enthalten Personendaten: nur im Speicher erzeugen (kein Dateisystem,
   kein `System.IO.Packaging`, geprüft per Code-Test), nie loggen oder zwischenspeichern;
   Erzeugungsfehler selbst fangen und nur die feste Warnung 2501 schreiben.
+- Startseite-Audit hält bei Texten nur „geändert“ fest, nie den Inhalt. Die Startseite zeigt nie
+  Empfänger, Anlässe oder Namen.
 - Audit-Einträge sind unveränderlich (nur INSERT/SELECT, DB-Trigger); Änderungen an Rolle oder Status
   nur über `BenutzerverwaltungService` (Sperre plus Audit in derselben Transaktion).
 - Request-Logs schreibt nur `AnfrageProtokoll` (Methode, Routen-Template, Status, Dauer; ADR-0019).
@@ -149,6 +162,22 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
   ControllerActionInvoker, Kestrel.BadRequests) haben feste Mindeststufen per `ILoggerFactory`-Wrapper
   in `src/Coin.Api/Http/Protokollierung.cs` – nicht per Konfiguration lockern und die `ILoggerFactory`
   (z. B. Serilog) nicht ersetzen, ohne diese Begrenzung nachzubauen.
+
+## Datei-Uploads
+- Hochgeladene Dateien sind nicht vertrauenswürdig. Typ nur am Inhalt (Magic Bytes, Struktur), nie an
+  Endung oder deklariertem Content-Type; feste Positivliste der Formate, SVG nie.
+- Größe beim Lesen begrenzen (`MultipartDateiLeser`/`MultipartFormularLeser`,
+  `[FormularBindungDeaktivieren]`, `[RequestSizeLimit]` höher als die fachliche Grenze),
+  Überschreitung `413` als ProblemDetails; Strukturgrenzen (Teile, Einträge, Tiefe, Pixel) prüfen.
+- Verarbeitung nur im Speicher, nie im Dateisystem; Speicherung in PostgreSQL (`bytea`) ohne
+  Originalnamen und deklarierten Typ (ADR-0005, ADR-0023, ADR-0030).
+- Auslieferung mit erkanntem Content-Type, `X-Content-Type-Options: nosniff`,
+  `Content-Security-Policy: default-src 'none'; sandbox`, generiertem ASCII-Dateinamen; Downloads
+  mit Personendaten `no-store`, öffentliche Bilder mit versionierter URL und ETag (ADR-0014, ADR-0032).
+- Dateinamen, Dateiinhalte, Metadaten und Parser-Ausnahmen nie loggen; Befunde als
+  `400 errors.<feld>` mit deutscher Meldung ohne Dateiinhalt (ADR-0024, ADR-0026, ADR-0031).
+- Im Frontend kein `dangerouslySetInnerHTML`; vom Benutzer formatierter Text nur über
+  `MarkdownText` (ADR-0031, geprüft in `web/src/app/markdown-sicherheit.test.ts`).
 
 ## Definition of Done
 1. Anforderung in `docs/requirements.md` abgedeckt
