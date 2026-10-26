@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page, type Route } from '@playwright/test'
+import { mockeStartseiteStandard } from './startseite-mocks.js'
 
 // Feature katalog-seiten, Abschnitt 6 (UI-Tests): Katalog, Detailseite und „Coin hinzufügen“ im Browser.
 // API und IdP sind vollständig gemockt (IdP laut playwright.config.ts unerreichbar). Alle Daten sind synthetisch.
@@ -375,6 +376,8 @@ test.beforeEach(async ({ page }) => {
     },
   )
   await mockeCoinApi(page)
+  // startseite (9.7): `/` ruft jetzt GET /api/startseite bzw. …/kopf auf; Standardantworten statt Catch-all.
+  await mockeStartseiteStandard(page)
 })
 
 test.afterEach(() => {

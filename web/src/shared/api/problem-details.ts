@@ -7,4 +7,6 @@ export interface ProblemDetails {
   errors?: Record<string, string[]>
   /** Maschinenlesbarer Grund, z. B. `benutzer_deaktiviert`, `letzter_administrator` (rollen-benutzerverwaltung). */
   code?: string
+  /** Betroffener Formularteil bei 413 (startseite, Abschnitt 5.5), z. B. `logoBereitsteller`. */
+  feld?: string
 }

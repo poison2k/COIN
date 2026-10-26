@@ -23,7 +23,11 @@ public static class Berechtigungen
     /// <summary>Audit-Log lesen.</summary>
     public const string AuditRead = "audit.read";
 
-    public static IReadOnlyList<string> Alle { get; } = [CoinsRead, CoinsWrite, IssuesRead, IssuesWrite, UsersManage, AuditRead];
+    /// <summary>Startseite konfigurieren: Blöcke, Reihenfolge, Texte, Logos (ADR-0032 Punkt 5).</summary>
+    public const string StartpageManage = "startpage.manage";
+
+    public static IReadOnlyList<string> Alle { get; } =
+        [CoinsRead, CoinsWrite, IssuesRead, IssuesWrite, UsersManage, AuditRead, StartpageManage];
 }
 
 /// <summary>Rechtematrix Rolle → Berechtigungen (ADR-0016, <c>docs/berechtigungen.md</c>). Unveränderlich.</summary>
@@ -39,7 +43,8 @@ public static class Rechtematrix
             Berechtigungen.IssuesRead,
             Berechtigungen.IssuesWrite,
             Berechtigungen.UsersManage,
-            Berechtigungen.AuditRead),
+            Berechtigungen.AuditRead,
+            Berechtigungen.StartpageManage),
         [Rolle.Sachbearbeiter] = Menge(
             Berechtigungen.CoinsRead, Berechtigungen.CoinsWrite, Berechtigungen.IssuesRead, Berechtigungen.IssuesWrite),
         [Rolle.Betrachter] = Menge(Berechtigungen.CoinsRead),

@@ -391,6 +391,10 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                         .IsUnique()
                         .HasDatabaseName("ux_coin_typ_kennung");
 
+                    b.HasIndex("ErstelltAm", "Id")
+                        .IsDescending()
+                        .HasDatabaseName("ix_coin_typ_erstellt");
+
                     b.ToTable("coin_typ", null, t =>
                         {
                             t.HasCheckConstraint("ck_coin_typ_auflage", "auflage IS NULL OR auflage BETWEEN 1 AND 1000000");
@@ -415,6 +419,226 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                     b.ToTable("exemplar", null, t =>
                         {
                             t.HasCheckConstraint("ck_exemplar_nummer", "nummer >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.StartseiteAuditDatensatz", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AkteurId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("akteur_id");
+
+                    b.Property<string>("Alt")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("alt");
+
+                    b.Property<string>("Art")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("art");
+
+                    b.Property<string>("Neu")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("neu");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<DateTimeOffset>("Zeitpunkt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("zeitpunkt");
+
+                    b.Property<string>("Ziel")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("ziel");
+
+                    b.HasKey("Id")
+                        .HasName("pk_startseite_audit");
+
+                    b.HasIndex("AkteurId")
+                        .HasDatabaseName("ix_startseite_audit_akteur_id");
+
+                    b.HasIndex("Zeitpunkt")
+                        .HasDatabaseName("ix_startseite_audit_zeitpunkt");
+
+                    b.ToTable("startseite_audit", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_startseite_audit_art", "(art IN ('BlockEingeschaltet', 'BlockAusgeschaltet') AND ziel IN ('kopf', 'infotext', 'kennzahlen', 'neueste', 'meistausgegeben') AND alt IS NULL AND neu IS NULL) OR (art = 'ReihenfolgeGeaendert' AND ziel IS NULL AND alt IS NOT NULL AND neu IS NOT NULL) OR (art IN ('TitelGeaendert', 'UntertitelGeaendert', 'InfotextGeaendert') AND ziel IS NULL AND alt IS NULL AND neu IS NULL) OR (art = 'AnzahlGeaendert' AND ziel IN ('neueste', 'meistausgegeben') AND alt IS NOT NULL AND neu IS NOT NULL) OR (art = 'LogoHochgeladen' AND ziel IN ('bereitsteller', 'software') AND alt IS NULL AND neu IS NOT NULL) OR (art = 'LogoErsetzt' AND ziel IN ('bereitsteller', 'software') AND alt IS NOT NULL AND neu IS NOT NULL) OR (art = 'LogoEntfernt' AND ziel IN ('bereitsteller', 'software') AND alt IS NOT NULL AND neu IS NULL) OR (art = 'AlternativtextGeaendert' AND ziel IN ('bereitsteller', 'software') AND alt IS NULL AND neu IS NULL)");
+
+                            t.HasCheckConstraint("ck_startseite_audit_version", "version >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.StartseiteKonfigurationDatensatz", b =>
+                {
+                    b.Property<short>("Id")
+                        .HasColumnType("smallint")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("GeaendertAm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("geaendert_am");
+
+                    b.Property<Guid>("GeaendertVon")
+                        .HasColumnType("uuid")
+                        .HasColumnName("geaendert_von");
+
+                    b.Property<string>("Infotext")
+                        .IsRequired()
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)")
+                        .HasColumnName("infotext");
+
+                    b.Property<bool>("InfotextAktiv")
+                        .HasColumnType("boolean")
+                        .HasColumnName("infotext_aktiv");
+
+                    b.Property<bool>("KennzahlenAktiv")
+                        .HasColumnType("boolean")
+                        .HasColumnName("kennzahlen_aktiv");
+
+                    b.Property<bool>("KopfAktiv")
+                        .HasColumnType("boolean")
+                        .HasColumnName("kopf_aktiv");
+
+                    b.Property<string>("KopfTitel")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("kopf_titel");
+
+                    b.Property<string>("KopfUntertitel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("kopf_untertitel");
+
+                    b.Property<bool>("MeistausgegebenAktiv")
+                        .HasColumnType("boolean")
+                        .HasColumnName("meistausgegeben_aktiv");
+
+                    b.Property<short>("MeistausgegebenAnzahl")
+                        .HasColumnType("smallint")
+                        .HasColumnName("meistausgegeben_anzahl");
+
+                    b.Property<bool>("NeuesteAktiv")
+                        .HasColumnType("boolean")
+                        .HasColumnName("neueste_aktiv");
+
+                    b.Property<short>("NeuesteAnzahl")
+                        .HasColumnType("smallint")
+                        .HasColumnName("neueste_anzahl");
+
+                    b.PrimitiveCollection<string[]>("Reihenfolge")
+                        .IsRequired()
+                        .HasColumnType("varchar(20)[]")
+                        .HasColumnName("reihenfolge");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_startseite_konfiguration");
+
+                    b.HasIndex("GeaendertVon")
+                        .HasDatabaseName("ix_startseite_konfiguration_geaendert_von");
+
+                    b.ToTable("startseite_konfiguration", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_startseite_konfiguration_id", "id = 1");
+
+                            t.HasCheckConstraint("ck_startseite_konfiguration_infotext", "NOT infotext_aktiv OR btrim(infotext) <> ''");
+
+                            t.HasCheckConstraint("ck_startseite_konfiguration_kopf_titel", "NOT kopf_aktiv OR btrim(kopf_titel) <> ''");
+
+                            t.HasCheckConstraint("ck_startseite_konfiguration_meistausgegeben_anzahl", "meistausgegeben_anzahl BETWEEN 3 AND 10");
+
+                            t.HasCheckConstraint("ck_startseite_konfiguration_neueste_anzahl", "neueste_anzahl BETWEEN 3 AND 12");
+
+                            t.HasCheckConstraint("ck_startseite_konfiguration_reihenfolge", "cardinality(reihenfolge) = 5 AND reihenfolge::text[] @> ARRAY['kopf', 'infotext', 'kennzahlen', 'neueste', 'meistausgegeben']::text[]");
+
+                            t.HasCheckConstraint("ck_startseite_konfiguration_version", "version >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.StartseiteLogoDatensatz", b =>
+                {
+                    b.Property<string>("Platz")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("platz");
+
+                    b.Property<string>("Alternativtext")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("alternativtext");
+
+                    b.Property<int>("Breite")
+                        .HasColumnType("integer")
+                        .HasColumnName("breite");
+
+                    b.Property<string>("Format")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("format");
+
+                    b.Property<int>("GroesseBytes")
+                        .HasColumnType("integer")
+                        .HasColumnName("groesse_bytes");
+
+                    b.Property<DateTimeOffset>("HochgeladenAm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("hochgeladen_am");
+
+                    b.Property<Guid>("HochgeladenVon")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hochgeladen_von");
+
+                    b.Property<int>("Hoehe")
+                        .HasColumnType("integer")
+                        .HasColumnName("hoehe");
+
+                    b.Property<byte[]>("Inhalt")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("inhalt");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasColumnType("char(64)")
+                        .HasColumnName("sha256");
+
+                    b.HasKey("Platz")
+                        .HasName("pk_startseite_logo");
+
+                    b.HasIndex("HochgeladenVon")
+                        .HasDatabaseName("ix_startseite_logo_hochgeladen_von");
+
+                    b.ToTable("startseite_logo", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_startseite_logo_alternativtext", "btrim(alternativtext) <> ''");
+
+                            t.HasCheckConstraint("ck_startseite_logo_breite", "breite BETWEEN 1 AND 2048");
+
+                            t.HasCheckConstraint("ck_startseite_logo_format", "format IN ('png', 'jpeg', 'webp')");
+
+                            t.HasCheckConstraint("ck_startseite_logo_groesse_bytes", "groesse_bytes BETWEEN 1 AND 2097152");
+
+                            t.HasCheckConstraint("ck_startseite_logo_hoehe", "hoehe BETWEEN 1 AND 2048");
+
+                            t.HasCheckConstraint("ck_startseite_logo_platz", "platz IN ('bereitsteller', 'software')");
                         });
                 });
 
@@ -654,6 +878,36 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_exemplar_coin_typ_coin_id");
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.StartseiteAuditDatensatz", b =>
+                {
+                    b.HasOne("Coin.Infrastructure.Persistenz.BenutzerDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("AkteurId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_startseite_audit_benutzer_akteur_id");
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.StartseiteKonfigurationDatensatz", b =>
+                {
+                    b.HasOne("Coin.Infrastructure.Persistenz.BenutzerDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("GeaendertVon")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_startseite_konfiguration_benutzer_geaendert_von");
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.StartseiteLogoDatensatz", b =>
+                {
+                    b.HasOne("Coin.Infrastructure.Persistenz.BenutzerDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("HochgeladenVon")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_startseite_logo_benutzer_hochgeladen_von");
                 });
 
             modelBuilder.Entity("Coin.Infrastructure.Persistenz.VorlageAuditDatensatz", b =>

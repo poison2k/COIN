@@ -32,6 +32,9 @@ internal sealed class CoinTypKonfiguration : IEntityTypeConfiguration<CoinTypDat
         builder.Property(c => c.Kennung).HasMaxLength(CoinKennung.MaxLaenge).IsRequired().HasDefaultValueSql(KennungFunktion);
         builder.HasIndex(c => c.Kennung).IsUnique().HasDatabaseName(IndexKennung);
 
+        // „Neueste Coins“ der Startseite (startseite Abschnitt 4.4, 6): ORDER BY erstellt_am DESC, id DESC LIMIT n.
+        builder.HasIndex(c => new { c.ErstelltAm, c.Id }).IsDescending(true, true).HasDatabaseName("ix_coin_typ_erstellt");
+
         // Eindeutiger Index auf (lower(name), lower(herausgeber)) wird in der Migration per SQL angelegt.
         builder.HasOne(c => c.Bild)
             .WithOne()

@@ -83,6 +83,8 @@ describe('ladeAngemeldetenBenutzer bei deaktiviertem Konto (AK-32, AK-34)', () =
       'coins.write',
       'issues.read',
       'issues.write',
+      // startseite (AK-15): ME.admin hat zusätzlich startpage.manage.
+      'startpage.manage',
       'users.manage',
     ])
   })

@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Request, type Route } from '@playwright/test'
+import { mockeStartseiteStandard } from './startseite-mocks.js'
 
 // Feature anmeldung-keycloak, Abschnitt 6.3: Anmeldung im Browser, API und IdP vollständig gemockt.
 // Der IdP ist laut playwright.config.ts http://127.0.0.1:9/realms/coin (unerreichbar). Alle Daten sind synthetisch.
@@ -173,6 +174,8 @@ test.beforeEach(async ({ page }) => {
     refresh_token: 'ui-refresh-token-neu',
     id_token: idToken('Test Administrator'),
   }))
+  // startseite (9.7): `/` ruft jetzt GET /api/startseite bzw. …/kopf auf; Standardantworten statt Catch-all.
+  await mockeStartseiteStandard(page)
 })
 
 test.afterEach(() => {

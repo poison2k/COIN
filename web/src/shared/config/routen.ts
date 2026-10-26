@@ -20,4 +20,6 @@ export const ROUTEN = {
   keinZugriff: '/kein-zugriff',
   /** Benutzer- und Rollenverwaltung, nur mit users.manage (rollen-benutzerverwaltung, AK-25). */
   benutzerverwaltung: '/benutzerverwaltung',
+  /** Startseite konfigurieren, nur mit startpage.manage (startseite, AK-26). */
+  startseiteVerwaltung: '/verwaltung/startseite',
 } as const

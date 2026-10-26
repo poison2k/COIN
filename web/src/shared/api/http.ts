@@ -11,7 +11,8 @@ export type ApiErgebnis<T> =
   | { art: 'nichtAngemeldet' }
   | { art: 'keinZugriff'; grund: KeinZugriffGrund }
   | { art: 'konflikt'; code: string | null; detail?: string }
-  | { art: 'zuGross' }
+  /** 413; `feld` nennt den zu großen Teil, wenn der Server ihn angibt (startseite, Abschnitt 5.5). */
+  | { art: 'zuGross'; feld?: string }
   | { art: 'formatUngueltig' }
   | { art: 'nichtGefunden' }
   | { art: 'fehler' }
@@ -106,8 +107,10 @@ export async function bildeAb<T>(
         ? { art: 'konflikt', code, detail: problem.detail }
         : { art: 'konflikt', code }
     }
-    case 413:
-      return { art: 'zuGross' }
+    case 413: {
+      const problem = (await leseJson(antwort)) as ProblemDetails | null
+      return typeof problem?.feld === 'string' ? { art: 'zuGross', feld: problem.feld } : { art: 'zuGross' }
+    }
     case 415:
       return { art: 'formatUngueltig' }
     default:

@@ -208,7 +208,10 @@ describe('Kopfzeile', () => {
       vorbereiten: () => api.einmal('GET', /^\/api\/me$/, () => offen.promise),
     })
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Willkommen bei C.O.I.N.' })).toBeInTheDocument()
+    // startseite (9.7, AK-20): Solange /api/me lädt, steht noch nicht fest, ob die Seite GET /api/startseite oder
+    // …/kopf lädt; die Seite zeigt dann nur role="status" „Startseite wird geladen …“ und kein h1.
+    expect(await screen.findByText('Startseite wird geladen …')).toHaveAttribute('role', 'status')
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
     expect(within(await kopfzeileGerendert()).queryByRole('button', { name: 'Anmelden' })).not.toBeInTheDocument()
     expect(kopfzeile()).not.toHaveTextContent('Test Administrator')
     offen.aufloesen(

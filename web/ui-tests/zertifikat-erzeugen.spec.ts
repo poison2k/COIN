@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page, type Route } from '@playwright/test'
+import { mockeStartseiteStandard } from './startseite-mocks.js'
 
 // Feature zertifikat-erzeugen, Abschnitt 8 (UI-Test): Spalte „Zertifikat“ in der Ausgabehistorie mit aktiver und
 // stornierter Ausgabe desselben Exemplars (gleiche Nummer), Download per Tastatur, 409 ausgabe_storniert, Ausgabe-Seite
@@ -213,6 +214,8 @@ test.beforeEach(async ({ page }) => {
       await route.abort('failed')
     },
   )
+  // startseite (9.7): `/` ruft jetzt GET /api/startseite bzw. …/kopf auf; Standardantworten statt Catch-all.
+  await mockeStartseiteStandard(page)
 })
 
 test.afterEach(() => {

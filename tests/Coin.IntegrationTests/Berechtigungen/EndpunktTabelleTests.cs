@@ -28,7 +28,8 @@ public partial class EndpunktTabelleTests(PostgresFixture fixture) : Integration
     /// (AK-16, ADR-0021): <c>issues.read</c>, <c>issues.write</c>.
     /// </summary>
     private static readonly string[] AlleBerechtigungen =
-        ["audit.read", "coins.read", "coins.write", "issues.read", "issues.write", "users.manage"];
+        // startseite (AK-16, ADR-0032 Punkt 5): startpage.manage ergänzt.
+        ["audit.read", "coins.read", "coins.write", "issues.read", "issues.write", "startpage.manage", "users.manage"];
 
     /// <summary>Name des Requirements laut Entwurf 5.5 (per Reflexion geprüft, um nicht vom Typ abzuhängen).</summary>
     private const string AnforderungTyp = "BerechtigungAnforderung";
@@ -191,6 +192,7 @@ public partial class EndpunktTabelleTests(PostgresFixture fixture) : Integration
     [InlineData("audit.read")]
     [InlineData("issues.read")]
     [InlineData("issues.write")]
+    [InlineData("startpage.manage")]
     public void Fuer_jede_Berechtigung_gibt_es_eine_Policy_gleichen_Namens(string berechtigung)
     {
         Assert.NotNull(Optionen(Fixture.Factory).GetPolicy(berechtigung));
@@ -203,6 +205,7 @@ public partial class EndpunktTabelleTests(PostgresFixture fixture) : Integration
     [InlineData("audit.read")]
     [InlineData("issues.read")]
     [InlineData("issues.write")]
+    [InlineData("startpage.manage")]
     public void Die_Policy_verlangt_Anmeldung_und_genau_ihre_Berechtigung(string berechtigung)
     {
         var policy = Optionen(Fixture.Factory).GetPolicy(berechtigung);
@@ -250,6 +253,12 @@ public partial class EndpunktTabelleTests(PostgresFixture fixture) : Integration
     // zertifikat-erzeugen (Abschnitt 5.4).
     [InlineData("GET /api/coins/{id}/ausgaben/{ausgabeId}", "issues.read")]
     [InlineData("GET /api/coins/{id}/ausgaben/{ausgabeId}/zertifikat", "issues.write")]
+    // startseite (Abschnitt 5.1/5.6, AK-16).
+    [InlineData("GET /api/startseite/kopf", Oeffentlich)]
+    [InlineData("GET /api/startseite/logos/{platz}", Oeffentlich)]
+    [InlineData("GET /api/startseite", "coins.read")]
+    [InlineData("GET /api/startseite/konfiguration", "startpage.manage")]
+    [InlineData("PUT /api/startseite/konfiguration", "startpage.manage")]
     public void Neue_Endpunkte_verlangen_die_Berechtigung_laut_Entwurf(string name, string zugriff)
     {
         var endpunkt = Assert.Single(Endpunkte(), e => e.Name == name).Endpunkt;

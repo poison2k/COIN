@@ -1,6 +1,7 @@
 using Coin.Domain.Ausgaben;
 using Coin.Domain.Benutzer;
 using Coin.Domain.Katalog;
+using Coin.Domain.Startseite;
 using Coin.Domain.Vorlagen;
 using Coin.Domain.Zertifikate;
 using Coin.Infrastructure.Persistenz;
@@ -32,6 +33,7 @@ public static class InfrastrukturRegistrierung
         services.AddScoped<IBenutzerverwaltungRepository, BenutzerverwaltungRepository>();
         services.AddScoped<IZertifikatsvorlageRepository, ZertifikatsvorlageRepository>();
         services.AddScoped<IZertifikatRepository, ZertifikatRepository>();
+        services.AddScoped<IStartseiteRepository, StartseiteRepository>();
 
         // Word-Vorlagen (ADR-0022, ADR-0024): zustandslos; die Standardvorlage wird je Prozess einmal erzeugt.
         services.AddSingleton<IDocxAnalyse, DocxAnalyse>();

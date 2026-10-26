@@ -17,6 +17,7 @@ export const TOKEN_ENDPOINT = `${TEST_AUTHORITY}/protocol/openid-connect/token`
 /**
  * Antworten von GET /api/me für die Testbenutzer. Seit rollen-benutzerverwaltung (AK-10) mit `berechtigungen`
  * laut Rechtematrix (ordinal sortiert); seit coin-ausgaben (AK-16) mit `issues.read`/`issues.write`. Ohne `as const`, damit `berechtigungen` ein (veränderbares) Array bleibt.
+ * Seit startseite (AK-15) hat der Administrator zusätzlich `startpage.manage`.
  */
 export const ME = {
   admin: {
@@ -24,7 +25,15 @@ export const ME = {
     name: 'Test Administrator',
     email: 'admin@test.local',
     rolle: 'Administrator',
-    berechtigungen: ['audit.read', 'coins.read', 'coins.write', 'issues.read', 'issues.write', 'users.manage'],
+    berechtigungen: [
+      'audit.read',
+      'coins.read',
+      'coins.write',
+      'issues.read',
+      'issues.write',
+      'startpage.manage',
+      'users.manage',
+    ],
   },
   sachbearbeiter: {
     id: '0199a1b2-0000-7000-8000-00000000a002',

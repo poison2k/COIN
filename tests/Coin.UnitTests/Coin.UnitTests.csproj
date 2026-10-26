@@ -23,4 +23,9 @@
     <ProjectReference Include="..\..\src\Coin.Domain\Coin.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Feature startseite: synthetische Logo-Dateien, von Unit- und Integrationstests gemeinsam genutzt. -->
+    <Compile Include="..\Gemeinsam\LogoBilder.cs" Link="Gemeinsam\LogoBilder.cs" />
+  </ItemGroup>
+
 </Project>

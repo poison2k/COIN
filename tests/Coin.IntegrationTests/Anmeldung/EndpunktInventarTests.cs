@@ -13,14 +13,19 @@ namespace Coin.IntegrationTests.Anmeldung;
 /// Feature anmeldung-keycloak, AK-10: Inventar der Endpunkte über <see cref="EndpointDataSource"/>.
 /// Anonym erreichbar sind genau die drei Lese-Endpunkte des Katalogs (ADR-0014), in Development zusätzlich nur OpenAPI.
 /// Angepasst durch rollen-benutzerverwaltung (AK-3): Policy <c>coins.write</c> statt <c>KatalogSchreiben</c>.
+/// Angepasst durch startseite (AK-16, Abschnitt 9.7, ADR-0032 Punkt 7): zusätzlich öffentlich sind
+/// <c>GET /api/startseite/kopf</c> und <c>GET /api/startseite/logos/{platz}</c> – insgesamt fünf anonyme Endpunkte.
 /// </summary>
 public partial class EndpunktInventarTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
 {
-    private static readonly string[] OeffentlicheKatalogEndpunkte =
+    /// <summary>startseite (9.7): bisher <c>OeffentlicheKatalogEndpunkte</c> mit den drei Katalog-Endpunkten.</summary>
+    private static readonly string[] OeffentlicheEndpunkte =
     [
         "GET /api/coins",
         "GET /api/coins/{id}",
         "GET /api/coins/{id}/bild",
+        "GET /api/startseite/kopf",
+        "GET /api/startseite/logos/{platz}",
     ];
 
     [GeneratedRegex(@"\{(\w+)(:[^}]*)?\}")]
@@ -47,9 +52,10 @@ public partial class EndpunktInventarTests(PostgresFixture fixture) : Integratio
             .ToArray();
 
     [Fact]
-    public void In_Testing_sind_genau_die_drei_Katalog_Lese_Endpunkte_anonym_erreichbar()
+    public void In_Testing_sind_genau_die_drei_Katalog_Lese_Endpunkte_und_die_zwei_Startseiten_Endpunkte_anonym_erreichbar()
     {
-        Assert.Equal(OeffentlicheKatalogEndpunkte, AnonymeEndpunkte(Fixture.Factory));
+        // startseite (9.7): bisher In_Testing_sind_genau_die_drei_Katalog_Lese_Endpunkte_anonym_erreichbar.
+        Assert.Equal(OeffentlicheEndpunkte, AnonymeEndpunkte(Fixture.Factory));
     }
 
     [Fact]
@@ -99,6 +105,10 @@ public partial class EndpunktInventarTests(PostgresFixture fixture) : Integratio
     // zertifikat-erzeugen (Abschnitt 5.1, AK-19, AK-22): Ausgabe lesen und Zertifikat herunterladen.
     [InlineData("GET /api/coins/{id}/ausgaben/{ausgabeId}", "issues.read")]
     [InlineData("GET /api/coins/{id}/ausgaben/{ausgabeId}/zertifikat", "issues.write")]
+    // startseite (Abschnitt 5.1, AK-15): Startseite mit coins.read, Konfiguration mit startpage.manage.
+    [InlineData("GET /api/startseite", "coins.read")]
+    [InlineData("GET /api/startseite/konfiguration", "startpage.manage")]
+    [InlineData("PUT /api/startseite/konfiguration", "startpage.manage")]
     public void Endpunkte_der_Coin_Ausgaben_verlangen_ihre_Policy_und_sind_nicht_anonym(string name, string policy)
     {
         // coin-ausgaben AK-15, AK-32 (ADR-0021 Punkt 2 und 5).
@@ -149,7 +159,7 @@ public partial class EndpunktInventarTests(PostgresFixture fixture) : Integratio
         // per In-Memory-Konfiguration mit höchstem Vorrang (siehe CoinApiFactory).
         await using var factory = Fixture.NeueFactory(new FactoryOptionen { Umgebung = "Development" });
 
-        var zusaetzlich = AnonymeEndpunkte(factory).Except(OeffentlicheKatalogEndpunkte).ToArray();
+        var zusaetzlich = AnonymeEndpunkte(factory).Except(OeffentlicheEndpunkte).ToArray();
 
         var openApi = Assert.Single(zusaetzlich);
         Assert.Matches(@"^GET /openapi/\{documentName\}\.json$", openApi);

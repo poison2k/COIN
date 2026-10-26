@@ -3,7 +3,9 @@ import type { AuditEintrag } from '@/entities/audit'
 import type { Ausgabe } from '@/entities/ausgabe'
 import type { Benutzer, BenutzerEintrag, Rolle } from '@/entities/benutzer'
 import type { Coin } from '@/entities/coin'
+import type { KopfAnsicht, Konfiguration, StartseiteAnsicht } from '@/entities/startseite'
 import type { VorlagenStatus, VorlagenVersion } from '@/entities/zertifikatsvorlage'
+import { testKonfiguration, testKopf, testStartseite } from './startseite'
 
 /** Content-Type von DOCX-Downloads (zertifikatsvorlagen, AK-6). */
 export const DOCX_TYP = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -244,6 +246,8 @@ export function erstelleFakeApi(
     ausgaben?: Record<string, Ausgabe[]>
     /** Zertifikatsvorlagen je Coin-Id (zertifikatsvorlagen); ohne Eintrag gilt die Standardvorlage. */
     vorlagen?: Record<string, VorlagenStatus>
+    /** Startseite (startseite, Abschnitt 5): ohne Angabe Standardblöcke, inaktiver Kopf, Standardkonfiguration. */
+    startseite?: { ansicht?: StartseiteAnsicht; kopf?: KopfAnsicht; konfiguration?: Konfiguration }
   } = {},
 ) {
   // Elemente kopieren: PUT-Handler ändern Coins in place, Modulkonstanten der Tests dürfen davon unberührt bleiben.
@@ -257,6 +261,11 @@ export function erstelleFakeApi(
   const vorlagen: Record<string, VorlagenStatus> = Object.fromEntries(
     Object.entries(optionen.vorlagen ?? {}).map(([id, status]) => [id, structuredClone(status)]),
   )
+  const startseite = {
+    ansicht: structuredClone(optionen.startseite?.ansicht ?? testStartseite()),
+    kopf: structuredClone(optionen.startseite?.kopf ?? testKopf()),
+    konfiguration: structuredClone(optionen.startseite?.konfiguration ?? testKonfiguration()),
+  }
   const anfragen: Anfrage[] = []
   const ueberschreibungen: Array<{ methode: string; pfad: RegExp; antwort: Antwortgeber }> = []
   let zaehler = 0
@@ -265,6 +274,26 @@ export function erstelleFakeApi(
     if (anfrage.methode === 'GET' && anfrage.pfad === '/api/me') {
       if (me === 'deaktiviert') return keinZugriffAntwort('benutzer_deaktiviert')
       return me ? jsonAntwort(200, me) : problemAntwort(401, { title: 'Nicht angemeldet' })
+    }
+    // startseite (Abschnitt 5.1): öffentlicher Kopf, Startseite mit coins.read, Konfiguration mit startpage.manage.
+    const recht = (berechtigung: string) =>
+      me !== null && me !== 'deaktiviert' && (me.berechtigungen as string[]).includes(berechtigung)
+    const ohneRecht = (berechtigung: string): Response | null => {
+      if (me === null) return problemAntwort(401, { title: 'Nicht angemeldet' })
+      if (me === 'deaktiviert') return keinZugriffAntwort('benutzer_deaktiviert')
+      return recht(berechtigung) ? null : keinZugriffAntwort('keine_berechtigung')
+    }
+    if (anfrage.methode === 'GET' && anfrage.pfad === '/api/startseite/kopf') {
+      return jsonAntwort(200, structuredClone(startseite.kopf))
+    }
+    if (anfrage.methode === 'GET' && anfrage.pfad === '/api/startseite') {
+      return ohneRecht('coins.read') ?? jsonAntwort(200, structuredClone(startseite.ansicht))
+    }
+    if (anfrage.pfad === '/api/startseite/konfiguration' && (anfrage.methode === 'GET' || anfrage.methode === 'PUT')) {
+      const abgewiesen = ohneRecht('startpage.manage')
+      if (abgewiesen) return abgewiesen
+      if (anfrage.methode === 'GET') return jsonAntwort(200, structuredClone(startseite.konfiguration))
+      return speichereStartseite(anfrage.body)
     }
     if (anfrage.methode === 'GET' && anfrage.pfad === '/api/benutzer') {
       const suche = (anfrage.query.get('suche') ?? '').trim().toLowerCase()
@@ -527,6 +556,66 @@ export function erstelleFakeApi(
     return problemAntwort(404)
   }
 
+  /** PUT /api/startseite/konfiguration (5.4): Versionsprüfung (409), Logos aus Dateiteilen, `null` entfernt. */
+  function speichereStartseite(body: unknown): Response {
+    if (!(body instanceof FormData) || typeof body.get('konfiguration') !== 'string') {
+      return problemAntwort(400, {
+        title: 'Eingaben ungültig',
+        errors: { konfiguration: ['Die Konfiguration fehlt.'] },
+      })
+    }
+    const eingabe = JSON.parse(body.get('konfiguration') as string) as Record<string, unknown> & {
+      version: number
+      kopf: Record<string, unknown>
+    }
+    const alt = startseite.konfiguration as unknown as Record<string, unknown> & {
+      version: number
+      kopf: Record<string, unknown>
+    }
+    if (eingabe.version !== alt.version) {
+      return problemAntwort(409, {
+        title: 'Speichern nicht möglich',
+        code: 'startseite_geaendert',
+        detail: 'Die Startseite wurde inzwischen geändert. Bitte die Seite neu laden.',
+      })
+    }
+    zaehler++
+    const version = alt.version + 1
+    const logo = (platz: 'bereitsteller' | 'software', feld: 'logoBereitsteller' | 'logoSoftware') => {
+      const angabe = eingabe.kopf[feld] as { alternativtext?: string } | null
+      if (angabe === null || angabe === undefined) return null
+      const datei = body.get(feld)
+      const vorher = alt.kopf[feld] as Record<string, unknown> | null
+      const basis =
+        datei instanceof File
+          ? {
+              url: `/api/startseite/logos/${platz}?v=${String(version).padStart(16, 'b')}`,
+              format: datei.type.replace('image/', ''),
+              breite: 100,
+              hoehe: 50,
+              groesseBytes: datei.size,
+            }
+          : (vorher ?? {})
+      return { ...basis, alternativtext: angabe.alternativtext ?? '' }
+    }
+    const neu = {
+      ...alt,
+      ...eingabe,
+      version,
+      standard: false,
+      geaendertAm: '2026-10-26T09:00:00Z',
+      geaendertVon: me && me !== 'deaktiviert' ? me.name : 'Unbekannt',
+      kopf: {
+        ...eingabe.kopf,
+        logoBereitsteller: logo('bereitsteller', 'logoBereitsteller'),
+        logoSoftware: logo('software', 'logoSoftware'),
+      },
+      daten: (alt as unknown as { daten: unknown }).daten,
+    }
+    startseite.konfiguration = neu as unknown as Konfiguration
+    return jsonAntwort(200, structuredClone(neu))
+  }
+
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = urlVon(input)
     const anfrage: Anfrage = {
@@ -556,6 +645,8 @@ export function erstelleFakeApi(
     ausgaben,
     /** Vorlagenstatus je Coin-Id (zertifikatsvorlagen); Upload und Zurücksetzen wirken hier. */
     vorlagen,
+    /** Zustand der Startseiten-API (startseite); PUT auf die Konfiguration wirkt auf `konfiguration`. */
+    startseite,
     anfragen,
     /** Überschreibt die nächste Antwort für Methode und Pfad (einmalig). */
     einmal(methode: string, pfad: RegExp, antwort: Antwortgeber | Promise<Response> | Response) {

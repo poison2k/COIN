@@ -63,6 +63,23 @@ describe('hatBerechtigung', () => {
   })
 })
 
+// Feature startseite, AK-15/AK-34: entities/benutzer kennt startpage.manage; nur der Administrator hat es.
+describe('startpage.manage', () => {
+  it('liefert true beim Administrator', () => {
+    expect(hatBerechtigung(ME.admin, 'startpage.manage')).toBe(true)
+  })
+
+  it.each(['sachbearbeiter', 'betrachter', 'keine'] as const)('liefert false für %s', (als) => {
+    expect(hatBerechtigung(ME[als], 'startpage.manage')).toBe(false)
+  })
+
+  it('richtet sich nach berechtigungen und nicht nach der Rolle', () => {
+    const betrachterMitRecht: Benutzer = { ...ME.betrachter, berechtigungen: ['coins.read', 'startpage.manage'] }
+
+    expect(hatBerechtigung(betrachterMitRecht, 'startpage.manage')).toBe(true)
+  })
+})
+
 describe('darfKatalogSchreiben', () => {
   it('wird nicht mehr exportiert (AK-23)', () => {
     expect('darfKatalogSchreiben' in benutzerModul).toBe(false)

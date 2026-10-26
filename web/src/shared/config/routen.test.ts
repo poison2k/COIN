@@ -44,4 +44,8 @@ describe('ROUTEN', () => {
   it('behält /coins/$coinId/ausgaben/neu für „Ausgabe erfassen“ (zertifikat-erzeugen, AK-27)', () => {
     expect(ROUTEN.coinAusgabeNeu).toBe('/coins/$coinId/ausgaben/neu')
   })
+
+  it('enthält /verwaltung/startseite für „Startseite verwalten“ (startseite, AK-26)', () => {
+    expect((ROUTEN as Record<string, string>).startseiteVerwaltung).toBe('/verwaltung/startseite')
+  })
 })

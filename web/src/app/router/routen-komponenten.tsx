@@ -1,5 +1,5 @@
-import { getRouteApi, Outlet, useLocation, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useState } from 'react'
+import { getRouteApi, Outlet, useBlocker, useLocation, useNavigate } from '@tanstack/react-router'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Ausgabe } from '@/entities/ausgabe'
 import type { Coin } from '@/entities/coin'
 import { hatBerechtigung } from '@/entities/benutzer'
@@ -13,8 +13,20 @@ import { CoinBearbeitenSeite } from '@/pages/coin-bearbeiten'
 import { CoinDetailSeite, type CoinDetailMeldung } from '@/pages/coin-detail'
 import { CoinListeSeite } from '@/pages/coin-liste'
 import { KeinZugriffSeite } from '@/pages/kein-zugriff'
+import { StartSeite } from '@/pages/start'
+import { StartseiteVerwaltungSeite } from '@/pages/startseite-verwaltung'
 import { ROUTEN } from '@/shared/config'
 import { sicheresZiel, useAnmeldung } from '@/shared/lib/anmeldung'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/shared/ui/alert-dialog'
 import { AppShell } from '@/widgets/app-shell'
 import { useBenutzerKontext } from '../anmeldung/benutzer-kontext'
 import { NichtGefunden } from './Fehlerseiten'
@@ -278,4 +290,69 @@ export function RueckrufRoute() {
   const fehlgeschlagen =
     anmeldung.rueckrufFehlgeschlagen || zustand.art === 'anonym' || zustand.art === 'nichtKonfiguriert'
   return <RueckrufSeite zustand={fehlgeschlagen ? 'fehlgeschlagen' : 'laeuft'} />
+}
+
+/**
+ * Startseite (/): Sichtbarkeit nur aus `berechtigungen` von /api/me (startseite, AK-20/AK-22, ADR-0032 Punkt 6). Solange
+ * die Anmeldung geprüft wird, steht nicht fest, welcher Endpunkt gilt; die Seite zeigt dann nur den Ladestatus.
+ */
+export function StartRoute() {
+  const { zustand, benutzer } = useBenutzerKontext()
+  return <StartSeite bereit={zustand.art !== 'pruefe'} darfAnsehen={hatBerechtigung(benutzer, 'coins.read')} />
+}
+
+/**
+ * „Startseite verwalten“ nur mit startpage.manage (startseite, AK-26). Ungespeicherte Änderungen sichern das Verlassen
+ * über die App per AlertDialog und Neuladen/Schließen per beforeunload ab (AK-32).
+ */
+export function StartseiteVerwaltungRoute() {
+  const { benutzer } = useBenutzerKontext()
+  const [geaendert, setGeaendert] = useState(false)
+  const geaendertRef = useRef(false)
+  useEffect(() => {
+    geaendertRef.current = geaendert
+  }, [geaendert])
+
+  const blocker = useBlocker({
+    shouldBlockFn: ({ current, next }) => geaendertRef.current && current.pathname !== next.pathname,
+    enableBeforeUnload: false,
+    withResolver: true,
+  })
+
+  useEffect(() => {
+    if (!geaendert) return undefined
+    const warnen = (ereignis: BeforeUnloadEvent) => {
+      ereignis.preventDefault()
+    }
+    window.addEventListener('beforeunload', warnen)
+    return () => window.removeEventListener('beforeunload', warnen)
+  }, [geaendert])
+
+  if (!hatBerechtigung(benutzer, 'startpage.manage')) return null
+  return (
+    <>
+      <StartseiteVerwaltungSeite onGeaendert={setGeaendert} />
+      <AlertDialog
+        open={blocker.status === 'blocked'}
+        onOpenChange={(offen) => {
+          if (!offen) blocker.reset?.()
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ungespeicherte Änderungen</AlertDialogTitle>
+            <AlertDialogDescription>
+              Die Änderungen an der Startseite sind nicht gespeichert. Seite trotzdem verlassen?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => blocker.reset?.()}>Bleiben</AlertDialogCancel>
+            <AlertDialogAction type="button" onClick={() => blocker.proceed?.()}>
+              Verlassen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
 }

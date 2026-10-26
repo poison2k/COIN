@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page, type Route } from '@playwright/test'
+import { mockeStartseiteStandard } from './startseite-mocks.js'
 
 // Feature coin-ausgaben, Abschnitt 8 (UI-Tests): Detailseite mit Exemplaren und Ausgabehistorie, „Ausgabe erfassen“,
 // Storno und Berechtigungsstufen im Browser. API und IdP sind vollständig gemockt; alle Daten sind synthetisch.
@@ -246,6 +247,8 @@ test.beforeEach(async ({ page }) => {
       await route.abort('failed')
     },
   )
+  // startseite (9.7): `/` ruft jetzt GET /api/startseite bzw. …/kopf auf; Standardantworten statt Catch-all.
+  await mockeStartseiteStandard(page)
 })
 
 test.afterEach(() => {

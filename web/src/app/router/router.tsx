@@ -8,7 +8,6 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router'
 import { AbgemeldetSeite } from '@/pages/abgemeldet'
-import { StartSeite } from '@/pages/start'
 import { ROUTEN } from '@/shared/config'
 import { Fehler, NichtGefunden } from './Fehlerseiten'
 import {
@@ -23,6 +22,8 @@ import {
   NichtGefundenInShell,
   RueckrufRoute,
   ShellLayout,
+  StartRoute,
+  StartseiteVerwaltungRoute,
 } from './routen-komponenten'
 import { erfordertAnmeldung, erfordertBerechtigung, type SchutzKontext } from './schutz'
 import { coinDetailSuche, katalogSuche, keinZugriffSuche } from './suchparameter'
@@ -56,7 +57,7 @@ const rueckrufRoute = createRoute({
 
 const shellRoute = createRoute({ getParentRoute: () => wurzel, id: 'shell', component: ShellLayout })
 
-const startRoute = createRoute({ getParentRoute: () => shellRoute, path: ROUTEN.start, component: StartSeite })
+const startRoute = createRoute({ getParentRoute: () => shellRoute, path: ROUTEN.start, component: StartRoute })
 const coinListeRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: ROUTEN.coinListe,
@@ -135,6 +136,16 @@ const benutzerverwaltungRoute = createRoute({
   component: BenutzerverwaltungRoute,
 })
 
+// Startseite konfigurieren, nur mit startpage.manage (startseite, AK-26).
+const startseiteVerwaltungRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: ROUTEN.startseiteVerwaltung,
+  beforeLoad: async ({ context, location }) => {
+    erfordertBerechtigung('startpage.manage')(await context.schutz(), location.href)
+  },
+  component: StartseiteVerwaltungRoute,
+})
+
 const routenBaum = wurzel.addChildren([
   rueckrufRoute,
   shellRoute.addChildren([
@@ -148,6 +159,7 @@ const routenBaum = wurzel.addChildren([
     abgemeldetRoute,
     keinZugriffRoute,
     benutzerverwaltungRoute,
+    startseiteVerwaltungRoute,
   ]),
 ])
 

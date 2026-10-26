@@ -15,6 +15,7 @@ public class RechtematrixTests
     private const string AuditRead = "audit.read";
     private const string IssuesRead = "issues.read";
     private const string IssuesWrite = "issues.write";
+    private const string StartpageManage = "startpage.manage";
 
     private static readonly DateTimeOffset Zeit = new(2026, 10, 5, 9, 0, 0, TimeSpan.Zero);
 
@@ -32,11 +33,12 @@ public class RechtematrixTests
     // ---------- Berechtigungen ----------
 
     [Fact]
-    public void Berechtigungen_Alle_enthaelt_genau_die_sechs_Berechtigungen()
+    public void Berechtigungen_Alle_enthaelt_genau_die_sieben_Berechtigungen()
     {
         // coin-ausgaben AK-16 (ADR-0021 Punkt 1): issues.read und issues.write kommen hinzu.
+        // startseite AK-15/AK-16 (ADR-0032 Punkt 5): startpage.manage kommt hinzu (bisher „genau die sechs“).
         Assert.Equal(
-            [AuditRead, CoinsRead, CoinsWrite, IssuesRead, IssuesWrite, UsersManage],
+            [AuditRead, CoinsRead, CoinsWrite, IssuesRead, IssuesWrite, StartpageManage, UsersManage],
             Berechtigungen.Alle.Order(StringComparer.Ordinal));
     }
 
@@ -53,6 +55,8 @@ public class RechtematrixTests
     [InlineData(nameof(Berechtigungen.AuditRead), AuditRead)]
     [InlineData("IssuesRead", IssuesRead)]
     [InlineData("IssuesWrite", IssuesWrite)]
+    // startseite (ADR-0032 Punkt 5).
+    [InlineData("StartpageManage", StartpageManage)]
     public void Konstante_hat_den_festgelegten_Wert(string konstante, string wert)
     {
         var feld = typeof(Berechtigungen).GetField(konstante);
@@ -71,24 +75,28 @@ public class RechtematrixTests
         { Rolle.Administrator, AuditRead, true },
         { Rolle.Administrator, IssuesRead, true },
         { Rolle.Administrator, IssuesWrite, true },
+        { Rolle.Administrator, StartpageManage, true },
         { Rolle.Sachbearbeiter, CoinsRead, true },
         { Rolle.Sachbearbeiter, CoinsWrite, true },
         { Rolle.Sachbearbeiter, UsersManage, false },
         { Rolle.Sachbearbeiter, AuditRead, false },
         { Rolle.Sachbearbeiter, IssuesRead, true },
         { Rolle.Sachbearbeiter, IssuesWrite, true },
+        { Rolle.Sachbearbeiter, StartpageManage, false },
         { Rolle.Betrachter, CoinsRead, true },
         { Rolle.Betrachter, CoinsWrite, false },
         { Rolle.Betrachter, UsersManage, false },
         { Rolle.Betrachter, AuditRead, false },
         { Rolle.Betrachter, IssuesRead, false },
         { Rolle.Betrachter, IssuesWrite, false },
+        { Rolle.Betrachter, StartpageManage, false },
         { null, CoinsRead, false },
         { null, CoinsWrite, false },
         { null, UsersManage, false },
         { null, AuditRead, false },
         { null, IssuesRead, false },
         { null, IssuesWrite, false },
+        { null, StartpageManage, false },
     };
 
     [Theory]
@@ -105,7 +113,8 @@ public class RechtematrixTests
     }
 
     [Theory]
-    [InlineData(Rolle.Administrator, 6)]
+    // startseite: Administrator 7 statt 6 (startpage.manage).
+    [InlineData(Rolle.Administrator, 7)]
     [InlineData(Rolle.Sachbearbeiter, 4)]
     [InlineData(Rolle.Betrachter, 1)]
     public void Von_liefert_keine_weiteren_Berechtigungen(Rolle rolle, int anzahl)
@@ -143,6 +152,15 @@ public class RechtematrixTests
     }
 
     [Fact]
+    public void Startpage_manage_hat_genau_der_Administrator()
+    {
+        // startseite AK-15 (ADR-0032 Punkt 5): Betrachter und Sachbearbeiter erhalten 403 auf die Konfiguration.
+        var mitRecht = Enum.GetValues<Rolle>().Where(r => Rechtematrix.Von(r).Contains(StartpageManage)).Order();
+
+        Assert.Equal([Rolle.Administrator], mitRecht);
+    }
+
+    [Fact]
     public void Die_vorgemerkte_Berechtigung_verleihungen_read_gibt_es_nicht()
     {
         // coin-ausgaben F1: „Ausgabe“ ersetzt „Verleihung“, verleihungen.read entfällt.
@@ -173,6 +191,7 @@ public class RechtematrixTests
     [InlineData(AuditRead)]
     [InlineData(IssuesRead)]
     [InlineData(IssuesWrite)]
+    [InlineData(StartpageManage)]
     public void Hat_liefert_fuer_einen_deaktivierten_Administrator_false(string berechtigung)
     {
         Assert.False(Rechtematrix.Hat(Benutzer(Rolle.Administrator, aktiv: false), berechtigung));

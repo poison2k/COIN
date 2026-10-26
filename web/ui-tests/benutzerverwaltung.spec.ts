@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page, type Request, type Route } from '@playwright/test'
+import { mockeStartseiteStandard } from './startseite-mocks.js'
 
 // Feature rollen-benutzerverwaltung, Abschnitt 6.4: Benutzerverwaltung im Browser, API und IdP vollständig gemockt.
 // Der IdP ist laut playwright.config.ts http://127.0.0.1:9/realms/coin (unerreichbar). Alle Daten sind synthetisch.
@@ -362,6 +363,8 @@ test.beforeEach(async ({ page }) => {
     (route) => json(route, 200, { eintraege: [], gesamt: 0, seite: 1, groesse: 25 }),
   )
   await mockeBenutzerApi(page)
+  // startseite (9.7): `/` ruft jetzt GET /api/startseite bzw. …/kopf auf; Standardantworten statt Catch-all.
+  await mockeStartseiteStandard(page)
 })
 
 test.afterEach(() => {

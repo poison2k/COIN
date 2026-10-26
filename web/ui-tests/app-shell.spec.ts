@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
+import { mockeStartseiteStandard } from './startseite-mocks.js'
 
 // AK-23, AK-24: App-Shell im Browser, API vollständig gemockt (synthetische Testdaten, AK-27).
 
@@ -52,6 +53,8 @@ test.beforeEach(async ({ page }) => {
     ungemockt.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`)
     await route.abort('failed')
   })
+  // startseite (9.7): `/` ruft jetzt GET /api/startseite bzw. …/kopf auf; Standardantworten statt Catch-all.
+  await mockeStartseiteStandard(page)
 })
 
 test.afterEach(() => {

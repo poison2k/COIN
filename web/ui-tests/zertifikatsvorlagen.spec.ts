@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page, type Route } from '@playwright/test'
+import { mockeStartseiteStandard } from './startseite-mocks.js'
 
 // Feature zertifikatsvorlagen, Abschnitt 9 (UI-Tests): „Coin bearbeiten“ mit Stammdaten, Motivbild und
 // Zertifikatsvorlage, Downloads und Uploads im Browser, Zurücksetzen per Tastatur, Berechtigungsstufen.
@@ -243,6 +244,8 @@ test.beforeEach(async ({ page }) => {
       await route.abort('failed')
     },
   )
+  // startseite (9.7): `/` ruft jetzt GET /api/startseite bzw. …/kopf auf; Standardantworten statt Catch-all.
+  await mockeStartseiteStandard(page)
 })
 
 test.afterEach(() => {

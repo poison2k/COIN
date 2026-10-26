@@ -52,8 +52,9 @@ public class MeTests(PostgresFixture fixture) : IntegrationTestBasis(fixture)
         using var antwort = await Client.GetAsync(MeUrl);
 
         // coin-ausgaben AK-16: zusätzlich issues.read und issues.write (ordinal sortiert).
+        // startseite AK-15: zusätzlich startpage.manage (nur Administrator).
         Assert.Equal(
-            ["audit.read", "coins.read", "coins.write", "issues.read", "issues.write", "users.manage"],
+            ["audit.read", "coins.read", "coins.write", "issues.read", "issues.write", "startpage.manage", "users.manage"],
             Berechtigungen(await JsonAsync(antwort)));
     }
 
