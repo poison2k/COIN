@@ -13,11 +13,13 @@ Sachbearbeiter. Wie Sie sich anmelden, steht in der [Anleitung zur Anmeldung](an
 
 Links befindet sich die Seitenleiste:
 
-- **Startseite**: Begrüßung mit kurzer Einleitung und dem Button **Zum Katalog**.
+- **Startseite**: Kopfbereich bzw. Begrüßung, mit Rolle zusätzlich Infotext, Kennzahlen und Coin-Listen,
+  dazu der Button **Zum Katalog** (siehe [Startseite](startseite.md)).
 - **Katalog**: Liste aller Coins mit Suche. Der Eintrag ist auch auf der Detailseite eines Coins, auf
   **Coin hinzufügen**, **Coin bearbeiten** und den Seiten zu Ausgaben (**Ausgabe erfassen**,
   **Ausgabe**) hervorgehoben.
 - **Benutzerverwaltung**: nur für Administratoren (siehe [Benutzerverwaltung](benutzerverwaltung.md)).
+- **Startseite verwalten**: nur für Administratoren (siehe [Startseite](startseite.md#startseite-verwalten)).
 
 Rechts in der Kopfzeile stehen **Anmelden** bzw. Ihr Name und **Abmelden**.
 

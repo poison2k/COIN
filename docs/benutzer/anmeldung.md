@@ -3,7 +3,9 @@
 ## Was geht ohne Anmeldung?
 
 Startseite, Katalog und die Detailseiten der Coins können Sie ohne Anmeldung ansehen, samt
-Motivbildern. Sie werden dabei nie automatisch zur Anmeldung geschickt.
+Motivbildern. Sie werden dabei nie automatisch zur Anmeldung geschickt. Auf der Startseite sehen Sie
+ohne Anmeldung nur den Kopfbereich bzw. die Begrüßung; Infotext, Kennzahlen und Coin-Listen erscheinen
+erst mit Rolle (siehe [Startseite](startseite.md)).
 
 Coins hinzufügen können Sie nur angemeldet und nur mit der passenden Berechtigung (siehe unten).
 Rufen Sie die Seite **Coin hinzufügen** (`/coins/neu`) ohne Anmeldung auf, werden Sie zur Anmeldung
@@ -49,8 +51,9 @@ prüfen** weiter (siehe unten). Ändert ein Administrator eine Rolle, die Sie sc
 das erst nach dem Neuladen der Seite (Taste F5) oder nach der nächsten Anmeldung.
 
 Den Button **Coin hinzufügen** auf der Seite **Katalog**, die Abschnitte und Buttons zu Exemplaren
-und Ausgaben auf der Detailseite und den Eintrag **Benutzerverwaltung** in der Seitenleiste sehen
-Sie nur, wenn Ihre Rolle das erlaubt.
+und Ausgaben auf der Detailseite und die Einträge **Benutzerverwaltung** und **Startseite verwalten**
+in der Seitenleiste sehen Sie nur, wenn Ihre Rolle das erlaubt. Die Startseite pflegen nur
+Administratoren.
 
 ## Seite „Kein Zugriff“
 

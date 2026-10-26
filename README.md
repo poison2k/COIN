@@ -12,7 +12,7 @@ Webanwendung zur Verwaltung militärischer Gedenk-Coins der Bundeswehr. Umgesetz
 - **Rollen- und Benutzerverwaltung**: Administratoren vergeben in der App die Rollen Administrator,
   Sachbearbeiter und Betrachter und deaktivieren oder reaktivieren Benutzer. Endpunkte prüfen
   Berechtigungen (`coins.read`, `coins.write`, `issues.read`, `issues.write`, `users.manage`,
-  `audit.read`) aus einer festen Rechtematrix im Code
+  `audit.read`, `startpage.manage`) aus einer festen Rechtematrix im Code
   ([docs/berechtigungen.md](docs/berechtigungen.md), ADR-0016, ADR-0021). Jede Rollen- und
   Statusänderung steht unveränderlich im Audit-Log (ADR-0017). Der letzte aktive Administrator ist
   geschützt (ADR-0018).
@@ -35,6 +35,13 @@ Webanwendung zur Verwaltung militärischer Gedenk-Coins der Bundeswehr. Umgesetz
   aus der Ausgabehistorie oder von der neuen Seite einer einzelnen Ausgabe (`issues.read`). Der Server
   ersetzt die Platzhalter der aktiven Vorlage nur im Speicher; jeder Download steht unveränderlich im
   Audit `zertifikat_audit` (ADR-0027 bis ADR-0029).
+- **Startseite**: `/` zeigt bis zu fünf Blöcke (Kopfbereich mit Titel, Untertitel und zwei Logos,
+  Infotext in eingeschränktem Markdown, Kennzahlen, neueste und meistausgegebene Coins).
+  Administratoren pflegen Blöcke, Reihenfolge, Texte, Anzahlen und Logos auf
+  `/verwaltung/startseite` mit Vorschau (`startpage.manage`). Den Kopfbereich sehen alle Besucher
+  ohne Anmeldung, die übrigen Blöcke nur mit `coins.read`. Logos werden am Inhalt geprüft (PNG,
+  JPEG, WebP bis 2 MB und 2048 × 2048 Pixel, kein SVG); jede Änderung steht unveränderlich im Audit
+  `startseite_audit` (ADR-0030 bis ADR-0032).
 
 Noch offen sind Signatur, PDF, QR-Code und öffentliche Prüfseite der Zertifikate.
 
@@ -43,7 +50,8 @@ Noch offen sind Signatur, PDF, QR-Code und öffentliche Prüfseite der Zertifika
   [docs/benutzer/coin-katalog.md](docs/benutzer/coin-katalog.md),
   [docs/benutzer/ausgaben.md](docs/benutzer/ausgaben.md),
   [docs/benutzer/zertifikatsvorlagen.md](docs/benutzer/zertifikatsvorlagen.md),
-  [docs/benutzer/benutzerverwaltung.md](docs/benutzer/benutzerverwaltung.md)
+  [docs/benutzer/benutzerverwaltung.md](docs/benutzer/benutzerverwaltung.md),
+  [docs/benutzer/startseite.md](docs/benutzer/startseite.md)
 - Architekturentscheidungen: [docs/adr/](docs/adr/)
 - Anforderungen: [docs/requirements.md](docs/requirements.md)
 - Test-Keycloak: [infra/keycloak/README.md](infra/keycloak/README.md)
@@ -58,9 +66,9 @@ Noch offen sind Signatur, PDF, QR-Code und öffentliche Prüfseite der Zertifika
 
 | Ordner | Inhalt |
 |---|---|
-| `src/Coin.Domain` | Fachlogik, Entitäten, Validierung (u. a. `Katalog/`, `Ausgaben/`, `Benutzer/`, `Vorlagen/` mit Platzhalterkatalog und Namespace-Positivliste, `Zertifikate/` mit Zertifikatsnummer, Werten und Platzhalterersetzung) |
+| `src/Coin.Domain` | Fachlogik, Entitäten, Validierung (u. a. `Katalog/`, `Ausgaben/`, `Benutzer/`, `Vorlagen/` mit Platzhalterkatalog und Namespace-Positivliste, `Zertifikate/` mit Zertifikatsnummer, Werten und Platzhalterersetzung, `Startseite/` mit Konfiguration, Logoprüfung und Audit-Änderungen) |
 | `src/Coin.Infrastructure` | EF Core, PostgreSQL, Migrationen (`Persistenz/Migrationen`), Prüfung, Bereinigung und Standardvorlage für Word-Dateien (`Vorlagen/`, NuGet `DocumentFormat.OpenXml`), Zertifikatserzeugung im Speicher (`Zertifikate/`) |
-| `src/Coin.Api` | ASP.NET Core Web API (Controller, DTOs, `Authentifizierung/`) |
+| `src/Coin.Api` | ASP.NET Core Web API (Controller, DTOs, `Authentifizierung/`, `Http/` u. a. mit `MultipartDateiLeser` und `MultipartFormularLeser`) |
 | `tests/Coin.UnitTests`, `tests/Coin.IntegrationTests` | xUnit-Tests |
 | `web/` | React-Frontend (Vite, TypeScript, Feature-Sliced Design), UI-Tests in `web/ui-tests` |
 | `e2e/` | Systemtests (Playwright, echte API, Wegwerf-Datenbank und Wegwerf-Keycloak) |
@@ -186,6 +194,13 @@ angewendet. In Development ist das OpenAPI-Dokument unter `/openapi/v1.json` abr
   ```
 
   Erzeugte Zertifikate werden nirgends gespeichert; je Prozess laufen höchstens 2 Erzeugungen gleichzeitig.
+- **Startseite** (Tabellen `startseite_konfiguration`, `startseite_logo`, `startseite_audit`,
+  ADR-0030): höchstens eine Konfigurationszeile (`id = 1`) und je Logo-Platz eine Logozeile, Logos als
+  `bytea` in der Datenbank. `startseite_audit` enthält je Änderung Art, Ziel, Akteur, Zeitpunkt und
+  Version, bei Logos nur den SHA-256, nie Textinhalte; `trg_startseite_audit_unveraenderlich` bricht
+  jedes `UPDATE` und `DELETE` ab, `TRUNCATE` bleibt möglich; Aufbewahrung vorerst unbegrenzt, kein
+  Lese-Endpunkt. Ohne Konfigurationszeile gilt die Standardkonfiguration aus dem Code. Kopfbereich und
+  Logos sind öffentlich abrufbar, gespeicherte Logos auch bei ausgeschaltetem Kopfbereich (ADR-0032).
 - **Warnung 2501**: Schlägt die Erzeugung eines Zertifikats fehl (`500 zertifikat_fehler`), schreibt die
   Kategorie `Coin.Api.Http.ZertifikatProtokoll` genau eine Warnung `ZertifikatErzeugungFehlgeschlagen`
   mit fester Meldung, ohne Ausnahme, Werte oder Dateiinhalt. Gehäufte Einträge deuten auf eine
@@ -288,7 +303,7 @@ Routen:
 
 | Pfad | Zugang | Inhalt |
 |---|---|---|
-| `/` | öffentlich | Startseite |
+| `/` | öffentlich | Startseite: mit `coins.read` alle aktiven Blöcke (`GET /api/startseite`), sonst nur der öffentliche Kopfbereich (`GET /api/startseite/kopf`) bzw. die statische Begrüßung „Willkommen bei C.O.I.N.“; „Zum Katalog“ immer |
 | `/coins` | öffentlich | Katalog mit Suche und Blättern; Suchparameter `suche` (≤ 100 Zeichen) und `seite` in der URL; Link „Coin hinzufügen“ nur mit `coins.write` |
 | `/coins/neu` | `coins.write` | Seite „Coin hinzufügen“ (Formular inkl. Motivbild, darunter „Standardvorlage herunterladen“); danach `replace` auf die Detailseite |
 | `/coins/$coinId` | öffentlich | Detailseite; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf. Link „Bearbeiten“ und „Auflage ändern“ mit `coins.write`, Abschnitt „Exemplare“ nur mit `coins.read` (Suchparameter `status` = `verfuegbar`/`ausgegeben` und `seite`), „Ausgabehistorie“ (mit Spalte „Zertifikat“: Nummer als Link zur Ausgabe-Seite) nur mit `issues.read`, „Ausgabe erfassen“/„Stornieren“/„Zertifikat herunterladen“ mit `issues.write` |
@@ -296,6 +311,7 @@ Routen:
 | `/coins/$coinId/ausgaben/neu` | `issues.write` | Seite „Ausgabe erfassen“; danach `replace` auf die Detailseite |
 | `/coins/$coinId/ausgaben/$ausgabeId` | `issues.read` | Seite „Ausgabe“ (`ROUTEN.ausgabeDetail`): Angaben einer Ausgabe, „Zertifikat herunterladen“ mit `issues.write`; `coinId` oder `ausgabeId` keine GUID → „Ausgabe nicht gefunden“ ohne API-Aufruf |
 | `/benutzerverwaltung` | `users.manage` | Tabs „Benutzer“ und „Audit-Log“ |
+| `/verwaltung/startseite` | `startpage.manage` | Seite „Startseite verwalten“ (`ROUTEN.startseiteVerwaltung`): Tabs „Bearbeiten“ und „Vorschau“; Verlassen mit ungespeicherten Änderungen fragt per Dialog nach (`useBlocker`), Neuladen/Schließen per `beforeunload` |
 | `/anmeldung/rueckruf` | öffentlich | Rückkehr vom Keycloak (ohne App-Shell) |
 | `/abgemeldet` | öffentlich | Bestätigung nach dem Abmelden |
 | `/kein-zugriff` | nur angemeldet | Hinweis für Benutzer ohne Rolle, mit deaktiviertem Konto oder (mit `?grund=berechtigung`) mit Rolle ohne die nötige Berechtigung; alle anderen werden nach `/` geleitet |
@@ -385,6 +401,17 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
 - Benutzerverwaltung: `entities/audit` (`AuditTabelle`, `GET /api/audit`), `features/rolle-zuweisen`
   und `features/benutzer-status-aendern` (je Auswahl bzw. Button mit Bestätigungsdialog),
   `widgets/benutzer-tabelle`, `widgets/audit-log`, `pages/benutzerverwaltung`.
+- Startseite: `entities/startseite` (Typen, Grenzen, `ladeStartseite`/`ladeKopf`/`ladeKonfiguration`,
+  `useDateiUrl` für Object-URLs der Logo-Vorschau, Block-Komponenten `Kopfbereich`, `InfotextBlock`,
+  `KennzahlenBlock`, `NeuesteCoinsBlock`, `MeistausgegebeneBlock`), `widgets/startseite`
+  (`StartseiteBloecke`: Blöcke in Reihenfolge, Überschriftenebene 1 auf `/`, 2 in der Vorschau),
+  `features/startseite-konfigurieren` (`StartseiteFormular`, Blockkarten mit Schalter und
+  Verschieben-Buttons, Logo-Felder, Vorprüfung, Speichern als `multipart/form-data`), `pages/start`,
+  `pages/startseite-verwaltung`.
+- Markdown: `shared/ui/markdown.tsx` (`MarkdownText`) ist die einzige Stelle, die vom Benutzer
+  formatierten Text darstellt (`react-markdown` mit `remark-breaks`, nur `p`, `br`, `strong`, `em`,
+  `ul`, `ol`, `li`, `a`; rohes HTML entfernt, Links nur `http`, `https`, `mailto` und `/…`;
+  ADR-0031). `dangerouslySetInnerHTML` ist im Frontend verboten (Code-Test).
 - Das Blättern (`shared/ui/blaettern.tsx`) ist eine eigene Komponente, keine shadcn-Komponente;
   Katalog, Benutzertabelle, Audit-Log, Exemplare und Ausgabehistorie nutzen sie gemeinsam
   (Fokusregeln in ADR-0009).
@@ -425,7 +452,7 @@ nur, wenn Index und Arbeitsstand übereinstimmen.
 
 | | `web/ui-tests` (`npm run test:ui`) | `e2e/` (`npx playwright test`) |
 |---|---|---|
-| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen, Zertifikat-Download: Routing, Seitenleiste, Tastaturbedienung, Darstellung | fachliche Abläufe über alle Schichten |
+| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen, Zertifikat-Download, Startseite (inkl. XSS-Nutzlasten im echten Chromium): Routing, Seitenleiste, Tastaturbedienung, Darstellung | fachliche Abläufe über alle Schichten |
 | API | gemockt per `page.route`; Proxy-Ziel absichtlich unerreichbar; jeder nicht gemockte `/api`-Aufruf lässt den Test scheitern | echte API (Release-Build) mit Wegwerf-PostgreSQL |
 | Anmeldung | Identitätsanbieter gemockt (`VITE_OIDC_AUTHORITY=http://127.0.0.1:9/realms/coin`) | echter Wegwerf-Keycloak |
 | Voraussetzungen | nur Node.js und Chromium | Docker, .NET 10 SDK, Node.js ≥ 22.18 |
@@ -443,7 +470,7 @@ Die CLI erzeugt `import { cn } from "cn"` statt `@/shared/lib/cn` und überschre
 u. a. das entfernte Sidebar-Cookie, die deutschen Texte, `inert` an der eingeklappten
 Seitenleiste, die Ausnahme für Strg+B in Eingabefeldern, die Tab-Falle in `alert-dialog.tsx` und
 `dialog.tsx`, „Schließen“ in `dialog.tsx` und den Pfeiltasten-Umlauf in `select.tsx` (vollständige
-Liste in ADR-0009). Seit coin-ausgaben gehören auch `radio-group` und `dialog` dazu. Danach `npm run format`
+Liste in ADR-0009). Seit coin-ausgaben gehören auch `radio-group` und `dialog` dazu, seit startseite `switch`. Danach `npm run format`
 und `npm run lint` ausführen.
 
 ## Build und Tests
@@ -518,9 +545,15 @@ Ablauf pro Lauf (ADR-0007, ADR-0015):
   „Ausgabe“ herunter, prüft den Dateinamen und den Inhalt von `word/document.xml` (Name und Nummer
   vorhanden, kein `{{`; Hilfe `tests/hilfen/docx.ts`), storniert die Ausgabe (Button danach gesperrt)
   und prüft als Betrachter, dass Button und Ausgabe-Seite nicht zugänglich sind.
+  `startseite.spec.ts` prüft als Betrachter die Standardblöcke, lädt als Administrator ein im Test
+  erzeugtes PNG-Logo (Hilfe `tests/hilfen/png.ts`) mit Alternativtext hoch, schaltet den Kopfbereich
+  ein und ändert den Infotext; Betrachter und ein anonymer Besucher sehen Titel und Logo, nur der
+  Betrachter auch den Infotext. Danach schaltet er „Kennzahlen“ aus, verschiebt „Meistausgegebene
+  Coins“, prüft die Ablehnung einer SVG-Datei und dass der Betrachter keinen Zugang zur Verwaltung
+  hat. Am Ende stellt er die Standardwerte wieder her, damit spätere Specs „Willkommen bei C.O.I.N.“ sehen.
 - Die Tests laufen nacheinander (`workers: 1`): Die Specs teilen sich Datenbank und Testkonten,
   `benutzerverwaltung.spec.ts`, `katalog-seiten.spec.ts`, `coin-ausgaben.spec.ts`,
-  `zertifikatsvorlagen.spec.ts` und `zertifikat-erzeugen.spec.ts` brauchen `betrachter@test.local`
+  `zertifikatsvorlagen.spec.ts`, `zertifikat-erzeugen.spec.ts` und `startseite.spec.ts` brauchen `betrachter@test.local`
   (einmal entzogen/deaktiviert, einmal als aktiver Betrachter), und die oberste Audit-Zeile würde
   durch parallele Rollenvergaben verfälscht. Ein Lauf dauert etwa 2 Minuten.
 - Laufende Server werden nie wiederverwendet. Ist Port 5182, 5183 oder 5184 belegt, bricht der Lauf ab.

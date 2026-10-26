@@ -29,8 +29,14 @@ In der Umgebung `Development` liefert `GET /openapi/v1.json` das OpenAPI-Dokumen
 | `PUT` | `/api/benutzer/{id}/rolle` | Rolle zuweisen oder entziehen | `users.manage` |
 | `PUT` | `/api/benutzer/{id}/status` | Benutzer deaktivieren oder reaktivieren | `users.manage` |
 | `GET` | `/api/audit` | Audit-Log der Rollen- und Statusänderungen | `audit.read` |
+| `GET` | `/api/startseite/kopf` | Kopfbereich der Startseite (Titel, Untertitel, Logos) | öffentlich |
+| `GET` | `/api/startseite/logos/{platz}` | Logo des Kopfbereichs abrufen | öffentlich |
+| `GET` | `/api/startseite` | Startseite mit allen aktiven Blöcken | `coins.read` |
+| `GET` | `/api/startseite/konfiguration` | Konfiguration der Startseite mit Vorschaudaten | `startpage.manage` |
+| `PUT` | `/api/startseite/konfiguration` | Konfiguration der Startseite samt Logos speichern | `startpage.manage` |
 
-`{id}` und `{ausgabeId}` sind GUIDs, `{version}` ist eine ganze Zahl. Pfade mit einer Id, die keine GUID
+`{id}` und `{ausgabeId}` sind GUIDs, `{version}` ist eine ganze Zahl, `{platz}` ist `bereitsteller`
+oder `software`. Pfade mit einer Id, die keine GUID
 (bzw. keine Zahl) ist, liefern `404`. Welche Rolle welche
 Berechtigung hat, steht in [berechtigungen.md](berechtigungen.md).
 
@@ -45,12 +51,14 @@ Grundlage: [ADR-0012](adr/0012-anmeldung-keycloak-oidc.md), [ADR-0013](adr/0013-
   (exakt), `aud` = `Oidc:Audience`, `exp`/`nbf` (Toleranz 30 s), Header-`typ` `JWT` oder `at+jwt`,
   `sub` vorhanden, `azp` = `Oidc:ClientId`.
 - Standardmäßig verlangt jeder Endpunkt eine Anmeldung und einen **aktiven** Benutzer. Öffentlich
-  sind nur die drei `GET`-Endpunkte des Katalogs (und `/openapi/v1.json` in Development). Ihre
-  Antworten hängen nicht vom Token ab: Ein ungültiges oder abgelaufenes Token führt dort zu keinem
-  `401`, das Token eines deaktivierten Benutzers zu keinem `403`.
+  sind nur die drei `GET`-Endpunkte des Katalogs, `GET /api/startseite/kopf` und
+  `GET /api/startseite/logos/{platz}` ([ADR-0032](adr/0032-sichtbarkeit-der-startseite.md)), dazu
+  `/openapi/v1.json` in Development. Ihre Antworten hängen nicht vom Token ab: Ein ungültiges oder
+  abgelaufenes Token führt dort zu keinem `401`, das Token eines deaktivierten Benutzers zu keinem `403`.
 - Endpunkte verlangen eine **Berechtigung** (`coins.read`, `coins.write`, `issues.read`,
-  `issues.write`, `users.manage`, `audit.read`), nie eine Rolle. `coins.read` wird nur für
-  `GET /api/coins/{id}/exemplare` verlangt; die drei Katalog-GETs bleiben öffentlich (ADR-0021).
+  `issues.write`, `users.manage`, `audit.read`, `startpage.manage`), nie eine Rolle. `coins.read`
+  wird für `GET /api/coins/{id}/exemplare` und `GET /api/startseite` verlangt; die drei Katalog-GETs
+  bleiben öffentlich (ADR-0021).
 - Rollen (`Administrator`, `Sachbearbeiter`, `Betrachter`) und den Status (aktiv/deaktiviert) führt
   C.O.I.N. in der eigenen Datenbank. Rollen-Claims im Token werden ignoriert. Neue Benutzer haben
   keine Rolle. Rollen vergeben Administratoren über `PUT /api/benutzer/{id}/rolle`; zusätzlich
@@ -77,6 +85,9 @@ Grundlage: [ADR-0012](adr/0012-anmeldung-keycloak-oidc.md), [ADR-0013](adr/0013-
 | `issues.write` | „Ihr Benutzerkonto ist nicht berechtigt, Ausgaben zu erfassen oder zu stornieren.“ |
 | `users.manage` | „Ihr Benutzerkonto ist nicht berechtigt, Benutzer zu verwalten.“ |
 | `audit.read` | „Ihr Benutzerkonto ist nicht berechtigt, das Audit-Log einzusehen.“ |
+| `startpage.manage` | „Ihr Benutzerkonto ist für diese Aktion nicht berechtigt.“ (allgemeiner Text) |
+
+Der Text zu `coins.read` erscheint auch bei `GET /api/startseite`.
 
 Clients werten `code` aus, nicht den Text.
 
@@ -123,7 +134,7 @@ aktiven Benutzer, keine Berechtigung. Antwort-Header `Cache-Control: no-store`.
   "name": "Test Administrator",
   "email": "admin@test.local",
   "rolle": "Administrator",
-  "berechtigungen": ["audit.read", "coins.read", "coins.write", "issues.read", "issues.write", "users.manage"]
+  "berechtigungen": ["audit.read", "coins.read", "coins.write", "issues.read", "issues.write", "startpage.manage", "users.manage"]
 }
 ```
 
@@ -350,10 +361,12 @@ Objekt `errors` (Schlüssel → Liste deutscher Meldungen). Mehrere ungültige F
 | `benutzerId` | Audit-Log: Query-Parameter ungültig |
 | `exemplarNummer`, `empfaengerName`, `empfaengerDienstgrad`, `empfaengerDienststelle`, `datum`, `gelegenheit`, `begruendung`, `ausgebendeStelle` | Ausgabe erfassen |
 | `grund` | Storno |
+| `anfrage`, `konfiguration`, `version`, `reihenfolge`, `kopf.*`, `infotext.*`, `kennzahlen.*`, `neueste.*`, `meistausgegeben.*`, `logoBereitsteller`, `logoSoftware` | Startseite speichern (siehe [Meldungen beim Speichern](#meldungen-beim-speichern)); `anfrage` meint hier das Formular, nicht JSON |
 
-ProblemDetails mit fachlichem Fehlergrund (`403`, `409`, beim Zertifikat-Download auch `500`) tragen
-zusätzlich die Erweiterung `code` (z. B. `keine_berechtigung`, `letzter_administrator`,
-`exemplar_ausgegeben`, `coin_existiert`, `ausgabe_storniert`, `zertifikat_fehler`). Ausnahme:
+ProblemDetails mit fachlichem Fehlergrund (`403`, `409`, beim Zertifikat-Download auch `500`, beim
+Speichern der Startseite auch `413`) tragen zusätzlich die Erweiterung `code` (z. B.
+`keine_berechtigung`, `letzter_administrator`, `exemplar_ausgegeben`, `coin_existiert`,
+`ausgabe_storniert`, `zertifikat_fehler`, `startseite_geaendert`, `datei_zu_gross`). Ausnahme:
 `409` von `POST /api/coins` (Duplikat) trägt keinen `code`.
 
 ### Titel
@@ -1149,6 +1162,282 @@ Nummer.
 | `401` / `403` | wie oben (`coins.write`) | ProblemDetails |
 | `404 Not Found` | Coin unbekannt | ProblemDetails, `title` „Coin nicht gefunden“ |
 
+## Startseite
+
+Grundlage: [ADR-0030](adr/0030-konfigurationsmodell-der-startseite.md),
+[ADR-0031](adr/0031-startseite-ohne-svg-und-rohes-html.md),
+[ADR-0032](adr/0032-sichtbarkeit-der-startseite.md), Feature [startseite](features/startseite.md).
+
+- Die Startseite besteht aus fünf festen **Blöcken**: `kopf` (Titel, Untertitel, zwei Logos),
+  `infotext` (Markdown-Quelle), `kennzahlen`, `neueste` (zuletzt angelegte Coins), `meistausgegeben`.
+  Je Block sind Ein/Aus und die Reihenfolge einstellbar, bei `neueste` und `meistausgegeben` die Anzahl.
+- **Logo-Plätze**: `bereitsteller` und `software`.
+- Ohne gespeicherte Konfiguration gilt die **Standardkonfiguration**: Reihenfolge
+  `kopf, infotext, kennzahlen, neueste, meistausgegeben`; `kopf` aus (Titel „C.O.I.N.“, Untertitel
+  „Certified Official Issue Numbering“, keine Logos); `infotext` an mit „C.O.I.N. verwaltet die
+  Gedenk-Coins der Bundeswehr: den Katalog der Coins, ihre nummerierten Exemplare und die
+  Echtheitszertifikate.“; `kennzahlen` an; `neueste` an mit Anzahl 6; `meistausgegeben` an mit Anzahl 5.
+- Öffentlich und tokenunabhängig sind nur `…/kopf` und `…/logos/{platz}`: kein `401`/`403`, kein
+  `Vary: Authorization`, kein Benutzerabgleich. Sie enthalten keine Personendaten, kein
+  `geaendertVon` und keine Daten anderer Blöcke.
+- Keine Antwort enthält Ausgabe- oder Empfängerdaten. `geaendertVon` gibt es nur in der Konfiguration
+  (`startpage.manage`).
+- Alle Antworten außer den Logos tragen `Cache-Control: no-store`. Einen Server-Cache gibt es nicht;
+  ein `PUT` wirkt beim nächsten Abruf.
+
+### Datenformat Logo
+
+In `GET /api/startseite` und `GET /api/startseite/kopf`:
+
+```json
+{ "url": "/api/startseite/logos/bereitsteller?v=0123456789abcdef", "alternativtext": "Wappen des Bereitstellers", "breite": 400, "hoehe": 480 }
+```
+
+`v` sind die ersten 16 Hex-Zeichen des SHA-256 der Logodatei; nach einem Ersetzen ändert sich die URL.
+Ohne Logo steht dort `null`.
+
+### GET /api/startseite
+
+Verlangt `coins.read` (Administrator, Sachbearbeiter, Betrachter). Liefert nur die **aktiven** Blöcke
+in der gespeicherten Reihenfolge; Daten ausgeschalteter Blöcke werden nicht abgefragt.
+
+```json
+{
+  "bloecke": [
+    { "art": "kopf", "titel": "C.O.I.N.", "untertitel": "Certified Official Issue Numbering",
+      "logoBereitsteller": { "url": "/api/startseite/logos/bereitsteller?v=0123456789abcdef", "alternativtext": "Wappen des Bereitstellers", "breite": 400, "hoehe": 480 },
+      "logoSoftware": null },
+    { "art": "infotext", "text": "C.O.I.N. verwaltet **die Gedenk-Coins** …" },
+    { "art": "kennzahlen", "coins": 3, "exemplare": 450, "ausgegeben": 12, "verfuegbar": 438 },
+    { "art": "neueste", "eintraege": [
+      { "id": "0199b3c4-5d6e-7f80-9a1b-2c3d4e5f6a7b", "name": "Einsatzkontingent Beispiel 2025", "herausgeber": "Beispielbataillon 1", "bildUrl": "/api/coins/0199b3c4-5d6e-7f80-9a1b-2c3d4e5f6a7b/bild?v=3f2a9c0d1e4b5a68" } ] },
+    { "art": "meistausgegeben", "eintraege": [
+      { "id": "0199b3c4-5d6e-7f80-9a1b-2c3d4e5f6a7b", "name": "Einsatzkontingent Beispiel 2025", "herausgeber": "Beispielbataillon 1", "ausgegeben": 7 } ] }
+  ]
+}
+```
+
+| Block | Inhalt |
+|---|---|
+| `kennzahlen` | `coins` = Anzahl aller Coins; `exemplare` = Summe der Auflagen (Coins ohne Auflage zählen 0); `ausgegeben` = Anzahl aktiver (nicht stornierter) Ausgaben; `verfuegbar` = `exemplare − ausgegeben` |
+| `neueste` | die `anzahl` zuletzt angelegten Coins (`erstelltAm` absteigend, dann `id` absteigend); `bildUrl` wie im [Coin-Format](#datenformat-coin) |
+| `meistausgegeben` | nur Coins mit mindestens einer aktiven Ausgabe, absteigend nach Anzahl aktiver Ausgaben, bei Gleichstand nach Name ohne Groß-/Kleinschreibung, dann `id`; höchstens `anzahl` Einträge |
+
+Die Abfrage braucht höchstens 4 SQL-Befehle und liest weder die Tabelle `exemplar` noch Empfängerspalten.
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | immer für berechtigte Benutzer, auch bei leerer Datenbank | Blöcke |
+| `401` / `403` | wie oben (`coins.read`) | ProblemDetails |
+
+### GET /api/startseite/kopf
+
+Öffentlich. Liefert nur den Kopfbereich aus genau einem SQL-Befehl. `position` ist die Stelle von
+`kopf` in der Reihenfolge (1–5).
+
+Kopfbereich an:
+
+```json
+{ "aktiv": true, "position": 1, "titel": "C.O.I.N.", "untertitel": "Certified Official Issue Numbering",
+  "logoBereitsteller": { "url": "/api/startseite/logos/bereitsteller?v=0123456789abcdef", "alternativtext": "Wappen des Bereitstellers", "breite": 400, "hoehe": 480 },
+  "logoSoftware": null }
+```
+
+Kopfbereich aus (Standard): nur `{ "aktiv": false, "position": 1 }`, ohne Texte und Logos.
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | immer | Kopfbereich |
+
+```powershell
+Invoke-RestMethod -Uri http://localhost:5172/api/startseite/kopf
+```
+
+### GET /api/startseite/logos/{platz}
+
+Öffentlich. Liefert die gespeicherten Bytes des Logos unverändert, auch wenn der Kopfbereich
+ausgeschaltet ist. `{platz}` hat keinen Route-Constraint; ein unbekannter Wert ergibt `404`.
+
+Antwort-Header bei `200` und `304`:
+
+| Header | Wert |
+|---|---|
+| `Content-Type` | erkannter Typ (`image/png`, `image/jpeg` oder `image/webp`) |
+| `X-Content-Type-Options` | `nosniff` |
+| `Content-Security-Policy` | `default-src 'none'; sandbox` |
+| `Content-Disposition` | `inline; filename="logo-{platz}.{png\|jpg\|webp}"` |
+| `ETag` | `"{SHA-256 des Inhalts, 64 Hex-Zeichen}"` |
+| `Cache-Control` | `private, max-age=31536000, immutable`, wenn `v` gleich den ersten 16 Hex-Zeichen des aktuellen SHA-256 ist; sonst (ohne `v` oder mit veraltetem `v`) `no-cache` mit dem aktuellen Inhalt |
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | Logo vorhanden | Bilddaten |
+| `304 Not Modified` | `If-None-Match` passt zum aktuellen ETag | leer |
+| `404 Not Found` | Platz unbekannt oder kein Logo gespeichert | ProblemDetails, `title` „Logo nicht gefunden“ |
+
+### GET /api/startseite/konfiguration
+
+Verlangt `startpage.manage` (nur Administrator). Liefert die gespeicherte Konfiguration oder die
+Standardkonfiguration, dazu Vorschaudaten unabhängig von den eingestellten Anzahlen (Kennzahlen,
+12 neueste, 10 meistausgegebene Coins).
+
+```json
+{
+  "version": 3,
+  "standard": false,
+  "geaendertAm": "2026-10-26T08:00:00.123456+00:00",
+  "geaendertVon": "Test Administrator",
+  "reihenfolge": ["kopf", "infotext", "kennzahlen", "neueste", "meistausgegeben"],
+  "kopf": {
+    "aktiv": true,
+    "titel": "C.O.I.N.",
+    "untertitel": "Certified Official Issue Numbering",
+    "logoBereitsteller": { "url": "/api/startseite/logos/bereitsteller?v=0123456789abcdef", "alternativtext": "Wappen des Bereitstellers", "format": "png", "breite": 400, "hoehe": 480, "groesseBytes": 51234 },
+    "logoSoftware": null
+  },
+  "infotext": { "aktiv": true, "text": "…" },
+  "kennzahlen": { "aktiv": true },
+  "neueste": { "aktiv": true, "anzahl": 6 },
+  "meistausgegeben": { "aktiv": true, "anzahl": 5 },
+  "daten": {
+    "kennzahlen": { "coins": 3, "exemplare": 450, "ausgegeben": 12, "verfuegbar": 438 },
+    "neueste": [ { "id": "…", "name": "…", "herausgeber": "…", "bildUrl": null } ],
+    "meistausgegeben": [ { "id": "…", "name": "…", "herausgeber": "…", "ausgegeben": 7 } ]
+  }
+}
+```
+
+| Feld | Bedeutung |
+|---|---|
+| `version` | Stand der Konfiguration; `0` ohne gespeicherte Konfiguration, jedes wirksame Speichern +1 |
+| `standard` | `true`, solange nichts gespeichert ist; dann `geaendertAm` und `geaendertVon` `null` |
+| `geaendertVon` | aktueller Anzeigename des Benutzers, der zuletzt gespeichert hat |
+| `format` | `"png"`, `"jpeg"` oder `"webp"` |
+| `daten` | Vorschaudaten im Format der Blöcke aus `GET /api/startseite` |
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | berechtigt | Konfiguration |
+| `401` / `403` | wie oben (`startpage.manage`) | ProblemDetails |
+
+### PUT /api/startseite/konfiguration
+
+Ersetzt die Konfiguration als Ganzes, samt Logos, in einer Transaktion. Verlangt `startpage.manage`.
+`Content-Type: multipart/form-data` mit diesen Teilen, jeder höchstens einmal:
+
+| Teil | Art | Pflicht | Grenze |
+|---|---|---|---|
+| `konfiguration` | Formularfeld ohne Dateiname, JSON | ja | 64 KiB |
+| `logoBereitsteller` | Datei | nein | 2 MiB (2.097.152 Bytes) |
+| `logoSoftware` | Datei | nein | 2 MiB |
+
+Der ganze Request wird höchstens 6 MiB gelesen, mit höchstens 16 Abschnitten. Dateiname und
+deklarierter Content-Type der Dateien werden weder ausgewertet noch gespeichert noch geloggt.
+
+Teil `konfiguration`: Felder wie in der Antwort von `GET …/konfiguration`, ohne `standard`,
+`geaendert*`, `daten` und ohne Logo-Metadaten. Unbekannte Felder werden ignoriert.
+
+```json
+{
+  "version": 3,
+  "reihenfolge": ["kopf", "meistausgegeben", "infotext", "kennzahlen", "neueste"],
+  "kopf": { "aktiv": true, "titel": "C.O.I.N.", "untertitel": "Certified Official Issue Numbering",
+            "logoBereitsteller": { "alternativtext": "Wappen des Bereitstellers" }, "logoSoftware": null },
+  "infotext": { "aktiv": true, "text": "**Willkommen**\nbei C.O.I.N." },
+  "kennzahlen": { "aktiv": false },
+  "neueste": { "aktiv": true, "anzahl": 6 },
+  "meistausgegeben": { "aktiv": true, "anzahl": 5 }
+}
+```
+
+Regeln:
+- `version` ist die zuletzt geladene Version (`0` ohne gespeicherte Konfiguration). Weicht sie von
+  der gespeicherten ab, kommt `409 startseite_geaendert` und nichts wird geändert. Von zwei
+  gleichzeitigen Requests mit derselben Version gelingt genau einer.
+- Logos je Platz:
+  - Objekt mit Dateiteil: Logo setzen oder ersetzen.
+  - Objekt ohne Dateiteil: vorhandenes Logo behalten, Alternativtext änderbar.
+  - `null` ohne Dateiteil: Logo entfernen.
+  - Objekt ohne Dateiteil und ohne vorhandenes Logo, oder `null` mit Dateiteil: `400`.
+  - Eine Datei mit demselben SHA-256 wie das gespeicherte Logo gilt als unverändert.
+- Titel, Untertitel und Alternativtexte werden an den Rändern getrimmt, der Infotext nicht.
+  Zeilenenden werden zu `\n`. Texte ausgeschalteter Blöcke werden nur auf Länge und Steuerzeichen geprüft.
+- Logoprüfung am Inhalt ([ADR-0031](adr/0031-startseite-ohne-svg-und-rohes-html.md)): erlaubt sind
+  PNG, JPEG (Baseline und progressiv) und WebP (`VP8 `, `VP8L`, `VP8X` ohne Animation) bis
+  2048 × 2048 Pixel. Abgelehnt werden u. a. SVG (auch umbenannt), GIF, BMP, ICO, PDF, HTML, ZIP,
+  animierte Bilder (APNG, animiertes WebP) und Bilder mit unvollständigem Kopf. Der Server decodiert
+  und verändert das Bild nicht; Metadaten (z. B. EXIF) bleiben erhalten.
+- Ohne inhaltliche Änderung (gleiche Werte, kein neues Logo): `200`, `version` unverändert, kein Audit.
+- Jede wirksame Änderung schreibt in derselben Transaktion je Änderung eine Zeile in `startseite_audit`
+  (Arten `BlockEingeschaltet`, `BlockAusgeschaltet`, `ReihenfolgeGeaendert`, `TitelGeaendert`,
+  `UntertitelGeaendert`, `InfotextGeaendert`, `AnzahlGeaendert`, `LogoHochgeladen`, `LogoErsetzt`,
+  `LogoEntfernt`, `AlternativtextGeaendert`), ohne Textinhalte, bei Logos nur mit SHA-256. Einen
+  Lese-Endpunkt dafür gibt es nicht. Bei jedem Fehler wird nichts gespeichert.
+
+```powershell
+curl.exe -X PUT -H "Authorization: Bearer <access-token>" `
+  -F "konfiguration=<konfiguration.json" -F "logoBereitsteller=@wappen.png" `
+  http://localhost:5172/api/startseite/konfiguration
+```
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | gespeichert oder unverändert | Konfiguration wie bei `GET …/konfiguration` |
+| `400 Bad Request` | Formular, JSON, Feld- oder Logobefund (siehe unten); alle Feld- und Logobefunde gemeinsam | ValidationProblemDetails |
+| `401` / `403` | wie oben (`startpage.manage`); der Body wird dann nicht gelesen | ProblemDetails |
+| `409 Conflict` | `version` veraltet | `title` „Speichern nicht möglich“, `code` `startseite_geaendert`, `detail` „Die Startseite wurde inzwischen geändert. Bitte die Seite neu laden.“ |
+| `413 Payload Too Large` | Logo über 2 MiB, Teil `konfiguration` über 64 KiB oder Request über 6 MiB (auch per `Content-Length` angekündigt oder chunked) | ProblemDetails, `title` „Datei zu groß“, `code` `datei_zu_gross`, `feld` (siehe unten) |
+| `415 Unsupported Media Type` | Request nicht `multipart/form-data` | ProblemDetails |
+
+Prüfreihenfolge: `401` → `403` → `415` → `413` → `400 anfrage` → `400 konfiguration` → `400` Feld-
+und Logobefunde → `409 startseite_geaendert` → `200`. Grenzen der Request-Größe wie beim
+[Motivbild](#put-apicoinsidbild) (ungelesener Rest bis 32 MiB wird verworfen).
+
+`413` nach `feld`:
+
+| `feld` | `detail` |
+|---|---|
+| `logoBereitsteller` | „Das Logo des Bereitstellers darf höchstens 2 MB groß sein.“ |
+| `logoSoftware` | „Das Logo der Software darf höchstens 2 MB groß sein.“ |
+| `konfiguration` | „Die Konfiguration ist zu groß.“ |
+| `anfrage` | „Die Anfrage ist zu groß. Logos dürfen höchstens 2 MB groß sein.“ |
+
+```json
+{
+  "title": "Datei zu groß",
+  "status": 413,
+  "detail": "Das Logo des Bereitstellers darf höchstens 2 MB groß sein.",
+  "code": "datei_zu_gross",
+  "feld": "logoBereitsteller",
+  "traceId": "00-..."
+}
+```
+
+#### Meldungen beim Speichern
+
+Alle Meldungen stehen wörtlich in `errors.<Schlüssel>`; sie enthalten keine Dateiinhalte oder Texte
+der Konfiguration.
+
+| Schlüssel | Meldung |
+|---|---|
+| `anfrage` | „Die Anfrage ist kein gültiges multipart/form-data.“ (Content-Type ohne gültige Boundary) / „Die Anfrage enthält unbekannte oder doppelte Formularfelder.“ (auch: Teil mit falscher Art, mehr als 16 Abschnitte) / „Die Anfrage konnte nicht gelesen werden.“ (abgeschnitten oder fehlerhaft) |
+| `konfiguration` | „Die Konfiguration fehlt.“ / „Die Konfiguration ist kein gültiges JSON.“ (auch: kein JSON-Objekt, tiefer als 16 Ebenen) |
+| `version` | „Ungültiger Wert für dieses Feld.“ (fehlt, keine ganze Zahl oder kleiner 0) |
+| `reihenfolge` | „Die Reihenfolge muss jeden Block genau einmal enthalten.“ |
+| `kopf.titel` | „Bitte einen Titel eingeben oder den Kopfbereich ausschalten.“ / „Der Titel darf höchstens 100 Zeichen lang sein.“ |
+| `kopf.untertitel` | „Der Untertitel darf höchstens 200 Zeichen lang sein.“ |
+| `kopf.logoBereitsteller.alternativtext`, `kopf.logoSoftware.alternativtext` | „Bitte einen Alternativtext für das Logo des Bereitstellers eingeben.“ bzw. „… für das Logo der Software …“ (auch bei `null` mit Dateiteil) / „Der Alternativtext darf höchstens 200 Zeichen lang sein.“ |
+| `infotext.text` | „Bitte einen Infotext eingeben oder den Block ausschalten.“ / „Der Infotext darf höchstens 5.000 Zeichen lang sein.“ |
+| jedes Textfeld | „Der Text enthält unzulässige Steuerzeichen.“ (erlaubt sind Zeilenumbruch, Wagenrücklauf, Tabulator) |
+| `neueste.anzahl` | „Die Anzahl muss zwischen 3 und 12 liegen.“ |
+| `meistausgegeben.anzahl` | „Die Anzahl muss zwischen 3 und 10 liegen.“ |
+| Feldpfad (z. B. `kopf.aktiv`, `kopf.logoSoftware`) | „Ungültiger Wert für dieses Feld.“ (Feld fehlt oder falscher JSON-Typ) |
+| `logoBereitsteller`, `logoSoftware` | „Bitte eine Bilddatei für das Logo des Bereitstellers auswählen.“ bzw. „… der Software …“ (Objekt ohne Datei und ohne vorhandenes Logo) · „Die Datei ist leer.“ · „SVG-Dateien sind nicht erlaubt. Bitte das Logo als PNG, JPEG oder WebP hochladen.“ · „Die Datei ist kein Bild im Format PNG, JPEG oder WebP.“ · „Die Bilddatei ist beschädigt oder unvollständig.“ · „Animierte Bilder sind nicht erlaubt.“ · „Das Logo ist {b} × {h} Pixel groß; erlaubt sind höchstens 2048 × 2048 Pixel.“ |
+
+Je Logodatei gibt es genau eine Meldung, geprüft in dieser Reihenfolge: leer → Format an den ersten
+Bytes (ohne Treffer: SVG, wenn der Text nach optionalem BOM und Leerraum mit `<` beginnt und in den
+ersten 4 KiB `<svg` enthält, sonst „kein Bild“) → Kopf und Maße → Animation → Pixelgrenze.
+
 ## Allgemein
 
 Unerwartete Serverfehler liefern `500` als ProblemDetails ohne interne Details, Titel „Ein
@@ -1172,7 +1461,9 @@ HTTP PUT /api/benutzer/{id}/rolle antwortete 200 in 12 ms
 | `Status` | gesendeter Status; bei Ausnahme nach Antwortbeginn der begonnene Status, bei Client-Abbruch vor Antwortbeginn `499`, sonst `500` |
 | `DauerMs` | Dauer bis Ende der Antwort, ganze Millisekunden |
 
-Erfasst werden alle Endpunkte, auch die öffentlichen. Zur Korrelation tragen Einträge `TraceId` und
+Erfasst werden alle Endpunkte, auch die öffentlichen (z. B. Route `/api/startseite/logos/{platz}`).
+Die Startseite schreibt darüber hinaus keine Logs, weder Texte der Konfiguration noch Dateinamen,
+Logo-Bytes oder Ausnahmetexte des Formularlesers. Zur Korrelation tragen Einträge `TraceId` und
 `SpanId`. Query-String, roher Pfad, Header, Body, Tokens, Benutzer-Id, Namen, E-Mails und
 IP-Adressen werden nie protokolliert.
 

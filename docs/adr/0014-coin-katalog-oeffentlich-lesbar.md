@@ -1,6 +1,6 @@
 # ADR-0014: Coin-Katalog öffentlich lesbar, Schreiben nur mit Berechtigung
 
-Status: Angenommen (Entscheidung des Auftraggebers vom 2026-10-05, umgesetzt) · Datum: 2026-10-05 · Feature: anmeldung-keycloak · Ergänzt: [ADR-0006](0006-bild-upload-als-eigener-endpunkt.md), [ADR-0012](0012-anmeldung-keycloak-oidc.md)
+Status: Angenommen (Entscheidung des Auftraggebers vom 2026-10-05, umgesetzt) · Datum: 2026-10-05 · Feature: anmeldung-keycloak · Ergänzt: [ADR-0006](0006-bild-upload-als-eigener-endpunkt.md), [ADR-0012](0012-anmeldung-keycloak-oidc.md) · Ergänzt durch: [ADR-0032](0032-sichtbarkeit-der-startseite.md) (zwei weitere öffentliche Endpunkte der Startseite)
 
 ## Kontext
 Mit ADR-0012 sind alle Endpunkte standardmäßig geschützt. In `docs/requirements.md` war offen, ob die Öffentlichkeit den Coin-Katalog sehen darf. Der Auftraggeber hat entschieden: Der Katalog ist ohne Anmeldung lesbar („Betrachter kann man auch ohne Login sein“). Schreiben dürfen nur Administrator und Sachbearbeiter. Rev. 1 dieses ADR sah einen geschützten Bild-Endpunkt mit Blob-Abruf im Frontend vor. Diese Variante ist damit hinfällig.
@@ -27,4 +27,5 @@ Mit ADR-0012 sind alle Endpunkte standardmäßig geschützt. In `docs/requiremen
 - Jeder mit Netzzugriff kann Katalog und Motivbilder lesen. Ob die Anwendung im Intranet oder im Internet läuft, ist weiter offen (`docs/requirements.md`, Betrieb). Diese Frage betrifft auch die Reichweite der Veröffentlichung.
 - Die drei Katalog-Endpunkte bleiben öffentlich. Seit coin-ausgaben (ADR-0021) gilt `coins.read` für den zusätzlichen Endpunkt `GET /api/coins/{id}/exemplare`; Betrachter sehen damit Kennzahlen und Exemplar-Status, Anonyme nicht.
 - Die Öffentlichkeit des Katalogs gilt auch für deaktivierte Benutzer: Mit ihrem Token erhalten sie auf den drei Lese-Endpunkten dieselbe Antwort wie anonyme Besucher (Entscheidung des Auftraggebers vom 2026-10-05, ADR-0016 Punkt 8).
+- Nachtrag (startseite, 2026-10-26): [ADR-0032](0032-sichtbarkeit-der-startseite.md) macht nach denselben Regeln (tokenunabhängig, kein Benutzerabgleich, keine Personendaten) zusätzlich `GET /api/startseite/kopf` und `GET /api/startseite/logos/{platz}` öffentlich. Der Endpunkt-Inventartest erlaubt damit genau fünf öffentliche Endpunkte: die drei Katalog-Endpunkte und diese zwei. Logos werden wie Motivbilder mit `private` statt `public` ausgeliefert.
 - Soll der Katalog wieder eingeschränkt werden, ist das nur eine Attributänderung (`[AllowAnonymous]` → Policy `coins.read`). Dann wird dieses ADR abgelöst.
