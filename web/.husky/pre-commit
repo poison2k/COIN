@@ -1,3 +1,14 @@
+# Gitflow (docs/branching.md): keine direkten Commits auf main und develop.
+# Laufende Merges (MERGE_HEAD vorhanden) sind ausgenommen.
+zweig=$(git symbolic-ref --short -q HEAD)
+if [ "$zweig" = "main" ] || [ "$zweig" = "develop" ]; then
+  if [ ! -f "$(git rev-parse --git-path MERGE_HEAD)" ]; then
+    echo "Commit abgelehnt: Direkte Commits auf '$zweig' sind nicht erlaubt (Gitflow, docs/branching.md)." >&2
+    echo "Bitte auf einem Branch feature/<name> von develop arbeiten und per 'git merge --no-ff' zurückführen." >&2
+    exit 1
+  fi
+fi
+
 cd web
 npm run lint
 npm test

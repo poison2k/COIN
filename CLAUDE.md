@@ -186,15 +186,27 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
 4. Review durch den Agenten `qa-reviewer` ohne offene Findings
 5. Doku aktualisiert
 
+## Branches (Gitflow)
+Details und Abläufe in `docs/branching.md`.
+- `main`: nur freigegebene Stände, jeder Stand ist ein Release mit Tag `vX.Y.Z` (SemVer).
+- `develop`: Integrationsbranch, hier landen fertige Features.
+- `feature/<name>`: von `develop`, Rückführung nach `develop` mit `git merge --no-ff`.
+- `release/X.Y.Z`: von `develop`, nur Fehlerkorrekturen und Versionsnummer, dann nach `main` mit
+  Tag und zurück nach `develop`. `hotfix/<name>`: von `main`, nach `main` mit Tag und zurück nach `develop`.
+- Direkte Commits auf `main` und `develop` sind verboten (Pre-Commit-Hook, Merges ausgenommen).
+- Release und Hotfix führt ausschließlich ein Mensch durch. Agenten arbeiten nur auf `feature/*`
+  (Umbauten ohne Fachfunktion auf `chore/*`) und mergen nie selbst nach `develop` oder `main`.
+
 ## Arbeitsweise
 Neue Features laufen über `/feature <Beschreibung>` (`.claude/commands/feature.md`):
-Branch `feature/<name>` → **architect** (Entwurf mit nummerierten Akzeptanzkriterien in
+Branch `feature/<name>` von `develop` → **architect** (Entwurf mit nummerierten Akzeptanzkriterien in
 `docs/features/<name>.md`, offene Fragen an den Menschen) → **tester** (Tests zuerst, rot aus dem
 richtigen Grund) → **developer** (bis alles grün) → **qa-reviewer** (bei kritisch/wichtig zurück
-zum developer, max. 3 Runden) → **docs** → commit, nicht pushen.
+zum developer, max. 3 Runden) → **docs** → commit, nicht pushen, nicht selbst nach `develop` mergen
+(fertigen Branch übergeben).
 Rollen und Schreibrechte der Agenten stehen in `.claude/agents/`. Halte dich strikt an deine Rolle:
 - architect: nur `docs/`; tester: nur `tests/`, `e2e/`, Testdateien in `web/`;
   developer: nur `src/`, `web/` (Tests nie anpassen); docs: nur `docs/`, `README.md`;
   qa-reviewer: ändert nichts.
-- Hauptbranch ist lokal `master` (kein `main` vorhanden); `git push` ist per `.claude/settings.json` gesperrt.
+- `git push` ist per `.claude/settings.json` gesperrt.
 - Offene fachliche Fragen sind in `docs/requirements.md` mit [?] markiert – nicht still raten, nachfragen.
