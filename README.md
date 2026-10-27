@@ -441,6 +441,8 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
 `npm install` in `web/` setzt `git config core.hooksPath` auf `web/.husky/_`. Danach führt
 `web/.husky/pre-commit` bei jedem Commit im gesamten Repo, auch bei reinen Backend-Änderungen,
 in `web/` `npm run lint` und `npm test` aus. Schlägt einer davon fehl, wird der Commit abgelehnt.
+Vorher lehnt er direkte Commits auf `main` und `develop` ab (Gitflow, `docs/branching.md`);
+Merge-Commits sind ausgenommen.
 
 Der Hook prüft den Arbeitsstand auf der Platte, nicht nur den Index (es gibt kein lint-staged).
 Nicht gestagte Änderungen fließen also in das Ergebnis ein: Ein fehlerhafter, nicht gestagter
