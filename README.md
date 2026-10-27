@@ -1,6 +1,6 @@
 # C.O.I.N. – Certified Official Issue Numbering
 
-Webanwendung zur Verwaltung militärischer Gedenk-Coins der Bundeswehr. Umgesetzt sind bisher:
+Webanwendung zur Verwaltung von Gedenk-Coins. Umgesetzt sind bisher:
 
 - **Coin-Katalog**: Coins mit Name, Herausgeber, optionaler Auflage, Beschreibung und Motivbild
   auf einer eigenen Seite anlegen und auf der Seite „Coin bearbeiten“ ändern (Stammdaten, Motivbild;
