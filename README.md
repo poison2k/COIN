@@ -1,4 +1,4 @@
-# C.O.I.N. – Certified Official Issue Numbering
+# C.O.I.N. – Coin Organisation, Inventarisierung und Nachverfolgung
 
 Webanwendung zur Verwaltung von Gedenk-Coins. Umgesetzt sind bisher:
 
