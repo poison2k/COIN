@@ -3,8 +3,9 @@
 Zertifikatsvorlagen sind Word-Dokumente (.docx) mit Platzhaltern im Format `{{Gruppe.Feld}}`. Beim
 Erzeugen eines Zertifikats werden sie durch die Werte der Ausgabe ersetzt. Grundlage:
 [Feature zertifikatsvorlagen](features/zertifikatsvorlagen.md), [Feature zertifikat-erzeugen](features/zertifikat-erzeugen.md),
+[Feature hologrammnummer](features/hologrammnummer.md),
 [ADR-0022](adr/0022-openxml-sdk-fuer-word-vorlagen.md), [ADR-0024](adr/0024-pruefung-hochgeladener-word-dateien.md),
-[ADR-0028](adr/0028-zertifikat-erzeugen-im-speicher.md).
+[ADR-0028](adr/0028-zertifikat-erzeugen-im-speicher.md), [ADR-0033](adr/0033-hologrammnummer-datenmodell-und-normalisierung.md).
 
 Die Liste ist im Code zentral definiert (`Coin.Domain.Vorlagen.Platzhalterkatalog`). Die Tabelle
 unten wird automatisch gegen den Code geprüft und muss bei jeder Änderung mitgezogen werden. Die
@@ -27,6 +28,7 @@ verändern.
 | `Ausgabe.Gelegenheit` | nein | Gelegenheit der Ausgabe | Truppenbesuch |
 | `Ausgabe.Begruendung` | nein | Begründung der Ausgabe | Herausragende Leistung |
 | `Ausgabe.AusgebendeStelle` | nein | Ausgebende Stelle oder Person | Kommandeur Beispielbataillon 1 |
+| `Zertifikat.Hologrammnummer` | nein | Nummer des Hologramm-Stickers | AB 12-34 |
 <!-- platzhalter:ende -->
 
 Regeln für hochgeladene Vorlagen:
@@ -50,10 +52,12 @@ Regeln für hochgeladene Vorlagen:
   aussieht, wird nicht noch einmal ersetzt.
 - Formate: `Exemplar.Nummer` und `Coin.Auflage` als Ziffern ohne führende Nullen und ohne
   Tausenderpunkt (`12`, `1500`), `Ausgabe.Datum` als `TT.MM.JJJJ`, `Zertifikat.Nummer` wie
-  gespeichert (`C0042-0012`). Zeilenumbrüche in `Coin.Beschreibung`, `Ausgabe.Gelegenheit`,
-  `Ausgabe.Begruendung` und `Ausgabe.AusgebendeStelle` werden zu Zeilenumbrüchen in Word.
-- Fehlt ein optionaler Wert (z. B. kein Dienstgrad), bleibt die Stelle leer; der umgebende Text
-  bleibt stehen.
+  gespeichert (`C0042-0012`), `Zertifikat.Hologrammnummer` in der gespeicherten Anzeigeform
+  (`AB 12-34`; die aktuelle Nummer der Ausgabe, nach einer Korrektur die neue). Zeilenumbrüche in
+  `Coin.Beschreibung`, `Ausgabe.Gelegenheit`, `Ausgabe.Begruendung` und `Ausgabe.AusgebendeStelle`
+  werden zu Zeilenumbrüchen in Word.
+- Fehlt ein optionaler Wert (z. B. kein Dienstgrad oder noch keine Hologrammnummer), bleibt die
+  Stelle leer; der umgebende Text bleibt stehen.
 - Tabulatoren in Werten werden zu Tabulatoren in Word; Steuerzeichen, die Word nicht darstellen kann,
   entfallen. Lange Texte werden nicht gekürzt.
 - Die `Coin.*`-Werte (Name, Herausgeber, Beschreibung, Auflage) kommen aus dem aktuellen Stand des

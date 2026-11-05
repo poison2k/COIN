@@ -1,6 +1,6 @@
 # ADR-0027: Coin-Kennung und Zertifikatsnummer
 
-Status: Angenommen, umgesetzt (Entscheidungen des Auftraggebers vom 2026-10-16, F1–F4 in `docs/features/zertifikat-erzeugen.md`; Abweichungen unter „Umsetzung“) · Datum: 2026-10-16 · Feature: [zertifikat-erzeugen](../features/zertifikat-erzeugen.md) · Ergänzt: [ADR-0020](0020-exemplare-und-ausgaben-datenmodell.md) Punkt 4, 5 und 9, [ADR-0025](0025-coin-stammdaten-bearbeiten.md)
+Status: Angenommen, umgesetzt (Entscheidungen des Auftraggebers vom 2026-10-16, F1–F4 in `docs/features/zertifikat-erzeugen.md`; Abweichungen unter „Umsetzung“) · Datum: 2026-10-16 · Feature: [zertifikat-erzeugen](../features/zertifikat-erzeugen.md) · Ergänzt: [ADR-0020](0020-exemplare-und-ausgaben-datenmodell.md) Punkt 4, 5 und 9, [ADR-0025](0025-coin-stammdaten-bearbeiten.md) · Ergänzt durch: [ADR-0033](0033-hologrammnummer-datenmodell-und-normalisierung.md) (Hologrammnummer unterscheidet den einzelnen Ausdruck, auch bei gleicher Zertifikatsnummer nach Storno)
 
 ## Kontext
 Jede Ausgabe erhält bei der Erfassung einmalig eine Zertifikatsnummer im Format `<Coin-Kennung>-<Exemplarnummer, vierstellig>`, danach unveränderlich. Ist-Stand:

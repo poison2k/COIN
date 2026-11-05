@@ -18,10 +18,10 @@ nicht verändern.
 <!-- rechtematrix:start -->
 | Berechtigung | Bedeutung | Administrator | Sachbearbeiter | Betrachter | keine Rolle |
 |---|---|---|---|---|---|
-| `coins.read` | Exemplare und Kennzahlen lesen, Startseite mit Kennzahlen und Coins (Katalog und Kopfbereich der Startseite sind öffentlich) | ✓ | ✓ | ✓ | – |
+| `coins.read` | Exemplare und Kennzahlen lesen, Startseite mit Kennzahlen und Coins, Hologrammnummern prüfen ohne Empfängerdaten (Katalog und Kopfbereich der Startseite sind öffentlich) | ✓ | ✓ | ✓ | – |
 | `coins.write` | Coins anlegen und bearbeiten, Motivbild hochladen, Auflage ändern, Zertifikatsvorlagen herunterladen, hochladen und zurücksetzen | ✓ | ✓ | – | – |
-| `issues.read` | Ausgaben mit Empfängerdaten lesen (Liste und Einzelansicht) | ✓ | ✓ | – | – |
-| `issues.write` | Ausgaben erfassen und stornieren, Zertifikate herunterladen | ✓ | ✓ | – | – |
+| `issues.read` | Ausgaben mit Empfängerdaten lesen (Liste, Einzelansicht, Prüfergebnis mit Empfängerdaten) | ✓ | ✓ | – | – |
+| `issues.write` | Ausgaben erfassen und stornieren, Hologrammnummer ergänzen und korrigieren, Zertifikate herunterladen | ✓ | ✓ | – | – |
 | `users.manage` | Benutzer auflisten, Rolle und Status ändern | ✓ | – | – | – |
 | `audit.read` | Audit-Log lesen | ✓ | – | – | – |
 | `startpage.manage` | Startseite konfigurieren: Blöcke, Reihenfolge, Texte, Logos | ✓ | – | – | – |
@@ -30,8 +30,9 @@ nicht verändern.
 Deaktivierte Benutzer haben unabhängig von ihrer Rolle keine Berechtigung, lesen aber wie alle
 anderen die öffentlichen Endpunkte. Anonyme Besucher lesen nur die öffentlichen Endpunkte.
 
-`coins.read` gilt für `GET /api/coins/{id}/exemplare` (seit coin-ausgaben) und `GET /api/startseite`
-(seit startseite); die übrigen Katalog-Endpunkte bleiben öffentlich (ADR-0014, ADR-0021).
+`coins.read` gilt für `GET /api/coins/{id}/exemplare` (seit coin-ausgaben), `GET /api/startseite`
+(seit startseite) und `POST /api/pruefung` (seit hologrammnummer); die übrigen Katalog-Endpunkte
+bleiben öffentlich (ADR-0014, ADR-0021).
 
 Exemplare und Ausgaben haben getrennte Lese-Endpunkte (ADR-0021): `GET …/exemplare` (`coins.read`)
 liefert nur Nummer, Status und Kennzahlen, Empfängerdaten gibt es nur über `GET …/ausgaben` und
@@ -40,6 +41,12 @@ Ausgabe-Endpunkte (`issues.write`). Der Betrachter erhält deshalb nie Empfänge
 
 Das Zertifikat einer Ausgabe (`GET …/ausgaben/{ausgabeId}/zertifikat`) enthält Empfängerdaten und
 verlangt `issues.write`, nicht `issues.read` (Feature zertifikat-erzeugen, ADR-0029).
+
+Hologrammprüfung (Feature hologrammnummer, ADR-0034): `POST /api/pruefung` (`coins.read`) liefert
+Coin, Exemplar, Zertifikatsnummer, Hologrammnummer, Ausgabedatum und Status, aber keine Felder für
+Empfängerdaten. `POST /api/pruefung/mit-empfaenger` (`issues.read`) liefert dasselbe mit Empfänger,
+Gelegenheit, Begründung und ausgebender Stelle. Beide teilen sich eine Ratenbegrenzung je Benutzer
+(20 je Minute, danach `429`). Ergänzen und Korrigieren der Hologrammnummer verlangt `issues.write`.
 
 Startseite (Feature startseite, ADR-0032): Den Kopfbereich (`GET /api/startseite/kopf`) und die Logos
 (`GET /api/startseite/logos/{platz}`) lesen alle ohne Anmeldung, tokenunabhängig und ohne
@@ -65,8 +72,11 @@ Endpunkte ohne eigene Angabe fallen unter die Fallback-Policy (angemeldet und ak
 | `GET /api/zertifikatsvorlagen/standard`, `GET /api/coins/{id}/zertifikatsvorlage`, `GET /api/coins/{id}/zertifikatsvorlage/datei`, `GET /api/coins/{id}/zertifikatsvorlage/versionen/{version}/datei`, `POST /api/coins/{id}/zertifikatsvorlage/versionen`, `POST /api/coins/{id}/zertifikatsvorlage/zuruecksetzen` | `coins.write` |
 | `GET /api/coins/{id}/exemplare` | `coins.read` |
 | `GET /api/startseite` | `coins.read` |
+| `POST /api/pruefung` | `coins.read` |
 | `GET /api/coins/{id}/ausgaben`, `GET /api/coins/{id}/ausgaben/{ausgabeId}` | `issues.read` |
+| `POST /api/pruefung/mit-empfaenger` | `issues.read` |
 | `POST /api/coins/{id}/ausgaben`, `POST /api/coins/{id}/ausgaben/{ausgabeId}/storno`, `GET /api/coins/{id}/ausgaben/{ausgabeId}/zertifikat` | `issues.write` |
+| `PUT /api/coins/{id}/ausgaben/{ausgabeId}/hologrammnummer` | `issues.write` |
 | `GET /api/me` | angemeldet |
 | `GET /api/benutzer`, `PUT /api/benutzer/{id}/rolle`, `PUT /api/benutzer/{id}/status` | `users.manage` |
 | `GET /api/audit` | `audit.read` |

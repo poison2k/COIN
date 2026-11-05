@@ -6,14 +6,16 @@ wurde. Beides finden Sie auf der Detailseite eines Coins (siehe [Coin-Katalog](c
 
 ## Wer sieht was
 
-| | Stammdaten und Bild | Exemplare und Kennzahlen | Ausgabehistorie, Seite „Ausgabe“ | Ausgabe erfassen, stornieren | Zertifikat herunterladen | Auflage ändern |
+| | Stammdaten und Bild | Exemplare und Kennzahlen | Ausgabehistorie, Seite „Ausgabe“ | Ausgabe erfassen, stornieren, Hologrammnummer ändern | Zertifikat herunterladen | Auflage ändern |
 |---|---|---|---|---|---|---|
 | ohne Anmeldung, ohne Rolle oder deaktiviert | ja | – | – | – | – | – |
 | Betrachter | ja | ja | – | – | – | – |
 | Sachbearbeiter, Administrator | ja | ja | ja | ja | ja | ja |
 
 Betrachter sehen nur Zahlen und den Status der Exemplare, nie Namen von Empfängern, Zertifikate oder
-andere Angaben zu einer Ausgabe. Abschnitte und Buttons ohne Berechtigung erscheinen gar nicht.
+andere Angaben zu einer Ausgabe. Über [Zertifikat prüfen](zertifikat-pruefen.md) erfahren sie zu
+einer bekannten Hologrammnummer nur Coin, Exemplar, Zertifikatsnummer, Ausgabedatum und Status.
+Abschnitte und Buttons ohne Berechtigung erscheinen gar nicht.
 
 ## Abschnitt „Exemplare“
 
@@ -89,9 +91,11 @@ Ein Klick auf die Zertifikatsnummer in der Ausgabehistorie öffnet die Seite ein
 (`/coins/…/ausgaben/…`), für Sachbearbeiter und Administratoren. Sie zeigt:
 
 - als Überschrift „Ausgabe von Exemplar Nr. …“, darunter den Namen des Coins als Link zur Detailseite,
-- **Zertifikatsnummer**, **Empfänger**, **Dienstgrad** und **Dienststelle** (nur wenn angegeben),
-  **Datum**, **Gelegenheit**, **Begründung** (mit Zeilenumbrüchen), **Ausgebende Stelle**,
-  **Erfasst** (wer und wann) und **Status** wie in der Historie,
+- **Zertifikatsnummer**, **Hologrammnummer** (oder „Keine erfasst“), **Empfänger**, **Dienstgrad**
+  und **Dienststelle** (nur wenn angegeben), **Datum**, **Gelegenheit**, **Begründung** (mit
+  Zeilenumbrüchen), **Ausgebende Stelle**, **Erfasst** (wer und wann) und **Status** wie in der Historie,
+- den Button **Hologrammnummer ergänzen** bzw. **Hologrammnummer korrigieren** (siehe
+  [Hologrammnummer](#hologrammnummer)); bei einer stornierten Ausgabe fehlt er,
 - den Button **Zertifikat herunterladen**; bei einer stornierten Ausgabe gesperrt mit dem Hinweis
   „Für stornierte Ausgaben kann kein Zertifikat heruntergeladen werden.“,
 - **Zurück zum Coin**.
@@ -123,6 +127,7 @@ Ausgabehistorie.
 | Gelegenheit | ja | z. B. Truppenbesuch, Verabschiedung; höchstens 200 Zeichen |
 | Begründung | ja | höchstens 2000 Zeichen |
 | Ausgebende Stelle oder Person | ja | wer den Coin übergeben hat; höchstens 200 Zeichen |
+| Hologrammnummer (optional) | nein | Nummer des Hologramm-Stickers auf dem Zertifikat; siehe [Hologrammnummer](#hologrammnummer) |
 
 5. Klicken Sie auf **Ausgabe speichern** oder drücken Sie die Eingabetaste. Wer die Ausgabe
    erfasst und wann, speichert C.O.I.N. automatisch.
@@ -132,10 +137,54 @@ Ausgabe steht oben in der Historie, die Kennzahlen sind aktualisiert. **Zurück*
 nicht wieder zum ausgefüllten Formular. Mit **Abbrechen** kehren Sie ohne Speichern zum Coin zurück.
 
 Eine Ausgabe kann nicht bearbeitet werden. Ist etwas falsch, stornieren Sie sie und erfassen sie neu.
+Einzige Ausnahme ist die Hologrammnummer (siehe unten).
 
 Sind alle Exemplare ausgegeben oder fehlt die Auflage, zeigt die Seite statt des Formulars den Grund
 und **Zurück zum Coin**. Ohne passende Berechtigung führt die Adresse `/coins/…/ausgaben/neu` zur
 Seite **Kein Zugriff** (siehe [Anmeldung](anmeldung.md#seite-kein-zugriff)).
+
+## Hologrammnummer
+
+Jedes gedruckte Zertifikat erhält einen Hologramm-Sticker mit eigener Nummer. Diese **Hologrammnummer**
+tragen Sie zur Ausgabe ein, damit sich das Zertifikat später auf [Zertifikat prüfen](zertifikat-pruefen.md)
+bestätigen lässt. Sie unterscheidet jeden einzelnen Ausdruck, auch wenn nach einem Storno dieselbe
+Zertifikatsnummer erneut vergeben wird.
+
+Regeln:
+
+- Erlaubt sind Buchstaben A–Z, Ziffern, Leerzeichen und Bindestriche, höchstens 40 Zeichen.
+- Groß- und Kleinschreibung, Leerzeichen und Bindestriche spielen beim Vergleich keine Rolle:
+  „ab 12-34“, „AB1234“ und „AB-12 34“ sind dieselbe Nummer. Gespeichert und angezeigt wird Ihre
+  Eingabe bereinigt in Großbuchstaben, z. B. „AB 12-34“.
+- Jede Nummer gibt es nur einmal, über alle Coins hinweg.
+- Die Nummer steht im Zertifikat an der Stelle `{{Zertifikat.Hologrammnummer}}`; die Standardvorlage
+  zeigt sie als „Hologramm Nr. …“ unter der Zertifikatsnummer.
+
+**Beim Erfassen**: Tragen Sie die Nummer im Feld **Hologrammnummer (optional)** ein. Sie können das
+Feld auch leer lassen und die Nummer später ergänzen.
+
+**Nachträglich ergänzen oder korrigieren** (nur Sachbearbeiter und Administratoren, nur bei aktiven
+Ausgaben):
+
+1. Öffnen Sie die Seite [„Ausgabe“](#seite-ausgabe).
+2. Klicken Sie auf **Hologrammnummer ergänzen** (noch keine Nummer) bzw. **Hologrammnummer
+   korrigieren** (Nummer vorhanden).
+3. Tragen Sie im Dialog die **Hologrammnummer** ein; das Feld ist mit der bisherigen Nummer vorbelegt.
+4. Nur bei einer Korrektur: Geben Sie den **Grund der Korrektur** ein (Pflicht, höchstens 500
+   Zeichen, **bitte keine Personendaten**).
+5. Klicken Sie auf **Speichern**. Mit **Abbrechen** oder Escape schließen Sie den Dialog ohne Änderung.
+
+Danach erscheint „Hologrammnummer gespeichert.“, und die Seite zeigt die neue Nummer. Wer wann welche
+Nummer gesetzt oder korrigiert hat, protokolliert C.O.I.N. dauerhaft.
+
+Gut zu wissen:
+
+- Nach einer Korrektur ist die **bisherige Nummer wieder frei** und kann einer anderen Ausgabe
+  zugeordnet werden.
+- Eine Nummer lässt sich nicht entfernen, nur korrigieren.
+- Nach einem **Storno** lässt sich die Nummer nicht mehr ändern, und sie bleibt **dauerhaft
+  vergeben**, weil der Sticker weiter existiert. Auch eine Neuausgabe desselben Exemplars kann diese
+  Nummer nicht erhalten.
 
 ## Ausgabe stornieren
 
@@ -147,7 +196,8 @@ Seite **Kein Zugriff** (siehe [Anmeldung](anmeldung.md#seite-kein-zugriff)).
 
 Danach erscheint „Ausgabe von Exemplar Nr. … wurde storniert.“ Die Ausgabe bleibt mit ihrem
 Storno-Vermerk und ihrer Zertifikatsnummer in der Historie, das Exemplar ist wieder verfügbar. Ihr
-Zertifikat lässt sich nicht mehr herunterladen. Ein Storno lässt sich nicht rückgängig machen;
+Zertifikat lässt sich nicht mehr herunterladen, ihre Hologrammnummer bleibt vergeben. Ein Storno lässt
+sich nicht rückgängig machen;
 erfassen Sie bei Bedarf eine neue Ausgabe (bei demselben Exemplar mit derselben Zertifikatsnummer).
 
 ## Auflage ändern
@@ -181,6 +231,12 @@ Fehler zu einzelnen Feldern stehen direkt unter dem Feld; Ihre Eingaben bleiben 
 | „Alle Exemplare dieses Coins sind ausgegeben.“ | Es gibt kein freies Exemplar mehr. |
 | „Diese Ausgabe ist bereits storniert.“ | Jemand hat sie gerade storniert; die Historie zeigt den aktuellen Stand. |
 | „Bitte einen Grund für das Storno angeben.“ | Grund eintragen. |
+| „Die Hologrammnummer darf nur Buchstaben (A–Z), Ziffern, Leerzeichen und Bindestriche enthalten.“ | Andere Zeichen (z. B. `/`, `.`, Umlaute) entfernen. |
+| „Die Hologrammnummer muss mindestens einen Buchstaben oder eine Ziffer enthalten.“ | Nicht nur Leerzeichen oder Bindestriche eintragen. |
+| „Diese Hologrammnummer ist bereits vergeben.“ | Die Nummer gehört schon zu einer anderen Ausgabe, auch einer stornierten. Nummer auf dem Sticker prüfen. |
+| „Bitte einen Grund für die Korrektur angeben.“ | Beim Korrigieren einer Hologrammnummer einen Grund eintragen. |
+| „Die Hologrammnummer wurde inzwischen geändert. Die Seite wurde neu geladen.“ | Jemand hat die Nummer gerade geändert; die Seite zeigt den aktuellen Stand. Bei Bedarf erneut korrigieren. |
+| „Die Ausgabe wurde inzwischen storniert. Die Hologrammnummer kann nicht mehr geändert werden.“ | Jemand hat die Ausgabe gerade storniert; die Seite zeigt den aktuellen Stand. |
 | „Diese Ausgabe wurde inzwischen storniert. Ein Zertifikat kann nicht mehr heruntergeladen werden.“ | Jemand hat die Ausgabe gerade storniert; die Anzeige zeigt den aktuellen Stand. |
 | „Die aktive Vorlage enthält mehr als 200 Platzhalter. Bitte eine angepasste Vorlage hochladen.“ | Auf **Coin bearbeiten** eine Vorlage mit weniger Platzhaltern hochladen (siehe [Zertifikatsvorlagen](zertifikatsvorlagen.md)). |
 | „Das Zertifikat konnte nicht heruntergeladen werden. Bitte später erneut versuchen.“ | Technisches Problem; später erneut versuchen. Tritt es immer wieder auf, die Vorlage in Word neu speichern und hochladen. |

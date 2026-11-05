@@ -32,7 +32,8 @@ Während des Downloads ist der jeweilige Button gesperrt. Klappt es nicht, ersch
 nicht heruntergeladen werden. Bitte später erneut versuchen.“
 
 Die Standardvorlage enthält eine Urkunde mit der Überschrift „Echtheitszertifikat“, alle Platzhalter in
-Beispielsätzen (die Dienststelle in einer eigenen Zeile unter Dienstgrad und Name) und am Ende auf einer
+Beispielsätzen (die Dienststelle in einer eigenen Zeile unter Dienstgrad und Name, unter der
+Zertifikatsnummer die Zeile „Hologramm Nr. …“) und am Ende auf einer
 neuen Seite den Abschnitt „Erläuterung der Platzhalter“. Diesen Abschnitt können Sie in Ihrer eigenen
 Vorlage löschen. Hat ein Coin keine eigene Vorlage, entsteht das Zertifikat aus der Standardvorlage
 **ohne** diesen Abschnitt.
@@ -99,7 +100,9 @@ So setzt C.O.I.N. die Werte ein, wenn jemand ein Zertifikat herunterlädt:
   setzen Sie optionale Platzhalter daher am besten in eine eigene Zeile, wie die Dienststelle in der
   Standardvorlage.
 - **Formate**: Datum als `TT.MM.JJJJ` (z. B. 01.10.2026), Exemplar-Nummer und Auflage ohne
-  Tausenderpunkt (`12`, `1500`), Zertifikatsnummer wie `C0042-0012`.
+  Tausenderpunkt (`12`, `1500`), Zertifikatsnummer wie `C0042-0012`, Hologrammnummer
+  (`{{Zertifikat.Hologrammnummer}}`) in Großbuchstaben wie `AB 12-34`; nach einer Korrektur steht die
+  neue Nummer im Zertifikat, ohne Nummer bleibt die Stelle leer.
 - **Aktueller Stand**: Name, Herausgeber, Beschreibung und Auflage des Coins stammen immer aus dem
   aktuellen Stand. Ändern Sie den Coin auf **Coin bearbeiten**, zeigen danach heruntergeladene
   Zertifikate die neuen Werte, auch für ältere Ausgaben.
