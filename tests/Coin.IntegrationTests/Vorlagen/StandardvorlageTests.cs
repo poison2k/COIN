@@ -17,6 +17,8 @@ public class StandardvorlageTests(PostgresFixture fixture) : VorlagenTestBasis(f
         "Coin.Name", "Exemplar.Nummer", "Zertifikat.Nummer", "Empfaenger.Name", "Coin.Herausgeber", "Coin.Beschreibung",
         "Coin.Auflage", "Empfaenger.Dienstgrad", "Empfaenger.Dienststelle", "Ausgabe.Datum", "Ausgabe.Gelegenheit",
         "Ausgabe.Begruendung", "Ausgabe.AusgebendeStelle",
+        // hologrammnummer (AK-23, AK-24): 14. Platzhalter; die Erläuterungstabelle wächst um diese Zeile.
+        "Zertifikat.Hologrammnummer",
     ];
 
     private static readonly XNamespace W = DocxLeser.W;
@@ -198,6 +200,77 @@ public class StandardvorlageTests(PostgresFixture fixture) : VorlagenTestBasis(f
         Assert.Single(urkunde, absatz => Text(absatz) == "{{Empfaenger.Dienststelle}}");
     }
 
+    // ---------- hologrammnummer AK-24 (H11): Absatz „Hologramm Nr.“ nach der Zertifikatsnummer ----------
+
+    private static List<XElement> UrkundenAbsaetze(List<XElement> urkunde) => [.. urkunde.Where(e => e.Name == W + "p")];
+
+    [Fact]
+    public async Task Hologramm_Absatz_folgt_direkt_auf_den_Absatz_Zertifikat_Nr()
+    {
+        var (urkunde, _) = Abschnitte(await StandardvorlageAsync());
+        var texte = UrkundenAbsaetze(urkunde).Select(Text).ToList();
+
+        var nummer = texte.IndexOf("Zertifikat Nr. {{Zertifikat.Nummer}}");
+
+        Assert.True(nummer >= 0, "Absatz „Zertifikat Nr. {{Zertifikat.Nummer}}“ fehlt.");
+        Assert.True(nummer + 1 < texte.Count, "Nach „Zertifikat Nr. {{Zertifikat.Nummer}}“ folgt kein Absatz (AK-24).");
+        Assert.Equal("Hologramm Nr. {{Zertifikat.Hologrammnummer}}", texte[nummer + 1]);
+    }
+
+    [Fact]
+    public async Task Hologramm_Absatz_steht_genau_einmal_im_Hauptteil()
+    {
+        var (urkunde, _) = Abschnitte(await StandardvorlageAsync());
+
+        Assert.Single(UrkundenAbsaetze(urkunde), a => Text(a).Contains("{{Zertifikat.Hologrammnummer}}", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Hologramm_Absatz_hat_dieselbe_Absatzformatierung_wie_der_Absatz_davor()
+    {
+        var (urkunde, _) = Abschnitte(await StandardvorlageAsync());
+        var absaetze = UrkundenAbsaetze(urkunde);
+        var index = absaetze.FindIndex(a => Text(a) == "Hologramm Nr. {{Zertifikat.Hologrammnummer}}");
+        Assert.True(index > 0, "Absatz „Hologramm Nr.“ fehlt.");
+
+        var davor = absaetze[index - 1].Element(W + "pPr")?.ToString(SaveOptions.DisableFormatting) ?? string.Empty;
+        var selbst = absaetze[index].Element(W + "pPr")?.ToString(SaveOptions.DisableFormatting) ?? string.Empty;
+
+        Assert.Equal(davor, selbst);
+    }
+
+    [Fact]
+    public async Task Beschriftung_Hologramm_Nr_hat_dieselbe_Zeichenformatierung_wie_Zertifikat_Nr()
+    {
+        var (urkunde, _) = Abschnitte(await StandardvorlageAsync());
+        var absaetze = UrkundenAbsaetze(urkunde);
+        var index = absaetze.FindIndex(a => Text(a) == "Hologramm Nr. {{Zertifikat.Hologrammnummer}}");
+        Assert.True(index > 0, "Absatz „Hologramm Nr.“ fehlt.");
+
+        string Formate(XElement absatz) => string.Join("|", absatz.Elements(W + "r")
+            .Select(r => r.Element(W + "rPr")?.ToString(SaveOptions.DisableFormatting) ?? string.Empty));
+
+        Assert.Equal(Formate(absaetze[index - 1]), Formate(absaetze[index]));
+    }
+
+    [Fact]
+    public async Task Fusszeile_enthaelt_keine_Hologrammnummer()
+    {
+        var docx = await StandardvorlageAsync();
+        var fusszeilen = DocxLeser.Eintraege(docx).Keys.Where(k => k.StartsWith("word/footer", StringComparison.Ordinal)).ToList();
+
+        Assert.NotEmpty(fusszeilen);
+        Assert.All(fusszeilen, f => Assert.DoesNotContain("Hologramm", Text(DocxLeser.Xml(docx, f).Root!), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Erlaeuterungstabelle_hat_14_Zeilen_und_die_Kopfzeile()
+    {
+        var (_, erlaeuterung) = Abschnitte(await StandardvorlageAsync());
+
+        Assert.Equal(15, Tabelle(erlaeuterung).Count);
+    }
+
     [Fact]
     public async Task Dienststellen_Absatz_folgt_direkt_auf_den_Namens_Absatz()
     {
@@ -271,6 +344,8 @@ public class StandardvorlageTests(PostgresFixture fixture) : VorlagenTestBasis(f
     [InlineData("Coin.Auflage", "Auflage des Coins", "nein", "500")]
     // zertifikat-erzeugen Rev. 2 (Abschnitt 1.2): neues Beispiel der Zertifikatsnummer.
     [InlineData("Zertifikat.Nummer", "Eindeutige Nummer des Zertifikats", "ja", "C0042-0012")]
+    // hologrammnummer (AK-23).
+    [InlineData("Zertifikat.Hologrammnummer", "Nummer des Hologramm-Stickers", "nein", "AB 12-34")]
     public async Task Erlaeuterungstabelle_zeigt_Bedeutung_Pflicht_und_Beispiel_aus_dem_Katalog(
         string name, string bedeutung, string pflicht, string beispiel)
     {

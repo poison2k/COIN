@@ -132,6 +132,34 @@ public class ZertifikatWerteTests
         Assert.Equal("Zeile 1\nZeile 2", Werte(ausgabe: Ausgabe with { Begruendung = "Zeile 1\nZeile 2" })["Ausgabe.Begruendung"]);
     }
 
+    // ---------- hologrammnummer, AK-23 (Abschnitt 7): Zertifikat.Hologrammnummer ----------
+
+    [Fact]
+    public void Es_gibt_14_Werte()
+    {
+        Assert.Equal(14, Werte().Count);
+    }
+
+    [Fact]
+    public void Hologrammnummer_ist_die_Anzeigeform_der_aktuellen_Nummer()
+    {
+        Assert.Equal("AB 12-34", Werte(ausgabe: Ausgabe with { Hologrammnummer = "AB 12-34" })["Zertifikat.Hologrammnummer"]);
+    }
+
+    [Fact]
+    public void Ohne_Hologrammnummer_ist_der_Wert_leer()
+    {
+        Assert.Equal(string.Empty, Werte(ausgabe: Ausgabe with { Hologrammnummer = null })["Zertifikat.Hologrammnummer"]);
+    }
+
+    [Fact]
+    public void ToString_enthaelt_keine_Hologrammnummer()
+    {
+        var (_, objekt) = WerteAus(Coin, Ausgabe with { Hologrammnummer = "QX 77-11" });
+
+        Assert.DoesNotContain("QX", objekt.ToString() ?? string.Empty, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void ToString_enthaelt_keine_Werte()
     {

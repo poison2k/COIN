@@ -36,14 +36,14 @@ weiter ansehen, der Button **Coin hinzufügen** ist ausgeblendet.
 
 Was Sie nach der Anmeldung dürfen, hängt von der Rolle Ihres Kontos in C.O.I.N. ab:
 
-| Rolle | Katalog ansehen | Exemplare und Kennzahlen | Coins hinzufügen und bearbeiten, Auflage ändern, Zertifikatsvorlagen | Ausgaben sehen, erfassen, stornieren | Benutzerverwaltung |
-|---|---|---|---|---|---|
-| ohne Anmeldung | ja | nein | nein | nein | nein |
-| Administrator | ja | ja | ja | ja | ja |
-| Sachbearbeiter | ja | ja | ja | ja | nein |
-| Betrachter | ja | ja | nein | nein | nein |
-| angemeldet, aber noch ohne Rolle | ja | nein | nein | nein | nein |
-| Konto deaktiviert | ja | nein | nein | nein | nein |
+| Rolle | Katalog ansehen | Exemplare und Kennzahlen | Coins hinzufügen und bearbeiten, Auflage ändern, Zertifikatsvorlagen | Ausgaben sehen, erfassen, stornieren | Zertifikat prüfen | Benutzerverwaltung |
+|---|---|---|---|---|---|---|
+| ohne Anmeldung | ja | nein | nein | nein | nein | nein |
+| Administrator | ja | ja | ja | ja | ja, mit Empfänger | ja |
+| Sachbearbeiter | ja | ja | ja | ja | ja, mit Empfänger | nein |
+| Betrachter | ja | ja | nein | nein | ja, ohne Empfänger | nein |
+| angemeldet, aber noch ohne Rolle | ja | nein | nein | nein | nein | nein |
+| Konto deaktiviert | ja | nein | nein | nein | nein | nein |
 
 Neue Konten haben zunächst keine Rolle. Die Rolle vergibt ein Administrator in der
 [Benutzerverwaltung](benutzerverwaltung.md). Haben Sie noch keine Rolle, geht es über **Erneut
@@ -51,8 +51,8 @@ prüfen** weiter (siehe unten). Ändert ein Administrator eine Rolle, die Sie sc
 das erst nach dem Neuladen der Seite (Taste F5) oder nach der nächsten Anmeldung.
 
 Den Button **Coin hinzufügen** auf der Seite **Katalog**, die Abschnitte und Buttons zu Exemplaren
-und Ausgaben auf der Detailseite und die Einträge **Benutzerverwaltung** und **Startseite verwalten**
-in der Seitenleiste sehen Sie nur, wenn Ihre Rolle das erlaubt. Die Startseite pflegen nur
+und Ausgaben auf der Detailseite und die Einträge **Zertifikat prüfen**, **Benutzerverwaltung** und
+**Startseite verwalten** in der Seitenleiste sehen Sie nur, wenn Ihre Rolle das erlaubt. Die Startseite pflegen nur
 Administratoren.
 
 ## Seite „Kein Zugriff“

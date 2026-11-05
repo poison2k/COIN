@@ -42,7 +42,10 @@ public class AusgabeServiceZertifikatsnummerTests
         var katalog = FakeProxy.Erzeugen<ICoinKatalogRepository>((_, _) => null);
         var service = new AusgabeService(repository, katalog, new FakeTimeProvider(new DateTimeOffset(2026, 10, 8, 9, 0, 0, TimeSpan.Zero)));
 
-        var ergebnis = await service.ErfassenAsync(CoinId, gewuenscht, Eingabe, Akteur, CancellationToken.None);
+        // hologrammnummer (Abschnitt 5.6): ErfassenAsync erhält den Parameter hologrammnummer; benannte Argumente, damit
+        // der Aufruf von dessen Position unabhängig ist. Ohne Nummer bleibt das Verhalten unverändert.
+        var ergebnis = await service.ErfassenAsync(
+            coinId: CoinId, exemplarNummer: gewuenscht, eingabe: Eingabe, hologrammnummer: null, akteurId: Akteur, ct: CancellationToken.None);
 
         Assert.IsType<AusgabeErfassenErgebnis.Erfasst>(ergebnis);
         return gespeichert ?? throw new Xunit.Sdk.XunitException("Keine Ausgabe gespeichert.");
@@ -53,6 +56,8 @@ public class AusgabeServiceZertifikatsnummerTests
     {
         ["id"] = ausgabe.Id, ["exemplarNummer"] = ausgabe.ExemplarNummer, ["angaben"] = ausgabe.Angaben, ["erfasstAm"] = ausgabe.ErfasstAm,
         ["erfasstVon"] = new Akteur(Akteur, "Test Erfasser"), ["storno"] = null, ["zertifikatsnummer"] = Nummer(ausgabe),
+        // hologrammnummer (AK-14): die Lesesicht erhält die aktuelle Nummer (hier keine).
+        ["hologrammnummer"] = null,
     });
 
     private static string? Nummer(Ausgabe ausgabe)

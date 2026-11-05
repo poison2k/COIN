@@ -109,6 +109,10 @@ public partial class EndpunktInventarTests(PostgresFixture fixture) : Integratio
     [InlineData("GET /api/startseite", "coins.read")]
     [InlineData("GET /api/startseite/konfiguration", "startpage.manage")]
     [InlineData("PUT /api/startseite/konfiguration", "startpage.manage")]
+    // hologrammnummer (Abschnitt 5.1, AK-25): Prüfung mit coins.read bzw. issues.read, Ergänzen/Korrigieren mit issues.write.
+    [InlineData("POST /api/pruefung", "coins.read")]
+    [InlineData("POST /api/pruefung/mit-empfaenger", "issues.read")]
+    [InlineData("PUT /api/coins/{id}/ausgaben/{ausgabeId}/hologrammnummer", "issues.write")]
     public void Endpunkte_der_Coin_Ausgaben_verlangen_ihre_Policy_und_sind_nicht_anonym(string name, string policy)
     {
         // coin-ausgaben AK-15, AK-32 (ADR-0021 Punkt 2 und 5).

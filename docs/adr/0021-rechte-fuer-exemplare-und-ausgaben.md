@@ -1,6 +1,6 @@
 # ADR-0021: Rechte für Exemplare und Ausgaben, getrennte Endpunkte statt Feldfilter
 
-Status: Angenommen, umgesetzt (Entscheidungen des Auftraggebers vom 2026-10-08, F1–F3 in `docs/features/coin-ausgaben.md`); Punkt 5 geändert durch [ADR-0025](0025-coin-stammdaten-bearbeiten.md) · Datum: 2026-10-08 · Feature: coin-ausgaben · Ändert: [ADR-0016](0016-berechtigungen-im-code-und-deaktivierte-benutzer.md) Punkt 1, 2 und 4 · Ergänzt: [ADR-0014](0014-coin-katalog-oeffentlich-lesbar.md)
+Status: Angenommen, umgesetzt (Entscheidungen des Auftraggebers vom 2026-10-08, F1–F3 in `docs/features/coin-ausgaben.md`); Punkt 5 geändert durch [ADR-0025](0025-coin-stammdaten-bearbeiten.md) · Datum: 2026-10-08 · Feature: coin-ausgaben · Ändert: [ADR-0016](0016-berechtigungen-im-code-und-deaktivierte-benutzer.md) Punkt 1, 2 und 4 · Ergänzt: [ADR-0014](0014-coin-katalog-oeffentlich-lesbar.md) · Ergänzt durch: [ADR-0034](0034-hologrammpruefung-rechte-ratenbegrenzung-audit.md) (Punkt 2: mit `coins.read` sehen alle Rollen über die Hologrammprüfung Coin, Exemplar, Zertifikatsnummer, Ausgabedatum und Status einer Ausgabe; Empfängerdaten weiter nur mit `issues.read` über einen eigenen Endpunkt)
 
 ## Kontext
 Vorgabe: neue Berechtigungen `issues.read` und `issues.write`. Erfassen und Stornieren dürfen Administrator und Sachbearbeiter. Der Betrachter sieht nur Kennzahlen und den Status der Exemplare, aber keine Empfänger, Anlässe oder Begründungen, und „der Backend-Endpunkt liefert diese Felder für ihn gar nicht erst aus“.

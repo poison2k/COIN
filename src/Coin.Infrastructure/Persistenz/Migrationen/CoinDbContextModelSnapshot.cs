@@ -185,6 +185,69 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                         });
                 });
 
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.AusgabeHologrammDatensatz", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AbgeloestAm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("abgeloest_am");
+
+                    b.Property<Guid>("AusgabeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ausgabe_id");
+
+                    b.Property<DateTimeOffset>("GesetztAm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("gesetzt_am");
+
+                    b.Property<Guid>("GesetztVon")
+                        .HasColumnType("uuid")
+                        .HasColumnName("gesetzt_von");
+
+                    b.Property<string>("Nummer")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("nummer");
+
+                    b.Property<string>("NummerNormalisiert")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("nummer_normalisiert")
+                        .HasComputedColumnSql("upper(translate(nummer, ' -', ''))", true);
+
+                    b.HasKey("Id")
+                        .HasName("pk_ausgabe_hologramm");
+
+                    b.HasIndex("GesetztVon")
+                        .HasDatabaseName("ix_ausgabe_hologramm_gesetzt_von");
+
+                    b.HasIndex(new[] { "AusgabeId" }, "ix_ausgabe_hologramm_ausgabe")
+                        .HasDatabaseName("ix_ausgabe_hologramm_ausgabe");
+
+                    b.HasIndex(new[] { "AusgabeId" }, "ux_ausgabe_hologramm_aktuell")
+                        .IsUnique()
+                        .HasDatabaseName("ux_ausgabe_hologramm_aktuell")
+                        .HasFilter("abgeloest_am IS NULL");
+
+                    b.HasIndex(new[] { "NummerNormalisiert" }, "ux_ausgabe_hologramm_nummer")
+                        .IsUnique()
+                        .HasDatabaseName("ux_ausgabe_hologramm_nummer")
+                        .HasFilter("abgeloest_am IS NULL");
+
+                    b.ToTable("ausgabe_hologramm", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_ausgabe_hologramm_nummer", "nummer ~ '^[A-Z0-9 -]{1,40}$' AND nummer = btrim(nummer) AND position('  ' IN nummer) = 0");
+
+                            t.HasCheckConstraint("ck_ausgabe_hologramm_nummer_normalisiert", "nummer_normalisiert ~ '^[A-Z0-9]{1,40}$'");
+                        });
+                });
+
             modelBuilder.Entity("Coin.Infrastructure.Persistenz.BenutzerAuditDatensatz", b =>
                 {
                     b.Property<Guid>("Id")
@@ -419,6 +482,123 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                     b.ToTable("exemplar", null, t =>
                         {
                             t.HasCheckConstraint("ck_exemplar_nummer", "nummer >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.HologrammAuditDatensatz", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AkteurId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("akteur_id");
+
+                    b.Property<string>("Art")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("art");
+
+                    b.Property<Guid>("AusgabeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ausgabe_id");
+
+                    b.Property<Guid>("CoinId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("coin_id");
+
+                    b.Property<string>("Grund")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("grund");
+
+                    b.Property<string>("NummerAlt")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("nummer_alt");
+
+                    b.Property<string>("NummerNeu")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("nummer_neu");
+
+                    b.Property<DateTimeOffset>("Zeitpunkt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("zeitpunkt");
+
+                    b.HasKey("Id")
+                        .HasName("pk_hologramm_audit");
+
+                    b.HasIndex("AkteurId")
+                        .HasDatabaseName("ix_hologramm_audit_akteur_id");
+
+                    b.HasIndex("AusgabeId")
+                        .HasDatabaseName("ix_hologramm_audit_ausgabe");
+
+                    b.ToTable("hologramm_audit", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_hologramm_audit_art", "(art = 'Gesetzt' AND nummer_alt IS NULL AND grund IS NULL) OR (art = 'Geaendert' AND nummer_alt IS NOT NULL AND grund IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.PruefungAuditDatensatz", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AkteurId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("akteur_id");
+
+                    b.Property<Guid?>("AusgabeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ausgabe_id");
+
+                    b.Property<Guid?>("CoinIdGewaehlt")
+                        .HasColumnType("uuid")
+                        .HasColumnName("coin_id_gewaehlt");
+
+                    b.Property<string>("Ergebnis")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("character varying(15)")
+                        .HasColumnName("ergebnis");
+
+                    b.Property<bool>("MitEmpfaenger")
+                        .HasColumnType("boolean")
+                        .HasColumnName("mit_empfaenger");
+
+                    b.Property<string>("Nummer")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("nummer");
+
+                    b.Property<DateTimeOffset>("Zeitpunkt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("zeitpunkt");
+
+                    b.HasKey("Id")
+                        .HasName("pk_pruefung_audit");
+
+                    b.HasIndex("AkteurId")
+                        .HasDatabaseName("ix_pruefung_audit_akteur");
+
+                    b.HasIndex("AusgabeId")
+                        .HasDatabaseName("ix_pruefung_audit_ausgabe");
+
+                    b.HasIndex("Zeitpunkt")
+                        .HasDatabaseName("ix_pruefung_audit_zeitpunkt");
+
+                    b.ToTable("pruefung_audit", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_pruefung_audit_ausgabe", "(ergebnis = 'NichtGefunden') = (ausgabe_id IS NULL)");
+
+                            t.HasCheckConstraint("ck_pruefung_audit_ergebnis", "ergebnis IN ('Gueltig', 'Storniert', 'FalscherCoin', 'NichtGefunden')");
                         });
                 });
 
@@ -840,6 +1020,23 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                     b.Navigation("Stornierer");
                 });
 
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.AusgabeHologrammDatensatz", b =>
+                {
+                    b.HasOne("Coin.Infrastructure.Persistenz.AusgabeDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("AusgabeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ausgabe_hologramm_ausgabe_ausgabe_id");
+
+                    b.HasOne("Coin.Infrastructure.Persistenz.BenutzerDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("GesetztVon")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ausgabe_hologramm_benutzer_gesetzt_von");
+                });
+
             modelBuilder.Entity("Coin.Infrastructure.Persistenz.BenutzerAuditDatensatz", b =>
                 {
                     b.HasOne("Coin.Infrastructure.Persistenz.BenutzerDatensatz", "Akteur")
@@ -878,6 +1075,39 @@ namespace Coin.Infrastructure.Persistenz.Migrationen
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_exemplar_coin_typ_coin_id");
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.HologrammAuditDatensatz", b =>
+                {
+                    b.HasOne("Coin.Infrastructure.Persistenz.BenutzerDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("AkteurId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_hologramm_audit_benutzer_akteur_id");
+
+                    b.HasOne("Coin.Infrastructure.Persistenz.AusgabeDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("AusgabeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_hologramm_audit_ausgabe_ausgabe_id");
+                });
+
+            modelBuilder.Entity("Coin.Infrastructure.Persistenz.PruefungAuditDatensatz", b =>
+                {
+                    b.HasOne("Coin.Infrastructure.Persistenz.BenutzerDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("AkteurId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pruefung_audit_benutzer_akteur_id");
+
+                    b.HasOne("Coin.Infrastructure.Persistenz.AusgabeDatensatz", null)
+                        .WithMany()
+                        .HasForeignKey("AusgabeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_pruefung_audit_ausgabe_ausgabe_id");
                 });
 
             modelBuilder.Entity("Coin.Infrastructure.Persistenz.StartseiteAuditDatensatz", b =>

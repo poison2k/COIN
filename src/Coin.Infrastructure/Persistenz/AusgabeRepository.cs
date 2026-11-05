@@ -131,17 +131,21 @@ internal sealed class AusgabeRepository(CoinDbContext db) : IAusgabeRepository
         return zeile is null ? null : Eintrag(zeile);
     }
 
-    private static IQueryable<AusgabeZeile> Lesesicht(IQueryable<AusgabeDatensatz> abfrage) =>
+    private IQueryable<AusgabeZeile> Lesesicht(IQueryable<AusgabeDatensatz> abfrage) =>
         abfrage.Select(a => new AusgabeZeile(
             a,
             a.Erfasser.Anzeigename,
-            a.Stornierer != null ? a.Stornierer.Anzeigename : null));
+            a.Stornierer != null ? a.Stornierer.Anzeigename : null,
+            db.Hologramme.Where(h => h.AusgabeId == a.Id && h.AbgeloestAm == null).Select(h => h.Nummer).FirstOrDefault()));
 
     private static AusgabeEintrag Eintrag(AusgabeZeile zeile) =>
-        Eintrag(zeile.Ausgabe, zeile.ErfasserName, zeile.StorniererName);
+        Eintrag(zeile.Ausgabe, zeile.ErfasserName, zeile.StorniererName, zeile.Hologrammnummer);
 
-    /// <summary>Lesesicht einer Ausgabe aus Datensatz und Akteursnamen (auch für <see cref="ZertifikatRepository"/>).</summary>
-    internal static AusgabeEintrag Eintrag(AusgabeDatensatz a, string erfasserName, string? storniererName)
+    /// <summary>
+    /// Lesesicht einer Ausgabe aus Datensatz, Akteursnamen und aktueller Hologrammnummer (Anzeigeform oder <c>null</c>);
+    /// auch für <see cref="ZertifikatRepository"/>.
+    /// </summary>
+    internal static AusgabeEintrag Eintrag(AusgabeDatensatz a, string erfasserName, string? storniererName, string? hologrammnummer)
     {
         return new AusgabeEintrag(
             a.Id,
@@ -152,14 +156,15 @@ internal sealed class AusgabeRepository(CoinDbContext db) : IAusgabeRepository
             new Akteur(a.ErfasstVon, erfasserName),
             a is { StorniertAm: { } am, StorniertVon: { } von, StornoGrund: { } grund }
                 ? new StornoEintrag(am.ToUniversalTime(), new Akteur(von, storniererName ?? string.Empty), grund)
-                : null);
+                : null,
+            hologrammnummer);
     }
 
     internal static AusgabeAngaben Angaben(AusgabeDatensatz a) => new(
         a.EmpfaengerName, a.EmpfaengerDienstgrad, a.EmpfaengerDienststelle, a.Datum, a.Gelegenheit, a.Begruendung,
         a.AusgebendeStelle);
 
-    private sealed record AusgabeZeile(AusgabeDatensatz Ausgabe, string ErfasserName, string? StorniererName);
+    private sealed record AusgabeZeile(AusgabeDatensatz Ausgabe, string ErfasserName, string? StorniererName, string? Hologrammnummer);
 
     /// <summary>Transaktion mit gesperrter Coin-Zeile; Entsorgen ohne Abschließen rollt zurück.</summary>
     private sealed class CoinSperre(CoinDbContext db, IDbContextTransaction transaktion, Guid coinId, int? auflage, string kennung)
@@ -295,6 +300,74 @@ internal sealed class AusgabeRepository(CoinDbContext db) : IAusgabeRepository
             {
                 return false;
             }
+        }
+
+        public async Task<Hologrammnummer?> HologrammLadenAsync(Guid ausgabeId, CancellationToken ct)
+        {
+            var zeile = await db.Hologramme.AsNoTracking()
+                .Where(h => h.AusgabeId == ausgabeId && h.AbgeloestAm == null)
+                .Select(h => new { h.Nummer, h.NummerNormalisiert })
+                .FirstOrDefaultAsync(ct);
+            return zeile is null ? null : new Hologrammnummer(zeile.Nummer, zeile.NummerNormalisiert);
+        }
+
+        public Task<bool> HologrammVergebenAsync(string normalform, CancellationToken ct) =>
+            db.Hologramme.AnyAsync(h => h.NummerNormalisiert == normalform && h.AbgeloestAm == null, ct);
+
+        public async Task<bool> HologrammSetzenAsync(
+            Guid ausgabeId,
+            Hologrammnummer neu,
+            Hologrammnummer? bisherige,
+            string? grund,
+            Guid akteurId,
+            DateTimeOffset jetzt,
+            CancellationToken ct)
+        {
+            ArgumentNullException.ThrowIfNull(neu);
+
+            // Erst ablösen, dann einfügen (ADR-0033 Punkt 5); beides in der Transaktion der Sperre.
+            if (bisherige is not null)
+            {
+                var abgeloest = await db.Database.ExecuteSqlInterpolatedAsync(
+                    $"""
+                    UPDATE ausgabe_hologramm SET abgeloest_am = {jetzt}
+                    WHERE ausgabe_id = {ausgabeId} AND abgeloest_am IS NULL
+                    """,
+                    ct);
+                if (abgeloest != 1)
+                {
+                    throw new InvalidOperationException("Die bisherige Hologrammnummer konnte nicht abgelöst werden.");
+                }
+            }
+
+            try
+            {
+                await db.Database.ExecuteSqlInterpolatedAsync(
+                    $"""
+                    INSERT INTO ausgabe_hologramm (id, ausgabe_id, nummer, gesetzt_am, gesetzt_von)
+                    VALUES ({Guid.CreateVersion7()}, {ausgabeId}, {neu.Anzeige}, {jetzt}, {akteurId})
+                    """,
+                    ct);
+            }
+            // Gleiche Nummer gleichzeitig an einem anderen Coin → 409 hologrammnummer_vergeben, nie 500 (AK-9).
+            catch (PostgresException ex) when (ex is
+            {
+                SqlState: PostgresErrorCodes.UniqueViolation,
+                ConstraintName: AusgabeHologrammKonfiguration.IndexNummer,
+            })
+            {
+                return false;
+            }
+
+            var art = bisherige is null ? HologrammAuditKonfiguration.Gesetzt : HologrammAuditKonfiguration.Geaendert;
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                INSERT INTO hologramm_audit (id, zeitpunkt, akteur_id, ausgabe_id, coin_id, art, nummer_alt, nummer_neu, grund)
+                VALUES ({Guid.CreateVersion7()}, {jetzt}, {akteurId}, {ausgabeId}, {coinId}, {art},
+                        {bisherige?.Normalform}, {neu.Normalform}, {(bisherige is null ? null : grund)})
+                """,
+                ct);
+            return true;
         }
 
         public Task AbschliessenAsync(CancellationToken ct) => transaktion.CommitAsync(ct);

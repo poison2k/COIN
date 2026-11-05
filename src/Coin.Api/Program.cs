@@ -3,6 +3,7 @@ using Coin.Api.Http;
 using Coin.Domain.Ausgaben;
 using Coin.Domain.Benutzer;
 using Coin.Domain.Katalog;
+using Coin.Domain.Pruefung;
 using Coin.Domain.Startseite;
 using Coin.Domain.Vorlagen;
 using Coin.Domain.Zertifikate;
@@ -34,6 +35,8 @@ builder.Services.AddScoped<ZertifikatsvorlageService>();
 // Zertifikate (zertifikat-erzeugen AK-17): feste Warnung ohne Inhalte; der Erzeuger selbst ist ein Singleton (AK-16).
 builder.Services.AddSingleton<IZertifikatProtokoll, ZertifikatProtokoll>();
 builder.Services.AddScoped<ZertifikatService>();
+// Hologrammprüfung (ADR-0034): Mindestdauer über TimeProvider.
+builder.Services.AddScoped<PruefService>();
 // Startseite (ADR-0030 bis ADR-0032): kein Cache, Lesen und Speichern über den Service.
 builder.Services.AddScoped<StartseiteService>();
 builder.Services.AddUrlsNichtProtokollieren();
@@ -41,6 +44,9 @@ builder.Services.AddInfrastruktur(builder.Configuration);
 
 // Anmeldung (ADR-0012) und Autorisierung (ADR-0013, ADR-0014): standardmäßig geschützt.
 builder.Services.AddAnmeldung();
+
+// Ratenbegrenzung der Hologrammprüfung, feste Werte im Code (ADR-0034 Punkt 4).
+builder.Services.AddRatenbegrenzung();
 
 // CORS nur für Frontend:Ursprung, ohne Credentials (AK-12). Gelesen aus der endgültigen Konfiguration.
 builder.Services.AddCors();
@@ -78,6 +84,9 @@ if (frontendUrsprung is not null)
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Nach der Autorisierung: 401/403 kommen vor 429 und verbrauchen kein Kontingent (ADR-0034 Punkt 4).
+app.UseRateLimiter();
 
 if (app.Environment.IsDevelopment())
 {

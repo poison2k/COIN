@@ -30,6 +30,12 @@ public sealed class CoinDbContext(DbContextOptions<CoinDbContext> options) : DbC
 
     public DbSet<StartseiteAuditDatensatz> StartseiteAudit => Set<StartseiteAuditDatensatz>();
 
+    public DbSet<AusgabeHologrammDatensatz> Hologramme => Set<AusgabeHologrammDatensatz>();
+
+    public DbSet<HologrammAuditDatensatz> HologrammAudit => Set<HologrammAuditDatensatz>();
+
+    public DbSet<PruefungAuditDatensatz> PruefungAudit => Set<PruefungAuditDatensatz>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CoinDbContext).Assembly);

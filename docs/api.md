@@ -23,7 +23,10 @@ In der Umgebung `Development` liefert `GET /openapi/v1.json` das OpenAPI-Dokumen
 | `GET` | `/api/coins/{id}/ausgaben/{ausgabeId}` | Eine Ausgabe abrufen (aktiv oder storniert) | `issues.read` |
 | `POST` | `/api/coins/{id}/ausgaben` | Ausgabe erfassen | `issues.write` |
 | `POST` | `/api/coins/{id}/ausgaben/{ausgabeId}/storno` | Ausgabe stornieren | `issues.write` |
+| `PUT` | `/api/coins/{id}/ausgaben/{ausgabeId}/hologrammnummer` | Hologrammnummer ergänzen oder korrigieren | `issues.write` |
 | `GET` | `/api/coins/{id}/ausgaben/{ausgabeId}/zertifikat` | Zertifikat der Ausgabe (DOCX) herunterladen | `issues.write` |
+| `POST` | `/api/pruefung` | Hologrammnummer prüfen (ohne Empfängerdaten) | `coins.read` |
+| `POST` | `/api/pruefung/mit-empfaenger` | Hologrammnummer prüfen, mit Empfängerdaten | `issues.read` |
 | `GET` | `/api/me` | Angemeldeten Benutzer abrufen | angemeldet |
 | `GET` | `/api/benutzer` | Benutzer suchen und auflisten | `users.manage` |
 | `PUT` | `/api/benutzer/{id}/rolle` | Rolle zuweisen oder entziehen | `users.manage` |
@@ -57,8 +60,8 @@ Grundlage: [ADR-0012](adr/0012-anmeldung-keycloak-oidc.md), [ADR-0013](adr/0013-
   abgelaufenes Token führt dort zu keinem `401`, das Token eines deaktivierten Benutzers zu keinem `403`.
 - Endpunkte verlangen eine **Berechtigung** (`coins.read`, `coins.write`, `issues.read`,
   `issues.write`, `users.manage`, `audit.read`, `startpage.manage`), nie eine Rolle. `coins.read`
-  wird für `GET /api/coins/{id}/exemplare` und `GET /api/startseite` verlangt; die drei Katalog-GETs
-  bleiben öffentlich (ADR-0021).
+  wird für `GET /api/coins/{id}/exemplare`, `GET /api/startseite` und `POST /api/pruefung` verlangt;
+  die drei Katalog-GETs bleiben öffentlich (ADR-0021).
 - Rollen (`Administrator`, `Sachbearbeiter`, `Betrachter`) und den Status (aktiv/deaktiviert) führt
   C.O.I.N. in der eigenen Datenbank. Rollen-Claims im Token werden ignoriert. Neue Benutzer haben
   keine Rolle. Rollen vergeben Administratoren über `PUT /api/benutzer/{id}/rolle`; zusätzlich
@@ -87,7 +90,8 @@ Grundlage: [ADR-0012](adr/0012-anmeldung-keycloak-oidc.md), [ADR-0013](adr/0013-
 | `audit.read` | „Ihr Benutzerkonto ist nicht berechtigt, das Audit-Log einzusehen.“ |
 | `startpage.manage` | „Ihr Benutzerkonto ist für diese Aktion nicht berechtigt.“ (allgemeiner Text) |
 
-Der Text zu `coins.read` erscheint auch bei `GET /api/startseite`.
+Der Text zu `coins.read` erscheint auch bei `GET /api/startseite` und `POST /api/pruefung`, der zu
+`issues.read` bei `POST /api/pruefung/mit-empfaenger`.
 
 Clients werten `code` aus, nicht den Text.
 
@@ -102,8 +106,8 @@ Clients werten `code` aus, nicht den Text.
 }
 ```
 
-`401` und `403` werden vor jeder fachlichen Prüfung geliefert, also vor `400`, `404`, `409`, `413`
-und `415`. Bei `401` und `403` wird nichts gespeichert und der Upload-Body nicht gelesen.
+`401` und `403` werden vor jeder fachlichen Prüfung geliefert, also vor `400`, `404`, `409`, `413`,
+`415` und `429`. Bei `401` und `403` wird nichts gespeichert und der Upload-Body nicht gelesen.
 
 Pfade ohne Endpunkt liefern `404`, auch ohne Token.
 
@@ -119,7 +123,8 @@ Zugelassen ist genau ein Origin aus `Frontend:Ursprung` (Development: `http://lo
 Methoden `GET`, `POST`, `PUT`, Header `Authorization` und `Content-Type`, ohne
 `Access-Control-Allow-Credentials`. Freigegeben ist der Antwort-Header `Content-Disposition`
 (`Access-Control-Expose-Headers`), damit das Frontend den Dateinamen der Vorlagen- und
-Zertifikat-Downloads lesen kann.
+Zertifikat-Downloads lesen kann. `Retry-After` (bei `429` der Prüfung) ist nicht freigegeben; ein
+Frontend auf anderer Origin kann ihn nicht lesen und wartet dann 60 s.
 Andere Origins erhalten keinen `Access-Control-Allow-Origin`.
 Ist `Frontend:Ursprung` nicht gesetzt, sendet die API keine CORS-Header.
 
@@ -359,14 +364,17 @@ Objekt `errors` (Schlüssel → Liste deutscher Meldungen). Mehrere ungültige F
 | `suche`, `seite`, `groesse` | Coin-Liste, Benutzerliste, Audit-Log (ohne `suche`), Exemplare und Ausgaben (ohne `suche`): Query-Parameter ungültig |
 | `status` | Exemplare und Ausgaben: unbekannter Filterwert |
 | `benutzerId` | Audit-Log: Query-Parameter ungültig |
-| `exemplarNummer`, `empfaengerName`, `empfaengerDienstgrad`, `empfaengerDienststelle`, `datum`, `gelegenheit`, `begruendung`, `ausgebendeStelle` | Ausgabe erfassen |
+| `exemplarNummer`, `empfaengerName`, `empfaengerDienstgrad`, `empfaengerDienststelle`, `datum`, `gelegenheit`, `begruendung`, `ausgebendeStelle`, `hologrammnummer` | Ausgabe erfassen |
 | `grund` | Storno |
+| `hologrammnummer`, `grund` | Hologrammnummer ergänzen oder korrigieren |
+| `hologrammnummer`, `coinId` | Hologrammnummer prüfen |
 | `anfrage`, `konfiguration`, `version`, `reihenfolge`, `kopf.*`, `infotext.*`, `kennzahlen.*`, `neueste.*`, `meistausgegeben.*`, `logoBereitsteller`, `logoSoftware` | Startseite speichern (siehe [Meldungen beim Speichern](#meldungen-beim-speichern)); `anfrage` meint hier das Formular, nicht JSON |
 
 ProblemDetails mit fachlichem Fehlergrund (`403`, `409`, beim Zertifikat-Download auch `500`, beim
-Speichern der Startseite auch `413`) tragen zusätzlich die Erweiterung `code` (z. B.
-`keine_berechtigung`, `letzter_administrator`, `exemplar_ausgegeben`, `coin_existiert`,
-`ausgabe_storniert`, `zertifikat_fehler`, `startseite_geaendert`, `datei_zu_gross`). Ausnahme:
+Speichern der Startseite auch `413`, bei der Prüfung auch `429`) tragen zusätzlich die Erweiterung
+`code` (z. B. `keine_berechtigung`, `letzter_administrator`, `exemplar_ausgegeben`, `coin_existiert`,
+`ausgabe_storniert`, `hologrammnummer_vergeben`, `zertifikat_fehler`, `startseite_geaendert`,
+`datei_zu_gross`, `zu_viele_pruefungen`). Ausnahme:
 `409` von `POST /api/coins` (Duplikat) trägt keinen `code`.
 
 ### Titel
@@ -663,18 +671,24 @@ Grundlage: [ADR-0020](adr/0020-exemplare-und-ausgaben-datenmodell.md),
   beim Erfassen gebildet und nie geändert. Eine Neuausgabe desselben Exemplars nach einem Storno
   erhält **dieselbe** Nummer; eindeutig ist sie nur unter den aktiven Ausgaben. Eine Ausgabe
   eindeutig bezeichnet nur ihre `id` ([ADR-0027](adr/0027-coin-kennung-und-zertifikatsnummer.md)).
-- Alle sechs Endpunkte dieses Abschnitts und der [Zertifikat-Download](#zertifikate) tragen
+- Jede Ausgabe kann eine **Hologrammnummer** tragen: die Nummer des Hologramm-Stickers auf dem
+  gedruckten Zertifikat, optional, beim Erfassen oder nachträglich gesetzt und mit Grund korrigierbar
+  ([ADR-0033](adr/0033-hologrammnummer-datenmodell-und-normalisierung.md), siehe
+  [Hologrammnummer](#hologrammnummer)).
+- Alle sieben Endpunkte dieses Abschnitts und der [Zertifikat-Download](#zertifikate) tragen
   `Cache-Control: no-store`. `401`/`403` kommen vor allen fachlichen Prüfungen; ohne Berechtigung
   gibt es also auch für eine unbekannte Coin-Id `403`, nie `404`.
-- Schreibende Endpunkte verlangen `Content-Type: application/json` (sonst `415`). Erfassen, Storno
-  und Auflage ändern laufen je Coin nacheinander (Sperre der Coin-Zeile). Bei jedem Fehler wird
-  nichts gespeichert.
+- Schreibende Endpunkte verlangen `Content-Type: application/json` (sonst `415`). Erfassen, Storno,
+  Hologrammnummer ändern und Auflage ändern laufen je Coin nacheinander (Sperre der Coin-Zeile). Bei
+  jedem Fehler wird nichts gespeichert.
 - Personendaten (Empfänger, Gelegenheit, Begründung, ausgebende Stelle, Storno-Grund) gibt es nur
-  über `GET …/ausgaben`, `GET …/ausgaben/{ausgabeId}`, in den Antworten von `POST …/ausgaben` und
-  `…/storno` und im Zertifikat. Fehlermeldungen nennen höchstens Exemplar-Nummern.
+  über `GET …/ausgaben`, `GET …/ausgaben/{ausgabeId}`, in den Antworten von `POST …/ausgaben`,
+  `…/storno` und `PUT …/hologrammnummer`, in `POST /api/pruefung/mit-empfaenger` (ohne Storno-Grund)
+  und im Zertifikat. Fehlermeldungen nennen höchstens Exemplar-Nummern.
   `GET /api/coins` und `GET /api/coins/{id}` bleiben unverändert.
 - Jedes Erfassen und jedes Storno schreibt in derselben Transaktion einen unveränderlichen
-  Audit-Eintrag (Tabelle `ausgabe_audit`, ohne Empfängerdaten). Einen Lese-Endpunkt dafür gibt es nicht.
+  Audit-Eintrag (Tabelle `ausgabe_audit`, ohne Empfängerdaten), jedes Setzen oder Korrigieren einer
+  Hologrammnummer einen in `hologramm_audit`. Lese-Endpunkte dafür gibt es nicht.
 
 ### GET /api/coins/{id}/exemplare
 
@@ -755,7 +769,8 @@ Invoke-RestMethod -Uri http://localhost:5172/api/coins/<id>/ausgaben/<ausgabeId>
   "ausgebendeStelle": "Kommandeur Beispielbataillon 1",
   "erfasstAm": "2026-10-08T09:00:00.123456+00:00",
   "erfasstVon": { "id": "0199b3c4-9f00-7a1b-8c2d-3e4f5a6b7c8d", "name": "Test Sachbearbeiter" },
-  "storno": null
+  "storno": null,
+  "hologrammnummer": "AB 12-34"
 }
 ```
 
@@ -770,6 +785,7 @@ Invoke-RestMethod -Uri http://localhost:5172/api/coins/<id>/ausgaben/<ausgabeId>
 | `erfasstAm` | Serverzeit (UTC, Mikrosekunden) |
 | `erfasstVon` | angemeldeter Benutzer beim Erfassen (`id`, aktueller Anzeigename) |
 | `storno` | `null` oder `{ "am": "…", "von": { "id": "…", "name": "…" }, "grund": "…" }` |
+| `hologrammnummer` | aktuelle Hologrammnummer in Anzeigeform (z. B. `"AB 12-34"`) oder `null`; nach einer Korrektur die neue |
 
 ### POST /api/coins/{id}/ausgaben
 
@@ -784,12 +800,17 @@ Erfasst eine Ausgabe. Verlangt `issues.write`. `Content-Type: application/json`.
   "datum": "2026-10-01",
   "gelegenheit": "Truppenbesuch",
   "begruendung": "Herausragende Leistung",
-  "ausgebendeStelle": "Kommandeur Beispielbataillon 1"
+  "ausgebendeStelle": "Kommandeur Beispielbataillon 1",
+  "hologrammnummer": "ab 12-34"
 }
 ```
 
 - `exemplarNummer` fehlend oder `null`: die kleinste Nummer ohne aktive Ausgabe (auch eine nach
   einem Storno wieder frei gewordene).
+- `hologrammnummer` ist optional; fehlend, `null`, leer oder nur Leerraum heißt „keine Nummer“.
+  Gespeichert und zurückgegeben wird die Anzeigeform (`"ab 12-34"` → `"AB 12-34"`), Regeln unter
+  [Hologrammnummer](#hologrammnummer). Ausgabe, Nummer, `ausgabe_audit` und `hologramm_audit`
+  entstehen in einer Transaktion.
 - Texte werden getrimmt; leere optionale Texte werden `null`. Mitgesendete Felder `id`,
   `erfasstVon`, `erfasstAm`, `storno` und `zertifikatsnummer` werden ignoriert; Erfasser, Zeit und
   Zertifikatsnummer setzt der Server (Nummer unter der Sperre aus Coin-Kennung und Exemplar).
@@ -810,6 +831,7 @@ Feldregeln (`400`, Schlüssel = Feldname):
 | `begruendung` | „Begründung ist erforderlich.“ / „Begründung darf höchstens 2000 Zeichen lang sein.“ |
 | `ausgebendeStelle` | „Ausgebende Stelle ist erforderlich.“ / „Ausgebende Stelle darf höchstens 200 Zeichen lang sein.“ |
 | `exemplarNummer` | „Exemplar-Nummer muss zwischen 1 und {Auflage} liegen.“ (erst nach Coin- und Auflageprüfung) |
+| `hologrammnummer` | Meldungen wie unter [Hologrammnummer](#hologrammnummer) (außer „Bitte eine Hologrammnummer eingeben.“) |
 | Feld mit nicht lesbarem Wert (z. B. `"datum": "gestern"`) | „Ungültiger Wert für dieses Feld.“ |
 
 | Status | Wann | Body |
@@ -821,10 +843,13 @@ Feldregeln (`400`, Schlüssel = Feldname):
 | `409 Conflict` | Coin ohne Auflage | `title` „Ausgabe nicht möglich“, `code` `auflage_unbekannt`, `detail` „Für diesen Coin ist keine Auflage erfasst. Ausgaben sind erst nach dem Festlegen der Auflage möglich.“ |
 | `409 Conflict` | gewähltes Exemplar ist aktiv ausgegeben | `title` „Ausgabe nicht möglich“, `code` `exemplar_ausgegeben`, `detail` „Exemplar Nr. {n} ist bereits ausgegeben.“ |
 | `409 Conflict` | „nächstes freies“, aber alle ausgegeben | `title` „Ausgabe nicht möglich“, `code` `kein_exemplar_frei`, `detail` „Alle Exemplare dieses Coins sind ausgegeben.“ |
+| `409 Conflict` | Hologrammnummer (Normalform) ist bereits vergeben, bei welchem Coin auch immer, auch an eine stornierte Ausgabe | `title` „Ausgabe nicht möglich“, `code` `hologrammnummer_vergeben`, `detail` „Diese Hologrammnummer ist bereits vergeben. Bitte die Nummer prüfen.“ |
 | `415 Unsupported Media Type` | Content-Type nicht `application/json` | ProblemDetails |
 
 Prüfreihenfolge: `401` → `403` → `415` → `400` (Body) → `404` → `409 auflage_unbekannt` →
-`400 exemplarNummer` → `409 exemplar_ausgegeben`/`kein_exemplar_frei`.
+`400 exemplarNummer` → `409 exemplar_ausgegeben`/`kein_exemplar_frei` → `409 hologrammnummer_vergeben`.
+Bei `409 hologrammnummer_vergeben` entsteht keine Ausgabe, das Exemplar bleibt verfügbar; das gilt auch
+bei gleichzeitigen Anfragen mit derselben Nummer in anderer Schreibweise (eindeutiger Index, nie `500`).
 
 ```powershell
 Invoke-RestMethod -Method Post -Uri http://localhost:5172/api/coins/<id>/ausgaben `
@@ -854,6 +879,74 @@ Personendaten enthalten.
 
 Prüfreihenfolge nach `401`/`403`/`415`: `400` → `404` → `409`. Von zwei gleichzeitigen Stornos
 derselben Ausgabe gelingt genau eines.
+
+### Hologrammnummer
+
+Grundlage: [ADR-0033](adr/0033-hologrammnummer-datenmodell-und-normalisierung.md), Feature
+[hologrammnummer](features/hologrammnummer.md).
+
+Eingaben werden so bereinigt (`Coin.Domain.Ausgaben.Hologrammnummer`):
+
+1. `null`, leer oder nur Leerraum: keine Nummer. Mehr als 200 Zeichen roh: Längenfehler.
+2. Unicode-NFKC; Leerraum wird zum Leerzeichen, Gedankenstriche und Minuszeichen zu `-`,
+   unsichtbare Formatzeichen entfallen.
+3. Trimmen, mehrere Leerzeichen zu einem, Großbuchstaben → **Anzeigeform** (gespeichert, angezeigt,
+   ins Zertifikat gesetzt), z. B. `"ab  12–34 "` → `"AB 12-34"`.
+4. Erlaubt sind nur `A–Z`, `0–9`, Leerzeichen und `-`, höchstens 40 Zeichen.
+5. **Normalform** = Anzeigeform ohne Leerzeichen und `-` (`AB1234`); sie muss mindestens ein Zeichen haben.
+
+Verglichen wird nur die Normalform: `"ab 12-34"`, `"AB1234"` und `"AB-12 34"` sind dieselbe Nummer.
+Die Datenbank leitet sie selbst ab (generierte Spalte `ausgabe_hologramm.nummer_normalisiert`) und
+sichert die Eindeutigkeit über alle Coins mit einem eindeutigen Index über alle nicht abgelösten
+Zuordnungen. Eine korrigierte (abgelöste) Nummer ist wieder frei; die Nummer einer stornierten Ausgabe
+bleibt dauerhaft vergeben.
+
+| Meldung (`errors.hologrammnummer`) | Wann |
+|---|---|
+| „Bitte eine Hologrammnummer eingeben.“ | Ändern und Prüfen: Feld fehlt, leer oder nur Leerraum |
+| „Die Hologrammnummer darf nur Buchstaben (A–Z), Ziffern, Leerzeichen und Bindestriche enthalten.“ | anderes Zeichen, z. B. `/`, `.`, `_`, `Ä` |
+| „Die Hologrammnummer darf höchstens 40 Zeichen lang sein.“ | Anzeigeform über 40 oder Rohtext über 200 Zeichen |
+| „Die Hologrammnummer muss mindestens einen Buchstaben oder eine Ziffer enthalten.“ | nur Trennzeichen, z. B. `"- -"` |
+
+### PUT /api/coins/{id}/ausgaben/{ausgabeId}/hologrammnummer
+
+Ergänzt oder korrigiert die Hologrammnummer einer **aktiven** Ausgabe. Verlangt `issues.write`.
+`Content-Type: application/json`.
+
+```json
+{ "hologrammnummer": "AB 12-34", "grund": "Tippfehler bei der Erfassung", "bisherige": "AB 12-43" }
+```
+
+- `hologrammnummer`: Pflicht. Eine Nummer entfernen geht nicht.
+- `bisherige`: die Nummer, die der Client zuletzt gesehen hat (wird ebenfalls normalisiert; `null` oder
+  leer = „keine“). Passt sie nicht zur aktuellen Nummer, kommt `409 hologrammnummer_geaendert`.
+- Ohne bisherige Nummer (**Ergänzen**) wird `grund` ignoriert; Audit-Art `Gesetzt`.
+- Mit bisheriger Nummer (**Korrektur**) ist `grund` Pflicht (getrimmt, höchstens 500 Zeichen, keine
+  Personendaten). Die bisherige Zuordnung wird abgelöst und eine neue angelegt; Audit-Art `Geaendert`
+  mit alter und neuer Normalform und Grund. Die alte Nummer ist danach wieder frei.
+- Gleiche Normalform wie bisher (auch in anderer Schreibweise): `200` ohne Schreiben und ohne Audit.
+
+```powershell
+Invoke-RestMethod -Method Put -Uri http://localhost:5172/api/coins/<id>/ausgaben/<ausgabeId>/hologrammnummer `
+  -Headers @{ Authorization = "Bearer <access-token>" } -ContentType application/json `
+  -Body '{"hologrammnummer":"AB 12-34","grund":"Tippfehler bei der Erfassung","bisherige":"AB 12-43"}'
+```
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | gesetzt, korrigiert oder unverändert | Ausgabe ([Ausgabe-Format](#datenformat-ausgabe)) |
+| `400 Bad Request` | `errors.hologrammnummer` (siehe oben); `errors.grund` „Der Grund darf höchstens 500 Zeichen lang sein.“ bzw. bei einer Korrektur ohne Grund „Bitte einen Grund für die Korrektur angeben.“; kein gültiges JSON: `errors.anfrage` | ValidationProblemDetails |
+| `401` / `403` | wie oben (`issues.write`) | ProblemDetails |
+| `404 Not Found` | Coin oder Ausgabe unbekannt, oder die Ausgabe gehört zu einem anderen Coin | ProblemDetails, `title` „Ausgabe nicht gefunden“ |
+| `409 Conflict` | Ausgabe storniert | `title` „Hologrammnummer nicht möglich“, `code` `ausgabe_storniert`, `detail` „Die Hologrammnummer einer stornierten Ausgabe kann nicht geändert werden.“ |
+| `409 Conflict` | `bisherige` passt nicht zur aktuellen Nummer | `title` „Hologrammnummer nicht möglich“, `code` `hologrammnummer_geaendert`, `detail` „Die Hologrammnummer wurde inzwischen geändert. Bitte die Seite neu laden.“ |
+| `409 Conflict` | Nummer an eine andere Ausgabe vergeben (auch eine stornierte) | `title` „Hologrammnummer nicht möglich“, `code` `hologrammnummer_vergeben`, `detail` „Diese Hologrammnummer ist bereits vergeben. Bitte die Nummer prüfen.“ |
+| `415 Unsupported Media Type` | Content-Type nicht `application/json` | ProblemDetails |
+
+Prüfreihenfolge: `401` → `403` → `415` → `400` (`hologrammnummer`, `grund` zu lang) → `404` →
+`409 ausgabe_storniert` → `409 hologrammnummer_geaendert` → unverändert (`200`) → `400 grund` fehlt
+bei Korrektur → `409 hologrammnummer_vergeben`. Alles läuft unter der Sperre der Coin-Zeile; auch bei
+gleichzeitigen Anfragen auf Ausgaben verschiedener Coins gelingt für dieselbe Nummer genau eine (nie `500`).
 
 ### PUT /api/coins/{id}/auflage
 
@@ -937,6 +1030,118 @@ Invoke-WebRequest -Uri http://localhost:5172/api/coins/<id>/ausgaben/<ausgabeId>
   -Headers @{ Authorization = "Bearer <access-token>" } -OutFile Zertifikat.docx
 ```
 
+Der Platzhalter `{{Zertifikat.Hologrammnummer}}` erhält die Anzeigeform der **aktuellen**
+Hologrammnummer (nach einer Korrektur die neue), ohne Nummer bleibt er leer.
+
+## Hologrammprüfung
+
+Grundlage: [ADR-0034](adr/0034-hologrammpruefung-rechte-ratenbegrenzung-audit.md), Feature
+[hologrammnummer](features/hologrammnummer.md).
+
+Zwei Endpunkte mit gleichem Request prüfen, ob eine Hologrammnummer zu einem Zertifikat gehört:
+
+| Endpunkt | Berechtigung | Datensatz |
+|---|---|---|
+| `POST /api/pruefung` | `coins.read` (Administrator, Sachbearbeiter, Betrachter) | ohne Personendaten |
+| `POST /api/pruefung/mit-empfaenger` | `issues.read` (Administrator, Sachbearbeiter) | zusätzlich Ausgabe-Id, Empfänger, Gelegenheit, Begründung, ausgebende Stelle |
+
+`Content-Type: application/json`, Antworten mit `Cache-Control: no-store`. Die Nummer steht nur im
+Body, nie in der URL. Eine öffentliche Prüfung ohne Anmeldung gibt es nicht.
+
+```json
+{ "hologrammnummer": "ab 12-34", "coinId": "0199b3c4-5d6e-7f80-9a1b-2c3d4e5f6a7b" }
+```
+
+- `hologrammnummer`: Pflicht, normalisiert wie unter [Hologrammnummer](#hologrammnummer).
+- `coinId`: optional (`null` oder fehlend = ohne Coin). Ein unbekannter Coin gilt wie ein anderer Coin
+  (kein `404`).
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://localhost:5172/api/pruefung `
+  -Headers @{ Authorization = "Bearer <access-token>" } -ContentType application/json `
+  -Body '{"hologrammnummer":"ab 12-34","coinId":null}'
+```
+
+### Ergebnis
+
+Die Ergebnisse werden in dieser Reihenfolge bestimmt; abgelöste (korrigierte) Nummern zählen nicht.
+
+| `ergebnis` | Wann | `datensatz` |
+|---|---|---|
+| `nichtGefunden` | keine aktuelle Zuordnung mit dieser Normalform | `null` |
+| `falscherCoin` | `coinId` gesetzt und die Nummer gehört zu einem anderen Coin (auch wenn diese Ausgabe storniert ist) | `null` |
+| `storniert` | die Ausgabe ist storniert | Datensatz, `status` `"storniert"` |
+| `gueltig` | sonst | Datensatz, `status` `"aktiv"` |
+
+`POST /api/pruefung`:
+
+```json
+{
+  "ergebnis": "gueltig",
+  "datensatz": {
+    "coin": { "id": "0199b3c4-5d6e-7f80-9a1b-2c3d4e5f6a7b", "name": "Einsatzkontingent Beispiel 2025" },
+    "exemplarNummer": 12,
+    "zertifikatsnummer": "C0042-0012",
+    "hologrammnummer": "AB 12-34",
+    "datum": "2026-10-01",
+    "status": "aktiv",
+    "storniertAm": null
+  }
+}
+```
+
+`POST /api/pruefung/mit-empfaenger`:
+
+```json
+{
+  "ergebnis": "storniert",
+  "datensatz": {
+    "ausgabeId": "0199c1a2-3b4c-7d5e-8f60-718293a4b5c6",
+    "coin": { "id": "0199b3c4-5d6e-7f80-9a1b-2c3d4e5f6a7b", "name": "Einsatzkontingent Beispiel 2025" },
+    "exemplarNummer": 12,
+    "zertifikatsnummer": "C0042-0012",
+    "hologrammnummer": "AB 12-34",
+    "datum": "2026-10-01",
+    "status": "storniert",
+    "storniertAm": "2026-10-20",
+    "empfaenger": { "name": "Max Beispiel", "dienstgrad": "Hauptmann", "dienststelle": "Beispielbataillon 1" },
+    "gelegenheit": "Truppenbesuch",
+    "begruendung": "Herausragende Leistung",
+    "ausgebendeStelle": "Kommandeur Beispielbataillon 1"
+  }
+}
+```
+
+| Feld | Bedeutung |
+|---|---|
+| `datum` | Tag der Ausgabe, `JJJJ-MM-TT` |
+| `storniertAm` | Tag des Stornos nach Europe/Berlin, `JJJJ-MM-TT`; `null` bei aktiver Ausgabe |
+
+Keine der beiden Antworten enthält den Storno-Grund, den Stornierer oder den Erfasser;
+`POST /api/pruefung` enthält auch keine Ausgabe-Id. `falscherCoin` und `nichtGefunden` unterscheiden sich
+nur im Wert von `ergebnis`.
+
+- **Mindestdauer**: Jede Prüfung mit `200` dauert mindestens 250 ms, für alle vier Ergebnisse gleich
+  (eine Abfrage, ein Audit-Eintrag). `400` antwortet sofort.
+- **Audit**: Jede Prüfung mit `200` schreibt genau einen unveränderlichen Eintrag in `pruefung_audit`
+  (Akteur, Zeitpunkt, Normalform, gewählter Coin, Ergebnis, Ausgabe außer bei `nichtGefunden`,
+  `mit_empfaenger`), ohne Empfängerdaten. Scheitert er, antwortet die API `500` ohne Ergebnis. `400`,
+  `401`, `403` und `429` schreiben nichts. Einen Lese-Endpunkt gibt es nicht.
+- **Ratenbegrenzung**: höchstens 20 Prüfungen je Benutzer (Claim `sub`) in einem festen Fenster von
+  60 s, über beide Endpunkte zusammen, im Speicher je API-Instanz. Die Werte stehen fest im Code.
+  `401` und `403` verbrauchen kein Kontingent, jede andere Antwort (auch `400`) schon. Andere Endpunkte
+  sind nicht begrenzt.
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | geprüft | Prüfergebnis |
+| `400 Bad Request` | `errors.hologrammnummer` (siehe [Hologrammnummer](#hologrammnummer)); `coinId` keine GUID: `errors.coinId` „Ungültiger Wert für dieses Feld.“; kein gültiges JSON: `errors.anfrage` | ValidationProblemDetails |
+| `401` / `403` | wie oben (`coins.read` bzw. `issues.read`) | ProblemDetails |
+| `415 Unsupported Media Type` | Content-Type nicht `application/json` | ProblemDetails |
+| `429 Too Many Requests` | Kontingent erschöpft | `title` „Zu viele Prüfungen“, `code` `zu_viele_pruefungen`, `detail` „Sie haben in kurzer Zeit zu viele Prüfungen durchgeführt. Bitte warten Sie einen Moment und versuchen Sie es erneut.“; Header `Retry-After` (Sekunden, 1–60) und `Cache-Control: no-store` |
+
+Prüfreihenfolge: `401` → `403` → `429` → `415` → `400` → `200`.
+
 ## Zertifikatsvorlagen
 
 Grundlage: [ADR-0022](adr/0022-openxml-sdk-fuer-word-vorlagen.md),
@@ -1012,10 +1217,11 @@ Antwort-Header bei `200`:
 | `Content-Security-Policy` | `default-src 'none'; sandbox` |
 | `Cache-Control` | `no-store` |
 
-Die Standardvorlage (A4 hochkant, Überschrift „Echtheitszertifikat“, alle 13 Platzhalter, am Ende der
+Die Standardvorlage (A4 hochkant, Überschrift „Echtheitszertifikat“, alle 14 Platzhalter, am Ende der
 Abschnitt „Erläuterung der Platzhalter“) erzeugt der Server mit dem OpenXML SDK; im Repository liegt keine
 DOCX-Datei. Sie besteht die eigene Upload-Prüfung ohne Befund. Die Dienststelle steht darin in einem
-eigenen Absatz unter Dienstgrad und Name. Für Zertifikate verwendet der Server eine Fassung ohne den
+eigenen Absatz unter Dienstgrad und Name, direkt nach „Zertifikat Nr. {{Zertifikat.Nummer}}“ folgt der
+Absatz „Hologramm Nr. {{Zertifikat.Hologrammnummer}}“ (ohne Nummer bleibt die Beschriftung stehen). Für Zertifikate verwendet der Server eine Fassung ohne den
 Erläuterungsabschnitt.
 
 | Status | Wann | Body |
@@ -1488,3 +1694,6 @@ dazu nichts:
 
 Abgelehnte Downloads (`403`, `404`, `409`) stehen nur im Request-Protokoll (Route
 `/api/coins/{id}/ausgaben/{ausgabeId}/zertifikat`).
+
+Hologrammnummern (Eingabe- und Normalform), Korrekturgründe und Prüfergebnisse werden nie geloggt.
+Erfassen, Ändern, Prüfen und abgelehnte Prüfungen (`429`) stehen nur im Request-Protokoll.

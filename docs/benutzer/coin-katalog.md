@@ -18,6 +18,7 @@ Links befindet sich die Seitenleiste:
 - **Katalog**: Liste aller Coins mit Suche. Der Eintrag ist auch auf der Detailseite eines Coins, auf
   **Coin hinzufügen**, **Coin bearbeiten** und den Seiten zu Ausgaben (**Ausgabe erfassen**,
   **Ausgabe**) hervorgehoben.
+- **Zertifikat prüfen**: für alle angemeldeten Benutzer mit Rolle (siehe [Zertifikat prüfen](zertifikat-pruefen.md)).
 - **Benutzerverwaltung**: nur für Administratoren (siehe [Benutzerverwaltung](benutzerverwaltung.md)).
 - **Startseite verwalten**: nur für Administratoren (siehe [Startseite](startseite.md#startseite-verwalten)).
 

@@ -15,6 +15,8 @@ export type ApiErgebnis<T> =
   | { art: 'zuGross'; feld?: string }
   | { art: 'formatUngueltig' }
   | { art: 'nichtGefunden' }
+  /** 429; Sekunden aus `Retry-After` oder `null`, wenn der Header fehlt oder nicht lesbar ist (hologrammnummer, AK-32). */
+  | { art: 'zuVieleAnfragen'; wiederholenNachSekunden: number | null }
   | { art: 'fehler' }
 
 /** Eine Seite einer Liste aus der API (Benutzerliste, Audit-Log). */
@@ -76,6 +78,13 @@ async function leseCode(antwort: Response): Promise<string | null> {
   return typeof problem?.code === 'string' ? problem.code : null
 }
 
+/** Sekunden aus `Retry-After` (nur ganze, nicht negative Zahlen); sonst `null`. */
+function leseWiederholenNach(antwort: Response): number | null {
+  const wert = antwort.headers.get('Retry-After')?.trim()
+  if (!wert || !/^\d+$/.test(wert)) return null
+  return Number.parseInt(wert, 10)
+}
+
 export async function bildeAb<T>(
   antwort: Response,
   erfolgsStatus: number[],
@@ -113,6 +122,8 @@ export async function bildeAb<T>(
     }
     case 415:
       return { art: 'formatUngueltig' }
+    case 429:
+      return { art: 'zuVieleAnfragen', wiederholenNachSekunden: leseWiederholenNach(antwort) }
     default:
       return { art: 'fehler' }
   }

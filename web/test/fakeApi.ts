@@ -160,8 +160,94 @@ export function testAusgabe(teil: Partial<Ausgabe> = {}): Ausgabe {
     erfasstAm: '2026-10-08T09:00:00.123456+00:00',
     erfasstVon: { id: '0199a1b2-0000-7000-8000-00000000a002', name: 'Test Sachbearbeiter' },
     storno: null,
+    // hologrammnummer (AK-14): ohne Angabe keine Hologrammnummer.
+    hologrammnummer: null,
     ...teil,
   }
+}
+
+/**
+ * Vereinfachte Normalisierung der Hologrammnummer für den Fake-Server (hologrammnummer, Abschnitt 4): Anzeigeform =
+ * getrimmt, Leerzeichenfolgen zusammengefasst, Großbuchstaben; Normalform = ohne Leerzeichen und Bindestriche.
+ * Die vollständige Normalisierung prüfen die Tests von `pruefeHologrammnummer`.
+ */
+export function fakeHologramm(eingabe: string): { anzeige: string; normalform: string } {
+  const anzeige = eingabe.trim().replace(/\s+/g, ' ').toUpperCase()
+  return { anzeige, normalform: anzeige.replace(/[\s-]/g, '') }
+}
+
+/** Antwort 409 beim Erfassen bzw. Ändern der Hologrammnummer (hologrammnummer, Abschnitt 5.3). */
+export function hologrammKonfliktAntwort(
+  code: 'hologrammnummer_vergeben' | 'hologrammnummer_geaendert' | 'ausgabe_storniert',
+  title = 'Hologrammnummer nicht möglich',
+): Response {
+  const detail = {
+    hologrammnummer_vergeben: 'Diese Hologrammnummer ist bereits vergeben. Bitte die Nummer prüfen.',
+    hologrammnummer_geaendert: 'Die Hologrammnummer wurde inzwischen geändert. Bitte die Seite neu laden.',
+    ausgabe_storniert: 'Die Hologrammnummer einer stornierten Ausgabe kann nicht geändert werden.',
+  }[code]
+  return problemAntwort(409, { title, code, detail })
+}
+
+/** Antwort 429 der Prüfung (hologrammnummer, AK-19), optional mit `Retry-After` in Sekunden. */
+export function zuVielePruefungenAntwort(retryAfter?: string): Response {
+  const headers: Record<string, string> = { 'Content-Type': 'application/problem+json', 'Cache-Control': 'no-store' }
+  if (retryAfter !== undefined) headers['Retry-After'] = retryAfter
+  return new Response(
+    JSON.stringify({
+      type: 'about:blank',
+      title: 'Zu viele Prüfungen',
+      status: 429,
+      code: 'zu_viele_pruefungen',
+      detail:
+        'Sie haben in kurzer Zeit zu viele Prüfungen durchgeführt. Bitte warten Sie einen Moment und versuchen Sie es erneut.',
+    }),
+    { status: 429, headers },
+  )
+}
+
+/** Ergebnisarten der Prüfung (hologrammnummer, Abschnitt 5.4). */
+export type FakePruefErgebnis = 'gueltig' | 'storniert' | 'falscherCoin' | 'nichtGefunden'
+
+/**
+ * Antwort-Body einer Prüfung (Abschnitt 5.4) für eine Ausgabe eines Coins; `mitEmpfaenger` ergänzt die Felder von
+ * `…/mit-empfaenger`. Ohne Datensatz bei `falscherCoin` und `nichtGefunden`. Nie mit Storno-Grund (H7).
+ */
+export function testPruefErgebnis(
+  ergebnis: FakePruefErgebnis,
+  optionen: { coin?: Coin; ausgabe?: Ausgabe; mitEmpfaenger?: boolean } = {},
+): Record<string, unknown> {
+  if (ergebnis === 'falscherCoin' || ergebnis === 'nichtGefunden') return { ergebnis, datensatz: null }
+  const coin = optionen.coin ?? testCoin()
+  const ausgabe =
+    optionen.ausgabe ??
+    testAusgabe({
+      exemplarNummer: 12,
+      hologrammnummer: 'AB 12-34',
+      storno:
+        ergebnis === 'storniert'
+          ? { am: '2026-10-08T10:00:00+00:00', von: { id: 'x', name: 'Test Admin' }, grund: 'Test Stornogrund Zz99' }
+          : null,
+    })
+  const datensatz: Record<string, unknown> = {
+    coin: { id: coin.id, name: coin.name },
+    exemplarNummer: ausgabe.exemplarNummer,
+    zertifikatsnummer: ausgabe.zertifikatsnummer,
+    hologrammnummer: ausgabe.hologrammnummer,
+    datum: ausgabe.datum,
+    status: ausgabe.storno ? 'storniert' : 'aktiv',
+    storniertAm: ausgabe.storno ? ausgabe.storno.am.slice(0, 10) : null,
+  }
+  if (optionen.mitEmpfaenger) {
+    Object.assign(datensatz, {
+      ausgabeId: ausgabe.id,
+      empfaenger: { ...ausgabe.empfaenger },
+      gelegenheit: ausgabe.gelegenheit,
+      begruendung: ausgabe.begruendung,
+      ausgebendeStelle: ausgabe.ausgebendeStelle,
+    })
+  }
+  return { ergebnis, datensatz }
 }
 
 /** Antwort 409 beim Erfassen, Stornieren oder Ändern der Auflage (coin-ausgaben, AK-8, AK-12, AK-17). */
@@ -234,6 +320,8 @@ function bodyVon(init: RequestInit | undefined): unknown {
  * POST …/ausgaben/{id}/storno, PUT …/auflage mit den 409-Fällen aus AK-8, AK-12 und AK-17.
  * zertifikat-erzeugen: GET …/ausgaben/{id} (404 „Ausgabe nicht gefunden“) und GET …/ausgaben/{id}/zertifikat
  * (DOCX `Zertifikat_{Nummer}.docx`, 409 `ausgabe_storniert` bei stornierten Ausgaben).
+ * hologrammnummer: POST /api/pruefung und …/mit-empfaenger (Suche über alle Coins nach Normalform), PUT …/hologrammnummer
+ * (409 ausgabe_storniert, hologrammnummer_geaendert, hologrammnummer_vergeben) und `hologrammnummer` beim Erfassen.
  * Mit `einmal(...)` lässt sich die nächste passende Antwort überschreiben.
  */
 export function erstelleFakeApi(
@@ -270,6 +358,12 @@ export function erstelleFakeApi(
   const ueberschreibungen: Array<{ methode: string; pfad: RegExp; antwort: Antwortgeber }> = []
   let zaehler = 0
 
+  /** Ist die Normalform einer Ausgabe (gleich welcher Coin, auch storniert) zugeordnet? (hologrammnummer, AK-7) */
+  const hologrammVergeben = (normalform: string) =>
+    Object.values(ausgaben)
+      .flat()
+      .some((a) => a.hologrammnummer && fakeHologramm(a.hologrammnummer).normalform === normalform)
+
   const standard: Antwortgeber = (anfrage) => {
     if (anfrage.methode === 'GET' && anfrage.pfad === '/api/me') {
       if (me === 'deaktiviert') return keinZugriffAntwort('benutzer_deaktiviert')
@@ -294,6 +388,74 @@ export function erstelleFakeApi(
       if (abgewiesen) return abgewiesen
       if (anfrage.methode === 'GET') return jsonAntwort(200, structuredClone(startseite.konfiguration))
       return speichereStartseite(anfrage.body)
+    }
+    // hologrammnummer (Abschnitt 5.1): Prüfung mit coins.read bzw. mit Empfänger mit issues.read; sucht über alle Coins.
+    if (
+      anfrage.methode === 'POST' &&
+      (anfrage.pfad === '/api/pruefung' || anfrage.pfad === '/api/pruefung/mit-empfaenger')
+    ) {
+      const mitEmpfaenger = anfrage.pfad.endsWith('/mit-empfaenger')
+      const abgewiesen = ohneRecht(mitEmpfaenger ? 'issues.read' : 'coins.read')
+      if (abgewiesen) return abgewiesen
+      const daten = (anfrage.body ?? {}) as { hologrammnummer?: string | null; coinId?: string | null }
+      const eingabe = String(daten.hologrammnummer ?? '')
+      if (eingabe.trim() === '') {
+        return problemAntwort(400, {
+          title: 'Eingaben ungültig',
+          errors: { hologrammnummer: ['Bitte eine Hologrammnummer eingeben.'] },
+        })
+      }
+      const { normalform } = fakeHologramm(eingabe)
+      for (const [coinId, liste] of Object.entries(ausgaben)) {
+        const ausgabe = liste.find(
+          (a) => a.hologrammnummer && fakeHologramm(a.hologrammnummer).normalform === normalform,
+        )
+        if (!ausgabe) continue
+        if (daten.coinId && daten.coinId !== coinId) return jsonAntwort(200, testPruefErgebnis('falscherCoin'))
+        const coin = coins.find((c) => c.id === coinId) ?? testCoin({ id: coinId })
+        return jsonAntwort(
+          200,
+          testPruefErgebnis(ausgabe.storno ? 'storniert' : 'gueltig', { coin, ausgabe, mitEmpfaenger }),
+        )
+      }
+      return jsonAntwort(200, testPruefErgebnis('nichtGefunden'))
+    }
+    // hologrammnummer (Abschnitt 5.1, AK-10): Ergänzen bzw. Korrigieren mit issues.write.
+    const hologrammPfad = /^\/api\/coins\/([^/]+)\/ausgaben\/([^/]+)\/hologrammnummer$/.exec(anfrage.pfad)
+    if (anfrage.methode === 'PUT' && hologrammPfad) {
+      const abgewiesen = ohneRecht('issues.write')
+      if (abgewiesen) return abgewiesen
+      const daten = (anfrage.body ?? {}) as {
+        hologrammnummer?: string | null
+        grund?: string | null
+        bisherige?: string | null
+      }
+      const eingabe = String(daten.hologrammnummer ?? '')
+      if (eingabe.trim() === '') {
+        return problemAntwort(400, {
+          title: 'Eingaben ungültig',
+          errors: { hologrammnummer: ['Bitte eine Hologrammnummer eingeben.'] },
+        })
+      }
+      const ausgabe = (ausgaben[decodeURIComponent(hologrammPfad[1])] ?? []).find(
+        (a) => a.id === decodeURIComponent(hologrammPfad[2]),
+      )
+      if (!ausgabe) return problemAntwort(404, { title: 'Ausgabe nicht gefunden' })
+      if (ausgabe.storno) return hologrammKonfliktAntwort('ausgabe_storniert')
+      const aktuell = ausgabe.hologrammnummer ? fakeHologramm(ausgabe.hologrammnummer).normalform : ''
+      const bisherige = daten.bisherige ? fakeHologramm(daten.bisherige).normalform : ''
+      if (aktuell !== bisherige) return hologrammKonfliktAntwort('hologrammnummer_geaendert')
+      const neu = fakeHologramm(eingabe)
+      if (neu.normalform === aktuell) return jsonAntwort(200, structuredClone(ausgabe))
+      if (aktuell !== '' && String(daten.grund ?? '').trim() === '') {
+        return problemAntwort(400, {
+          title: 'Eingaben ungültig',
+          errors: { grund: ['Bitte einen Grund für die Korrektur angeben.'] },
+        })
+      }
+      if (hologrammVergeben(neu.normalform)) return hologrammKonfliktAntwort('hologrammnummer_vergeben')
+      ausgabe.hologrammnummer = neu.anzeige
+      return jsonAntwort(200, structuredClone(ausgabe))
     }
     if (anfrage.methode === 'GET' && anfrage.pfad === '/api/benutzer') {
       const suche = (anfrage.query.get('suche') ?? '').trim().toLowerCase()
@@ -447,6 +609,14 @@ export function erstelleFakeApi(
         } else if (aktiv(nummer)) {
           return ausgabeKonfliktAntwort('exemplar_ausgegeben', `Exemplar Nr. ${nummer} ist bereits ausgegeben.`)
         }
+        // hologrammnummer (AK-5, AK-7): optionale Nummer, 409 hologrammnummer_vergeben über alle Coins.
+        const hologramm =
+          typeof daten.hologrammnummer === 'string' && daten.hologrammnummer.trim() !== ''
+            ? fakeHologramm(daten.hologrammnummer)
+            : null
+        if (hologramm && hologrammVergeben(hologramm.normalform)) {
+          return hologrammKonfliktAntwort('hologrammnummer_vergeben', 'Ausgabe nicht möglich')
+        }
         zaehler++
         const text = (wert: unknown) => (typeof wert === 'string' && wert.trim() !== '' ? wert.trim() : null)
         const ausgabe: Ausgabe = {
@@ -465,6 +635,7 @@ export function erstelleFakeApi(
           erfasstAm: '2026-10-08T09:30:00+00:00',
           erfasstVon: akteur,
           storno: null,
+          hologrammnummer: hologramm?.anzeige ?? null,
         }
         liste.unshift(ausgabe)
         return jsonAntwort(201, structuredClone(ausgabe))

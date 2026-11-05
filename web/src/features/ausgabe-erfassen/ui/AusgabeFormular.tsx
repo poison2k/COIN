@@ -1,5 +1,5 @@
 import { useId, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
-import type { Ausgabe } from '@/entities/ausgabe'
+import { HOLOGRAMMNUMMER_MAX, pruefeHologrammnummer, type Ausgabe } from '@/entities/ausgabe'
 import type { Coin } from '@/entities/coin'
 import type { KennzahlenDaten } from '@/entities/exemplar'
 import type { KeinZugriffGrund } from '@/shared/api'
@@ -29,6 +29,8 @@ const TEXT_NICHT_ANGEMELDET = 'Ihre Anmeldung ist abgelaufen. Sie werden zur Anm
 const TEXT_NICHT_GEFUNDEN = 'Der Coin wurde nicht gefunden.'
 const TEXT_SERVER_VALIDIERUNG = 'Die Eingaben wurden vom Server abgelehnt. Bitte prüfen.'
 const TEXT_ALLGEMEINER_FEHLER = 'Die Ausgabe konnte nicht gespeichert werden. Bitte später erneut versuchen.'
+const TEXT_HOLOGRAMM_VERGEBEN = 'Diese Hologrammnummer ist bereits vergeben.'
+const HINWEIS_HOLOGRAMM = 'Nummer des Hologramm-Stickers auf dem Zertifikat. Leerzeichen und Bindestriche sind erlaubt.'
 
 const SERVER_FELDER = new Set<string>(FELD_REIHENFOLGE)
 
@@ -60,7 +62,7 @@ export interface AusgabeFormularProps {
   onErfasst: (ausgabe: Ausgabe) => void
 }
 
-/** Formular „Ausgabe erfassen“ (coin-ausgaben AK-27 bis AK-29). */
+/** Formular „Ausgabe erfassen“ (coin-ausgaben AK-27 bis AK-29), mit optionaler Hologrammnummer (hologrammnummer AK-26). */
 export function AusgabeFormular({ coin, kennzahlen, onErfasst }: AusgabeFormularProps) {
   const auflage = kennzahlen.auflage ?? coin.auflage ?? 0
   const [heute] = useState(() => heuteInBerlin())
@@ -74,6 +76,7 @@ export function AusgabeFormular({ coin, kennzahlen, onErfasst }: AusgabeFormular
     gelegenheit: '',
     begruendung: '',
     ausgebendeStelle: '',
+    hologrammnummer: '',
   }))
   const [fehler, setFehler] = useState<AusgabeFehler>({})
   const [alarm, setAlarm] = useState<string | null>(null)
@@ -85,6 +88,7 @@ export function AusgabeFormular({ coin, kennzahlen, onErfasst }: AusgabeFormular
   const fehlerId = (feld: AusgabeFeld) => `${basis}-${feld}-fehler`
   const legendeId = `${basis}-exemplar`
   const gelegenheitHinweisId = `${basis}-gelegenheit-hinweis`
+  const hologrammHinweisId = `${basis}-hologrammnummer-hinweis`
 
   function aendere(feld: AusgabeFeld) {
     return (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -123,6 +127,7 @@ export function AusgabeFormular({ coin, kennzahlen, onErfasst }: AusgabeFormular
     setAlarm(null)
     setFehler({})
     const nummer = werte.wahl === 'nummer' ? Number(werte.exemplarNummer.trim()) : null
+    const hologramm = pruefeHologrammnummer(werte.hologrammnummer)
     try {
       const ergebnis = await erfasseAusgabe(coin.id, {
         exemplarNummer: nummer,
@@ -133,6 +138,8 @@ export function AusgabeFormular({ coin, kennzahlen, onErfasst }: AusgabeFormular
         gelegenheit: werte.gelegenheit.trim(),
         begruendung: werte.begruendung.trim(),
         ausgebendeStelle: werte.ausgebendeStelle.trim(),
+        // Ohne Nummer fehlt das Feld (Server: null); der bisherige Request bleibt unverändert.
+        ...(hologramm.art === 'ok' ? { hologrammnummer: hologramm.anzeige } : {}),
       })
 
       switch (ergebnis.art) {
@@ -150,7 +157,9 @@ export function AusgabeFormular({ coin, kennzahlen, onErfasst }: AusgabeFormular
           return
         }
         case 'konflikt':
-          if (ergebnis.code === 'exemplar_ausgegeben' && nummer !== null) {
+          if (ergebnis.code === 'hologrammnummer_vergeben') {
+            zeigeFehler({ hologrammnummer: TEXT_HOLOGRAMM_VERGEBEN })
+          } else if (ergebnis.code === 'exemplar_ausgegeben' && nummer !== null) {
             zeigeFehler({ exemplarNummer: `Exemplar Nr. ${nummer} ist bereits ausgegeben.` })
           } else if (ergebnis.code === 'exemplar_ausgegeben') {
             setAlarm(TEXT_AUSGEGEBEN_OHNE_NUMMER)
@@ -182,7 +191,7 @@ export function AusgabeFormular({ coin, kennzahlen, onErfasst }: AusgabeFormular
     const beschreibung = [hinweisId, fehler[feld] ? fehlerId(feld) : undefined].filter(Boolean).join(' ')
     return {
       id: id(feld),
-      value: werte[feld],
+      value: werte[feld] ?? '',
       onChange: aendere(feld),
       'aria-invalid': fehler[feld] ? true : undefined,
       'aria-describedby': beschreibung || undefined,
@@ -311,6 +320,24 @@ export function AusgabeFormular({ coin, kennzahlen, onErfasst }: AusgabeFormular
           </>
         ),
         children: <Input type="text" maxLength={200} {...feldAttribute('ausgebendeStelle')} />,
+      })}
+      {Feld({
+        feld: 'hologrammnummer',
+        label: 'Hologrammnummer (optional)',
+        children: (
+          <>
+            <Input
+              type="text"
+              maxLength={HOLOGRAMMNUMMER_MAX}
+              autoComplete="off"
+              spellCheck={false}
+              {...feldAttribute('hologrammnummer', hologrammHinweisId)}
+            />
+            <p id={hologrammHinweisId} className="text-sm text-muted-foreground">
+              {HINWEIS_HOLOGRAMM}
+            </p>
+          </>
+        ),
       })}
 
       {alarm && (

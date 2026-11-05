@@ -105,7 +105,7 @@ internal static class ZertifikatDomain
         return ergebnis;
     }
 
-    /// <summary>Werte für alle 13 Katalognamen; einzelne lassen sich überschreiben.</summary>
+    /// <summary>Werte für alle Katalognamen; einzelne lassen sich überschreiben.</summary>
     public static Dictionary<string, string> StandardWerte(params (string Name, string Wert)[] abweichend)
     {
         var werte = Platzhalterkatalog.Alle.ToDictionary(p => p.Name, p => $"W<{p.Name}>", StringComparer.Ordinal);
@@ -253,7 +253,8 @@ internal static class ZertifikatDomain
         DateOnly Datum,
         string Gelegenheit,
         string Begruendung,
-        string AusgebendeStelle);
+        string AusgebendeStelle,
+        string? Hologrammnummer = null);
 
     private static readonly Guid CoinId = Guid.Parse("01920000-0000-7000-8000-0000000000c1");
     private static readonly DateTimeOffset Zeit = new(2026, 10, 8, 9, 0, 0, TimeSpan.Zero);
@@ -283,6 +284,8 @@ internal static class ZertifikatDomain
             ["zertifikatsnummer"] = a.Zertifikatsnummer, ["angaben"] = angaben,
             ["erfasstVon"] = typ == typeof(Ausgabe) ? Guid.Parse("01920000-0000-7000-8000-0000000000a1") : new Akteur(Guid.Empty, "Test Erfasser"),
             ["erfasstAm"] = Zeit, ["storno"] = null,
+            // hologrammnummer (AK-23): aktuelle Nummer der Ausgabe in Anzeigeform oder null.
+            ["hologrammnummer"] = a.Hologrammnummer,
         };
         if (typ == typeof(Ausgabe))
         {

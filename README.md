@@ -42,6 +42,13 @@ Webanwendung zur Verwaltung von Gedenk-Coins. Umgesetzt sind bisher:
   ohne Anmeldung, die übrigen Blöcke nur mit `coins.read`. Logos werden am Inhalt geprüft (PNG,
   JPEG, WebP bis 2 MB und 2048 × 2048 Pixel, kein SVG); jede Änderung steht unveränderlich im Audit
   `startseite_audit` (ADR-0030 bis ADR-0032).
+- **Hologrammnummer und Prüfung**: Jede Ausgabe kann die Nummer des Hologramm-Stickers ihres
+  gedruckten Zertifikats tragen (beim Erfassen oder nachträglich, Korrektur mit Grund, `issues.write`),
+  eindeutig über alle Coins nach Normalform („ab 12-34“ = „AB1234“). Auf `/pruefung` prüfen alle
+  Benutzer mit Rolle (`coins.read`), ob eine Nummer zu einem gültigen Zertifikat gehört;
+  Empfängerdaten sehen nur Benutzer mit `issues.read`. Höchstens 20 Prüfungen je Minute und Benutzer;
+  Setzen, Korrigieren und Prüfen stehen unveränderlich in `hologramm_audit` bzw. `pruefung_audit`
+  (ADR-0033, ADR-0034).
 
 Noch offen sind Signatur, PDF, QR-Code und öffentliche Prüfseite der Zertifikate.
 
@@ -49,6 +56,7 @@ Noch offen sind Signatur, PDF, QR-Code und öffentliche Prüfseite der Zertifika
 - Anleitung für Anwender: [docs/benutzer/anmeldung.md](docs/benutzer/anmeldung.md),
   [docs/benutzer/coin-katalog.md](docs/benutzer/coin-katalog.md),
   [docs/benutzer/ausgaben.md](docs/benutzer/ausgaben.md),
+  [docs/benutzer/zertifikat-pruefen.md](docs/benutzer/zertifikat-pruefen.md),
   [docs/benutzer/zertifikatsvorlagen.md](docs/benutzer/zertifikatsvorlagen.md),
   [docs/benutzer/benutzerverwaltung.md](docs/benutzer/benutzerverwaltung.md),
   [docs/benutzer/startseite.md](docs/benutzer/startseite.md)
@@ -66,9 +74,9 @@ Noch offen sind Signatur, PDF, QR-Code und öffentliche Prüfseite der Zertifika
 
 | Ordner | Inhalt |
 |---|---|
-| `src/Coin.Domain` | Fachlogik, Entitäten, Validierung (u. a. `Katalog/`, `Ausgaben/`, `Benutzer/`, `Vorlagen/` mit Platzhalterkatalog und Namespace-Positivliste, `Zertifikate/` mit Zertifikatsnummer, Werten und Platzhalterersetzung, `Startseite/` mit Konfiguration, Logoprüfung und Audit-Änderungen) |
+| `src/Coin.Domain` | Fachlogik, Entitäten, Validierung (u. a. `Katalog/`, `Ausgaben/`, `Benutzer/`, `Vorlagen/` mit Platzhalterkatalog und Namespace-Positivliste, `Zertifikate/` mit Zertifikatsnummer, Werten und Platzhalterersetzung, `Startseite/` mit Konfiguration, Logoprüfung und Audit-Änderungen, `Pruefung/` mit der Hologrammprüfung; Normalisierung der Hologrammnummer in `Ausgaben/`) |
 | `src/Coin.Infrastructure` | EF Core, PostgreSQL, Migrationen (`Persistenz/Migrationen`), Prüfung, Bereinigung und Standardvorlage für Word-Dateien (`Vorlagen/`, NuGet `DocumentFormat.OpenXml`), Zertifikatserzeugung im Speicher (`Zertifikate/`) |
-| `src/Coin.Api` | ASP.NET Core Web API (Controller, DTOs, `Authentifizierung/`, `Http/` u. a. mit `MultipartDateiLeser` und `MultipartFormularLeser`) |
+| `src/Coin.Api` | ASP.NET Core Web API (Controller, DTOs, `Authentifizierung/`, `Http/` u. a. mit `MultipartDateiLeser`, `MultipartFormularLeser` und `Ratenbegrenzung`) |
 | `tests/Coin.UnitTests`, `tests/Coin.IntegrationTests` | xUnit-Tests |
 | `web/` | React-Frontend (Vite, TypeScript, Feature-Sliced Design), UI-Tests in `web/ui-tests` |
 | `e2e/` | Systemtests (Playwright, echte API, Wegwerf-Datenbank und Wegwerf-Keycloak) |
@@ -201,6 +209,17 @@ angewendet. In Development ist das OpenAPI-Dokument unter `/openapi/v1.json` abr
   jedes `UPDATE` und `DELETE` ab, `TRUNCATE` bleibt möglich; Aufbewahrung vorerst unbegrenzt, kein
   Lese-Endpunkt. Ohne Konfigurationszeile gilt die Standardkonfiguration aus dem Code. Kopfbereich und
   Logos sind öffentlich abrufbar, gespeicherte Logos auch bei ausgeschaltetem Kopfbereich (ADR-0032).
+- **Hologrammnummern** (Tabellen `ausgabe_hologramm`, `hologramm_audit`, `pruefung_audit`, ADR-0033,
+  ADR-0034, Migration `Hologrammnummern`): Eine Korrektur ändert keine Zeile, sondern setzt
+  `abgeloest_am` an der bisherigen Zuordnung und legt eine neue an; `trg_ausgabe_hologramm_nur_abloesen`
+  verbietet `DELETE` und jedes andere `UPDATE`. Die Normalform berechnet die Datenbank (generierte Spalte
+  `nummer_normalisiert`), eindeutig unter den nicht abgelösten Zeilen (`ux_ausgabe_hologramm_nummer`).
+  `trg_hologramm_audit_unveraenderlich` und `trg_pruefung_audit_unveraenderlich` brechen jedes `UPDATE`
+  und `DELETE` ab; `TRUNCATE` bleibt möglich. Aufbewahrung vorerst unbegrenzt, kein Lese-Endpunkt;
+  `pruefung_audit` wächst mit jeder Prüfung. `ausgabe` und `trg_ausgabe_nur_storno` sind unverändert.
+- **Ratenbegrenzung der Prüfung** (ADR-0034): 20 Prüfungen je Benutzer und 60 s, fest im Code, im
+  Speicher **je API-Instanz**. Bei mehreren Instanzen hinter einem Lastverteiler vervielfacht sich das
+  Kontingent; ein Neustart setzt es zurück. Abgelehnte Prüfungen (`429`) stehen nur im Request-Protokoll.
 - **Warnung 2501**: Schlägt die Erzeugung eines Zertifikats fehl (`500 zertifikat_fehler`), schreibt die
   Kategorie `Coin.Api.Http.ZertifikatProtokoll` genau eine Warnung `ZertifikatErzeugungFehlgeschlagen`
   mit fester Meldung, ohne Ausnahme, Werte oder Dateiinhalt. Gehäufte Einträge deuten auf eine
@@ -309,7 +328,8 @@ Routen:
 | `/coins/$coinId` | öffentlich | Detailseite; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf. Link „Bearbeiten“ und „Auflage ändern“ mit `coins.write`, Abschnitt „Exemplare“ nur mit `coins.read` (Suchparameter `status` = `verfuegbar`/`ausgegeben` und `seite`), „Ausgabehistorie“ (mit Spalte „Zertifikat“: Nummer als Link zur Ausgabe-Seite) nur mit `issues.read`, „Ausgabe erfassen“/„Stornieren“/„Zertifikat herunterladen“ mit `issues.write` |
 | `/coins/$coinId/bearbeiten` | `coins.write` | Seite „Coin bearbeiten“: Stammdaten, Motivbild, Zertifikatsvorlage; nach dem Speichern der Stammdaten `replace` auf die Detailseite |
 | `/coins/$coinId/ausgaben/neu` | `issues.write` | Seite „Ausgabe erfassen“; danach `replace` auf die Detailseite |
-| `/coins/$coinId/ausgaben/$ausgabeId` | `issues.read` | Seite „Ausgabe“ (`ROUTEN.ausgabeDetail`): Angaben einer Ausgabe, „Zertifikat herunterladen“ mit `issues.write`; `coinId` oder `ausgabeId` keine GUID → „Ausgabe nicht gefunden“ ohne API-Aufruf |
+| `/coins/$coinId/ausgaben/$ausgabeId` | `issues.read` | Seite „Ausgabe“ (`ROUTEN.ausgabeDetail`): Angaben einer Ausgabe samt Hologrammnummer, „Hologrammnummer ergänzen/korrigieren“ (nur aktive Ausgaben) und „Zertifikat herunterladen“ mit `issues.write`; `coinId` oder `ausgabeId` keine GUID → „Ausgabe nicht gefunden“ ohne API-Aufruf |
+| `/pruefung` | `coins.read` | Seite „Zertifikat prüfen“ (`ROUTEN.pruefung`): Coin-Auswahl (optional), Hologrammnummer, Ergebnis; mit `issues.read` über `POST /api/pruefung/mit-empfaenger` samt Empfängerdaten. Die Nummer steht nie in der URL |
 | `/benutzerverwaltung` | `users.manage` | Tabs „Benutzer“ und „Audit-Log“ |
 | `/verwaltung/startseite` | `startpage.manage` | Seite „Startseite verwalten“ (`ROUTEN.startseiteVerwaltung`): Tabs „Bearbeiten“ und „Vorschau“; Verlassen mit ungespeicherten Änderungen fragt per Dialog nach (`useBlocker`), Neuladen/Schließen per `beforeunload` |
 | `/anmeldung/rueckruf` | öffentlich | Rückkehr vom Keycloak (ohne App-Shell) |
@@ -395,7 +415,15 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
   Fehlern), `features/auflage-aendern` (Button mit Dialog), `widgets/coin-exemplare` (Kennzahlen,
   Filter, Tabelle, Blättern, „Ausgabe erfassen“, „Auflage ändern“), `widgets/ausgaben-historie`
   (Historie mit Storno, Link zur Ausgabe-Seite und Zertifikat-Download), `pages/ausgabe-erfassen`,
-  `pages/ausgabe-detail`. `pages/coin-detail` setzt die Widgets nach Berechtigung zusammen.
+  `pages/ausgabe-detail` (Props `darfZertifikat`, `darfHologramm`). `pages/coin-detail` setzt die
+  Widgets nach Berechtigung zusammen.
+- Hologrammnummer und Prüfung: `entities/ausgabe` enthält die Normalisierung `pruefeHologrammnummer`
+  (gleiche Regeln und Testvektoren wie die Domain) und `HOLOGRAMMNUMMER_MAX`, weil beide Features sie
+  brauchen; `features/hologrammnummer-aendern` (`HologrammnummerAendern`: Button mit Dialog, `PUT` mit
+  `bisherige`), `features/zertifikat-pruefen` (`pruefeHologramm`, `CoinAuswahl` als Combobox mit
+  verzögerter Suche über `ladeCoins`, `PruefFormular`, `PruefErgebnisAnzeige`), `pages/pruefung`
+  (`PruefungSeite`, Prop `darfEmpfaenger`). `shared/api` bildet `429` auf
+  `{ art: 'zuVieleAnfragen', wiederholenNachSekunden }` ab (`Retry-After`, sonst `null`).
   Seiten nutzen keine Router-Hooks; Suche, Seite, Parameter und Navigation reicht
   `app/router/routen-komponenten.tsx` als Props durch.
 - Benutzerverwaltung: `entities/audit` (`AuditTabelle`, `GET /api/audit`), `features/rolle-zuweisen`
@@ -454,7 +482,7 @@ nur, wenn Index und Arbeitsstand übereinstimmen.
 
 | | `web/ui-tests` (`npm run test:ui`) | `e2e/` (`npx playwright test`) |
 |---|---|---|
-| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen, Zertifikat-Download, Startseite (inkl. XSS-Nutzlasten im echten Chromium): Routing, Seitenleiste, Tastaturbedienung, Darstellung | fachliche Abläufe über alle Schichten |
+| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen, Zertifikat-Download, Startseite (inkl. XSS-Nutzlasten im echten Chromium), Hologrammnummer und Prüfseite: Routing, Seitenleiste, Tastaturbedienung, Darstellung | fachliche Abläufe über alle Schichten |
 | API | gemockt per `page.route`; Proxy-Ziel absichtlich unerreichbar; jeder nicht gemockte `/api`-Aufruf lässt den Test scheitern | echte API (Release-Build) mit Wegwerf-PostgreSQL |
 | Anmeldung | Identitätsanbieter gemockt (`VITE_OIDC_AUTHORITY=http://127.0.0.1:9/realms/coin`) | echter Wegwerf-Keycloak |
 | Voraussetzungen | nur Node.js und Chromium | Docker, .NET 10 SDK, Node.js ≥ 22.18 |
@@ -472,8 +500,10 @@ Die CLI erzeugt `import { cn } from "cn"` statt `@/shared/lib/cn` und überschre
 u. a. das entfernte Sidebar-Cookie, die deutschen Texte, `inert` an der eingeklappten
 Seitenleiste, die Ausnahme für Strg+B in Eingabefeldern, die Tab-Falle in `alert-dialog.tsx` und
 `dialog.tsx`, „Schließen“ in `dialog.tsx` und den Pfeiltasten-Umlauf in `select.tsx` (vollständige
-Liste in ADR-0009). Seit coin-ausgaben gehören auch `radio-group` und `dialog` dazu, seit startseite `switch`. Danach `npm run format`
-und `npm run lint` ausführen.
+Liste in ADR-0009). Seit coin-ausgaben gehören auch `radio-group` und `dialog` dazu, seit startseite
+`switch`, seit hologrammnummer `combobox` und ihre Abhängigkeit `input-group` (deutsche `sr-only`-Namen
+der Icon-Buttons in `combobox.tsx`). Neben den shadcn-Farben gibt es die eigenen Theme-Tokens
+`--success` und `--warning` (`app/styles/index.css`). Danach `npm run format` und `npm run lint` ausführen.
 
 ## Build und Tests
 

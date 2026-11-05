@@ -6,16 +6,16 @@ Status: Entwurf. Offene Punkte sind mit [?] markiert und müssen vom Auftraggebe
 Jeder Benutzer hat genau eine feste Rolle oder keine. Welche Rolle welche Berechtigung hat, legt die
 Rechtematrix im Code fest ([berechtigungen.md](berechtigungen.md), ADR-0016). Rollen vergeben
 Administratoren in der Benutzerverwaltung.
-- **Administrator**: verwaltet Coins, Exemplare, Ausgaben, Benutzer (umgesetzt: Coins erfassen und bearbeiten, Auflage ändern, Zertifikatsvorlagen verwalten, Ausgaben lesen, erfassen und stornieren, Benutzer und Rollen verwalten, Audit-Log lesen, Zertifikate herunterladen, Startseite konfigurieren mit `startpage.manage`)
-- **Sachbearbeiter**: erfasst Ausgaben, stellt Zertifikate aus (umgesetzt: Coins erfassen und bearbeiten, Auflage ändern, Zertifikatsvorlagen verwalten, Ausgaben lesen, erfassen und stornieren, Zertifikate herunterladen mit `issues.write`, `docs/features/zertifikat-erzeugen.md`)
-- **Betrachter**: sieht den Katalog, je Coin die Kennzahlen und den Status der Exemplare und die Startseite mit allen aktiven Blöcken, aber keine Ausgaben, keine Empfängerdaten und keine Zertifikate (entschieden 2026-10-08, F2, ADR-0021; Startseite ADR-0032).
+- **Administrator**: verwaltet Coins, Exemplare, Ausgaben, Benutzer (umgesetzt: Coins erfassen und bearbeiten, Auflage ändern, Zertifikatsvorlagen verwalten, Ausgaben lesen, erfassen und stornieren, Benutzer und Rollen verwalten, Audit-Log lesen, Zertifikate herunterladen, Hologrammnummern erfassen, korrigieren und mit Empfängerdaten prüfen, Startseite konfigurieren mit `startpage.manage`)
+- **Sachbearbeiter**: erfasst Ausgaben, stellt Zertifikate aus (umgesetzt: Coins erfassen und bearbeiten, Auflage ändern, Zertifikatsvorlagen verwalten, Ausgaben lesen, erfassen und stornieren, Zertifikate herunterladen mit `issues.write`, `docs/features/zertifikat-erzeugen.md`; Hologrammnummern erfassen, korrigieren und mit Empfängerdaten prüfen, `docs/features/hologrammnummer.md`)
+- **Betrachter**: sieht den Katalog, je Coin die Kennzahlen und den Status der Exemplare und die Startseite mit allen aktiven Blöcken, aber keine Ausgaben, keine Empfängerdaten und keine Zertifikate (entschieden 2026-10-08, F2, ADR-0021; Startseite ADR-0032). Prüft Hologrammnummern auf „Zertifikat prüfen“ und sieht dabei Coin, Exemplar, Zertifikatsnummer, Ausgabedatum und Status, keine Empfänger (ADR-0034).
 - **Öffentlichkeit**: prüft ein Zertifikat per Link/QR-Code, ohne Anmeldung; sieht den Coin-Katalog lesend und den Kopfbereich der Startseite (Titel, Untertitel, Logos), ohne Anmeldung (ADR-0014, ADR-0032)
 
 ## Funktionen (Stichpunkte)
 1. Coin-Katalog: anlegen, bearbeiten, ansehen, Liste mit Suche und Filter (teilweise umgesetzt, `docs/features/coin-katalog.md`, `docs/features/katalog-seiten.md`, `docs/features/zertifikatsvorlagen.md`: anlegen auf eigener Seite, ansehen, Liste mit Suche in Name/Herausgeber und Blättern, bearbeiten auf der Seite „Coin bearbeiten“ (Stammdaten, Motivbild ersetzen); noch ohne Filter und Löschen)
 2. Exemplare: Seriennummern pro Coin, Status (verfügbar, ausgegeben, ungültig) (teilweise umgesetzt, `docs/features/coin-ausgaben.md`: Exemplare 1 bis Auflage, Status verfügbar/ausgegeben, Kennzahlen, Auflage ändern; noch ohne Status „ungültig“)
-3. Ausgaben (früher „Verleihungen“): Empfänger, Datum, Gelegenheit, Begründung, ausgebende Stelle (umgesetzt, `docs/features/coin-ausgaben.md`: erfassen, stornieren mit Grund, Historie; Empfänger als Freitext). Lesen mit `issues.read`, Erfassen und Stornieren mit `issues.write`, beide nur Administrator und Sachbearbeiter (ADR-0021). Ausgabedaten kommen nie in das öffentliche Coin-DTO. Nicht enthalten: Bearbeiten (Korrektur = Storno + neue Ausgabe), Rückgabe, Import.
-4. Zertifikate: Nummer, digital signiert, PDF-Ausgabe, öffentliche Prüfseite – zusammenhängende Anforderung, siehe Abschnitt [Zertifikate](#zertifikate) (teilweise umgesetzt: Vorlage, Nummer, Erzeugung als DOCX, Download mit Audit; offen: Signatur, PDF, QR-Code, Prüfseite).
+3. Ausgaben (früher „Verleihungen“): Empfänger, Datum, Gelegenheit, Begründung, ausgebende Stelle (umgesetzt, `docs/features/coin-ausgaben.md`: erfassen, stornieren mit Grund, Historie; Empfänger als Freitext). Lesen mit `issues.read`, Erfassen und Stornieren mit `issues.write`, beide nur Administrator und Sachbearbeiter (ADR-0021). Ausgabedaten kommen nie in das öffentliche Coin-DTO. Optionale Hologrammnummer je Ausgabe (umgesetzt, `docs/features/hologrammnummer.md`, ADR-0033): beim Erfassen oder nachträglich ergänzen, mit Grund korrigieren (`issues.write`); eindeutig über alle Coins nach Normalform. Nicht enthalten: Bearbeiten (Korrektur = Storno + neue Ausgabe; einzige Ausnahme ist die Hologrammnummer), Rückgabe, Import.
+4. Zertifikate: Nummer, digital signiert, PDF-Ausgabe, öffentliche Prüfseite – zusammenhängende Anforderung, siehe Abschnitt [Zertifikate](#zertifikate) (teilweise umgesetzt: Vorlage, Nummer, Erzeugung als DOCX, Download mit Audit, Hologrammnummer mit Prüfung für angemeldete Benutzer; offen: Signatur, PDF, QR-Code, öffentliche Prüfseite).
 5. Detailansicht eines Coins mit Ausgabehistorie (umgesetzt, `docs/features/katalog-seiten.md`, `docs/features/coin-ausgaben.md`: Stammdaten, Motivbild, Abschnitt „Exemplare“ mit `coins.read`, Abschnitt „Ausgabehistorie“ mit `issues.read`)
 6. Benutzer- und Rollenverwaltung mit Audit-Log (umgesetzt, `docs/features/rollen-benutzerverwaltung.md`): Benutzer suchen, Rolle zuweisen oder entziehen, Benutzer deaktivieren und reaktivieren; Schutz des letzten aktiven Administrators; jede Rollen- und Statusänderung im Audit-Log
 7. Startseite (umgesetzt, `docs/features/startseite.md`, ADR-0030 bis ADR-0032): `/` zeigt bis zu fünf Blöcke – Kopfbereich (Titel, Untertitel, Logo des Bereitstellers und der Software), Infotext (eingeschränktes Markdown), Kennzahlen über alle Coins, neueste Coins, meistausgegebene Coins. Administratoren pflegen Ein/Aus, Reihenfolge, Texte, Anzahlen und Logos auf `/verwaltung/startseite` mit Vorschau (`startpage.manage`). Ohne Konfiguration gelten Standardblöcke mit Standardtexten. Den Kopfbereich sehen alle Besucher ohne Anmeldung, die übrigen Blöcke nur mit `coins.read`. Nicht enthalten: freier Layout-Editor, mehrere Sprachen, Startseiten je Rolle, zeitgesteuerte Veröffentlichung, Entwurf/Freigabe, Diagramme.
@@ -34,17 +34,18 @@ Platzhalter `{{Gruppe.Feld}}` aus dem Platzhalterkatalog ([platzhalter.md](platz
 | 5. Signatur | Zertifikat digital signieren (privater Schlüssel nie im Repository) | offen |
 | 6. PDF | PDF-Ausgabe | offen |
 | 7. QR-Code und Prüfseite | Öffentliche Prüfung per Link/QR-Code ohne Personendaten; muss stornierte Ausgaben trotz gleicher Nummer erkennen (ADR-0027 „Folgen“) | offen |
+| 8. Hologrammnummer und Prüfung | Jedes gedruckte Zertifikat trägt einen Hologramm-Sticker; seine Nummer wird je Ausgabe erfasst (Platzhalter `{{Zertifikat.Hologrammnummer}}`, Standardvorlage mit Absatz „Hologramm Nr. …“). Angemeldete Benutzer mit Rolle prüfen auf `/pruefung`, ob eine Nummer zu einem gültigen Zertifikat gehört (gültig, storniert, falscher Coin, nicht gefunden), Empfängerdaten nur mit `issues.read`; Ratenbegrenzung 20 je Minute und Benutzer; Audits `hologramm_audit` und `pruefung_audit` ohne Lese-Endpunkt | umgesetzt (`docs/features/hologrammnummer.md`, ADR-0033, ADR-0034) |
 
 Wird die Vorlage eines Coins ersetzt, erzeugen neue Downloads mit der dann aktiven Vorlage; Nummer und
 Ausgabedaten bleiben gleich. Nicht vorgesehen: Sammel- oder Serienausdruck, Archivierung erzeugter Dateien.
-Der Platzhalterkatalog bleibt für die Erzeugung unverändert (13 Platzhalter, 4 Pflicht); bestehende
-Vorlagen bleiben gültig.
+Der Platzhalterkatalog hat 14 Platzhalter (4 Pflicht); `Zertifikat.Hologrammnummer` ist optional,
+bestehende Vorlagen ohne ihn bleiben gültig.
 
 ## Datenmodell (grob)
-Coin (mit Kennung), Exemplar (Seriennummer), Ausgabe (Person, Datum, Gelegenheit, Zertifikatsnummer), Zertifikatsvorlage (Versionen je Coin), Zertifikat (Nummer, Signatur, Ausstelldatum – Signatur und Ausstelldatum offen), Benutzer/Rolle, Startseitenkonfiguration (eine Konfiguration, zwei Logo-Plätze).
+Coin (mit Kennung), Exemplar (Seriennummer), Ausgabe (Person, Datum, Gelegenheit, Zertifikatsnummer, Hologrammnummer mit Historie), Zertifikatsvorlage (Versionen je Coin), Zertifikat (Nummer, Signatur, Ausstelldatum – Signatur und Ausstelldatum offen), Benutzer/Rolle, Startseitenkonfiguration (eine Konfiguration, zwei Logo-Plätze).
 
 ## Nichtfunktionale Anforderungen
-- Datenschutz: Zugriff auf Personendaten nur nach Rolle, Änderungen nachvollziehbar (Audit-Log). Umgesetzt für Rollen- und Statusänderungen von Benutzern (ADR-0017) sowie für das Erfassen und Stornieren von Ausgaben (ADR-0020, ohne Empfängerdaten) und für Upload und Zurücksetzen von Zertifikatsvorlagen (ADR-0023) und für den Download von Zertifikaten (ADR-0029) und für Änderungen an der Startseite (`startseite_audit`, ADR-0030, ohne Textinhalte, kein Lese-Endpunkt). Stammdatenänderungen an Coins werden nicht protokolliert (zertifikatsvorlagen F3). Zertifikate enthalten Personendaten; sie landen nicht in Logs und werden auf dem Server nicht zwischengespeichert.
+- Datenschutz: Zugriff auf Personendaten nur nach Rolle, Änderungen nachvollziehbar (Audit-Log). Umgesetzt für Rollen- und Statusänderungen von Benutzern (ADR-0017) sowie für das Erfassen und Stornieren von Ausgaben (ADR-0020, ohne Empfängerdaten) und für Upload und Zurücksetzen von Zertifikatsvorlagen (ADR-0023) und für den Download von Zertifikaten (ADR-0029) und für Änderungen an der Startseite (`startseite_audit`, ADR-0030, ohne Textinhalte, kein Lese-Endpunkt) sowie für das Setzen und Korrigieren von Hologrammnummern (`hologramm_audit`) und jede Hologrammprüfung (`pruefung_audit`, ADR-0033, ADR-0034, ohne Empfängerdaten, kein Lese-Endpunkt). Stammdatenänderungen an Coins werden nicht protokolliert (zertifikatsvorlagen F3). Zertifikate enthalten Personendaten; sie landen nicht in Logs und werden auf dem Server nicht zwischengespeichert.
 - Zertifikate fälschungssicher (Signatur), Prüfung ohne Preisgabe von Personendaten
 - Betrieb: noch offen [?] (lokal, Intranet, Cloud)
 
@@ -109,6 +110,18 @@ Coin (mit Kennung), Exemplar (Seriennummer), Ausgabe (Person, Datum, Gelegenheit
   - S9: Ist der Kopfbereich aktiv, ist sein Titel für alle Besucher die Hauptüberschrift, sonst „Willkommen bei C.O.I.N.“.
   - S10: Grenzen: Titel 100, Untertitel 200, Alternativtext 200, Infotext 5.000 Zeichen.
   - S11: Wer zuletzt gespeichert hat, sehen nur Administratoren auf der Konfigurationsseite, nie öffentlich.
+- Entschieden (2026-11-03, hologrammnummer H1–H11, ADR-0033, ADR-0034; Anforderung „Zertifikate“, Schritt 8):
+  - H1: Eine Korrektur gibt die alte Nummer frei; eindeutig sind nur die aktuellen Zuordnungen.
+  - H2: Erlaubt sind nach der Normalisierung nur `A–Z` und `0–9`; Leerzeichen und Bindestriche sind Trenner.
+  - H3: Angezeigt und ins Zertifikat gesetzt wird die bereinigte Form in Großbuchstaben („AB 12-34“); verglichen wird die Normalform („AB1234“).
+  - H4: Nach einem Storno ist die Nummer nicht mehr änderbar und bleibt dauerhaft gesperrt.
+  - H5: Eine Nummer lässt sich nicht entfernen.
+  - H6: Zwei Prüf-Endpunkte: ohne Empfängerdaten mit `coins.read`, mit Empfängerdaten mit `issues.read`.
+  - H7: Bei stornierter Ausgabe zeigt die Prüfung den Datensatz mit Storno-Datum, ohne Storno-Grund.
+  - H8: Ratenbegrenzung 20 Prüfungen je 60 s und Benutzer, fest im Code, je API-Instanz; `429` ohne Audit.
+  - H9: Jede Prüfung dauert mindestens 250 ms.
+  - H10: Kein Lese-Endpunkt für `hologramm_audit` und `pruefung_audit`; Aufbewahrung unbegrenzt bis zum Löschkonzept.
+  - H11: Die Standardvorlage hat einen eigenen Absatz „Hologramm Nr. …“ nach der Zertifikatsnummer; ohne Nummer bleibt die Beschriftung stehen.
 - [?] Welche Schutzstufe haben die Daten, und wo darf die Anwendung betrieben werden?
 - [?] Sprache der Oberfläche (nur Deutsch oder auch Englisch)?
 

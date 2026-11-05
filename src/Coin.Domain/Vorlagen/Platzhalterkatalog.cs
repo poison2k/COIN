@@ -28,5 +28,6 @@ public static class Platzhalterkatalog
         new("Ausgabe.Gelegenheit", false, "Gelegenheit der Ausgabe", "Truppenbesuch"),
         new("Ausgabe.Begruendung", false, "Begründung der Ausgabe", "Herausragende Leistung"),
         new("Ausgabe.AusgebendeStelle", false, "Ausgebende Stelle oder Person", "Kommandeur Beispielbataillon 1"),
+        new("Zertifikat.Hologrammnummer", false, "Nummer des Hologramm-Stickers", "AB 12-34"),
     ];
 }

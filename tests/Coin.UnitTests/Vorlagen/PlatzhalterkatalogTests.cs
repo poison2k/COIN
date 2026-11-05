@@ -5,7 +5,7 @@ namespace Coin.UnitTests.Vorlagen;
 
 /// <summary>
 /// Feature zertifikatsvorlagen, AK-1 und Abschnitt 4.1: <see cref="Platzhalterkatalog"/> ist die einzige Liste der
-/// Platzhalter (13 Einträge, verbindliche Reihenfolge, genau vier Pflichtplatzhalter).
+/// Platzhalter (seit hologrammnummer 14 Einträge, verbindliche Reihenfolge, genau vier Pflichtplatzhalter).
 /// </summary>
 public partial class PlatzhalterkatalogTests
 {
@@ -25,15 +25,32 @@ public partial class PlatzhalterkatalogTests
         "Ausgabe.Gelegenheit",
         "Ausgabe.Begruendung",
         "Ausgabe.AusgebendeStelle",
+        // hologrammnummer (AK-23): 14. Eintrag nach Ausgabe.AusgebendeStelle; die Reihenfolge der bisherigen bleibt.
+        "Zertifikat.Hologrammnummer",
     ];
 
     [GeneratedRegex(@"^[A-Z][A-Za-z]*\.[A-Z][A-Za-z]*$")]
     private static partial Regex GruppeFeld();
 
     [Fact]
-    public void Katalog_hat_13_Eintraege()
+    public void Katalog_hat_14_Eintraege()
     {
-        Assert.Equal(13, Platzhalterkatalog.Alle.Count);
+        // hologrammnummer (AK-23, Abschnitt 7): bisher Katalog_hat_13_Eintraege; Zertifikat.Hologrammnummer kommt hinzu.
+        Assert.Equal(14, Platzhalterkatalog.Alle.Count);
+    }
+
+    [Fact]
+    public void Zertifikat_Hologrammnummer_ist_kein_Pflichtplatzhalter()
+    {
+        Assert.False(Assert.Single(Platzhalterkatalog.Alle, p => p.Name == "Zertifikat.Hologrammnummer").Pflicht);
+    }
+
+    [Fact]
+    public void Zertifikat_Hologrammnummer_steht_direkt_nach_Ausgabe_AusgebendeStelle()
+    {
+        var namen = Platzhalterkatalog.Alle.Select(p => p.Name).ToList();
+
+        Assert.Equal(namen.IndexOf("Ausgabe.AusgebendeStelle") + 1, namen.IndexOf("Zertifikat.Hologrammnummer"));
     }
 
     [Fact]
@@ -87,6 +104,8 @@ public partial class PlatzhalterkatalogTests
     // zertifikat-erzeugen Rev. 2 (Abschnitt 1.2, AK-32): Beispiel „C0042-0012“ statt „wird beim Ausstellen vergeben“.
     [InlineData("Zertifikat.Nummer", "Eindeutige Nummer des Zertifikats", "C0042-0012")]
     [InlineData("Ausgabe.AusgebendeStelle", "Ausgebende Stelle oder Person", "Kommandeur Beispielbataillon 1")]
+    // hologrammnummer (AK-23).
+    [InlineData("Zertifikat.Hologrammnummer", "Nummer des Hologramm-Stickers", "AB 12-34")]
     public void Bedeutung_und_Beispiel_stehen_wie_im_Entwurf(string name, string bedeutung, string beispiel)
     {
         var eintrag = Assert.Single(Platzhalterkatalog.Alle, p => p.Name == name);

@@ -33,7 +33,8 @@ public sealed record AusgabeEintrag(
     AusgabeAngaben Angaben,
     DateTimeOffset ErfasstAm,
     Akteur ErfasstVon,
-    StornoEintrag? Storno)
+    StornoEintrag? Storno,
+    string? Hologrammnummer)
 {
     /// <summary>Ohne Werte, damit keine Personendaten in Logs landen (zertifikat-erzeugen AK-21).</summary>
     public override string ToString() => nameof(AusgabeEintrag);
@@ -57,6 +58,36 @@ public abstract record AusgabeErfassenErgebnis
     public sealed record ExemplarAusgegeben(int Nummer) : AusgabeErfassenErgebnis;
 
     public sealed record KeinExemplarFrei : AusgabeErfassenErgebnis;
+
+    /// <summary>Die Hologrammnummer ist bereits einer aktuellen Zuordnung zugeordnet (hologrammnummer AK-7); ohne Angaben.</summary>
+    public sealed record HologrammnummerVergeben : AusgabeErfassenErgebnis;
+}
+
+/// <summary>Ergebnis von <see cref="AusgabeService.HologrammnummerAendernAsync"/> (hologrammnummer AK-10, AK-11).</summary>
+public abstract record HologrammnummerAendernErgebnis
+{
+    private HologrammnummerAendernErgebnis()
+    {
+    }
+
+    public sealed record Geaendert(AusgabeEintrag Ausgabe) : HologrammnummerAendernErgebnis;
+
+    /// <summary>Neue Normalform gleich der aktuellen; nichts geschrieben.</summary>
+    public sealed record Unveraendert(AusgabeEintrag Ausgabe) : HologrammnummerAendernErgebnis;
+
+    public sealed record Ungueltig(IReadOnlyDictionary<string, string[]> Fehler) : HologrammnummerAendernErgebnis;
+
+    /// <summary>Coin oder Ausgabe unbekannt bzw. Ausgabe eines anderen Coins.</summary>
+    public sealed record NichtGefunden : HologrammnummerAendernErgebnis;
+
+    /// <summary>Die Ausgabe ist storniert; ihre Nummer bleibt unverändert (H4).</summary>
+    public sealed record Storniert : HologrammnummerAendernErgebnis;
+
+    /// <summary><c>bisherige</c> passt nicht zur aktuellen Nummer (<c>409 hologrammnummer_geaendert</c>).</summary>
+    public sealed record VeraltetGelesen : HologrammnummerAendernErgebnis;
+
+    /// <summary>Die neue Nummer ist bereits vergeben (<c>409 hologrammnummer_vergeben</c>).</summary>
+    public sealed record Vergeben : HologrammnummerAendernErgebnis;
 }
 
 /// <summary>Ergebnis von <see cref="AusgabeService.StornierenAsync"/>.</summary>

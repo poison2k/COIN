@@ -1,5 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router'
-import { HouseIcon, LayoutDashboardIcon, ListIcon, UsersIcon, type LucideIcon } from 'lucide-react'
+import { HouseIcon, LayoutDashboardIcon, ListIcon, ShieldCheckIcon, UsersIcon, type LucideIcon } from 'lucide-react'
 import { hatBerechtigung, type Berechtigung } from '@/entities/benutzer'
 import { ROUTEN } from '@/shared/config'
 import {
@@ -26,6 +26,8 @@ interface NavEintrag {
 const NAVIGATION: readonly NavEintrag[] = [
   { titel: 'Startseite', pfad: ROUTEN.start, icon: HouseIcon },
   { titel: 'Katalog', pfad: ROUTEN.coinListe, icon: ListIcon },
+  // hologrammnummer (AK-28): für alle drei Rollen über coins.read.
+  { titel: 'Zertifikat prüfen', pfad: ROUTEN.pruefung, icon: ShieldCheckIcon, berechtigung: 'coins.read' },
   { titel: 'Benutzerverwaltung', pfad: ROUTEN.benutzerverwaltung, icon: UsersIcon, berechtigung: 'users.manage' },
   // startseite (AK-25): nur mit startpage.manage.
   {
