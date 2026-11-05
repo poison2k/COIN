@@ -22,6 +22,12 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
 - **Zertifikatsnummer**: `<Kennung>-<Exemplar, mind. 4-stellig>` (`C0042-0012`), je Ausgabe
   unveränderlich; eine Neuausgabe desselben Exemplars nach Storno erhält dieselbe Nummer
   (eindeutig nur unter aktiven Ausgaben)
+- **Hologrammnummer**: Nummer des Hologramm-Stickers auf einem gedruckten Zertifikat; optional je
+  Ausgabe, nachträglich ergänzbar, Korrektur nur mit Grund (die alte Nummer wird frei), kein
+  Entfernen; eindeutig über alle Coins nach Normalform (NFKC, Leerzeichen/Bindestriche entfernt,
+  Großbuchstaben, nur A–Z/0–9, höchstens 40 Zeichen); angezeigt bereinigt in Großbuchstaben; bleibt
+  nach Storno dauerhaft gesperrt und ist dann nicht mehr änderbar. Nicht zu verwechseln mit der
+  Zertifikatsnummer (bezeichnet das Exemplar, wiederholt sich nach Storno).
 - **Block**: einer der fünf festen Bausteine der Startseite (`kopf`, `infotext`, `kennzahlen`,
   `neueste`, `meistausgegeben`); ein- und ausschaltbar, Reihenfolge per Hoch/Runter
 - **Logo-Platz**: `bereitsteller` oder `software` im Kopfbereich der Startseite, je mit Alternativtext
@@ -88,7 +94,15 @@ SQL, keine Personendaten), ohne Konfiguration Standardstartseite; Kopfbereich un
 `/verwaltung/startseite` mit `startpage.manage` (nur Administrator, `PUT` multipart mit Version,
 `409` bei Konflikt); Infotext als Markdown über `MarkdownText` (`react-markdown`, kein rohes HTML);
 Logos nur PNG/JPEG/WebP; `startseite_audit` unveränderlich per Trigger, ohne Lese-Endpunkt und
-ohne Textinhalte. Noch nicht vorhanden: Signatur, PDF, QR-Code/Prüfseite,
+ohne Textinhalte. Hologrammnummer und Prüfung (`docs/features/hologrammnummer.md`, ADR-0033/0034):
+Nummer in `ausgabe_hologramm` (Ablösung statt Update, eindeutiger Index nur über nicht abgelöste
+Zeilen, `ausgabe` bleibt unveränderlich), Erfassen/Ergänzen/Korrigieren mit `issues.write`
+(`PUT /api/coins/{id}/ausgaben/{ausgabeId}/hologrammnummer`); Prüfseite `/pruefung` mit `coins.read`
+(`POST /api/pruefung`), Empfängerdaten nur über `POST /api/pruefung/mit-empfaenger` (`issues.read`);
+Ratenbegrenzung 20/min je Benutzer und Instanz; Mindestdauer 250 ms je Prüfung; `hologramm_audit`
+und `pruefung_audit` unveränderlich per Trigger, ohne Lese-Endpunkt; Platzhalter
+`Zertifikat.Hologrammnummer` (14 Platzhalter). Noch nicht vorhanden: Signatur, PDF, QR-Code,
+öffentliche Prüfseite,
 Löschkonzept für Audit, Empfängerdaten und Vorlagenversionen.
 Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup im `README.md`.
 `dotnet build` ohne Warnungen ist Pflicht, `TreatWarningsAsErrors` ist aber (noch) nicht gesetzt.
@@ -155,6 +169,15 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
   Erzeugungsfehler selbst fangen und nur die feste Warnung 2501 schreiben.
 - Startseite-Audit hält bei Texten nur „geändert“ fest, nie den Inhalt. Die Startseite zeigt nie
   Empfänger, Anlässe oder Namen.
+- Hologrammnummern nie in Logs oder URLs; Prüfungen nur per POST-Body. Die Normalform berechnet die
+  Datenbank (generierte Spalte); die Domain-Normalisierung muss dazu passen (Test).
+- Die Ratenbegrenzung der Prüfung (Policy `pruefung`) ist fest im Code, partitioniert nach `sub`,
+  nie nach IP; `UseRateLimiter` steht nach `UseAuthorization`. Nicht per Konfiguration lockern.
+  Das Kontingent gilt je API-Instanz; `Retry-After` ist per CORS nicht freigegeben.
+- Prüfantworten haben für alle Ergebnisse denselben Abfragepfad und eine Mindestdauer von 250 ms;
+  „falscher Coin“ und „nicht gefunden“ unterscheiden sich nur im Ergebniswert. Storno-Gründe
+  erscheinen nie in Prüfantworten. Prüf-Endpunkte ohne `issues.read` liefern DTOs ohne Felder für
+  Empfängerdaten (zwei Endpunkte, kein Feldfilter je Rolle; ADR-0021/0034).
 - Audit-Einträge sind unveränderlich (nur INSERT/SELECT, DB-Trigger); Änderungen an Rolle oder Status
   nur über `BenutzerverwaltungService` (Sperre plus Audit in derselben Transaktion).
 - Request-Logs schreibt nur `AnfrageProtokoll` (Methode, Routen-Template, Status, Dauer; ADR-0019).
