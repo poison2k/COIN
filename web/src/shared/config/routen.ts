@@ -22,4 +22,6 @@ export const ROUTEN = {
   benutzerverwaltung: '/benutzerverwaltung',
   /** Startseite konfigurieren, nur mit startpage.manage (startseite, AK-26). */
   startseiteVerwaltung: '/verwaltung/startseite',
+  /** Zertifikat prüfen (Hologrammnummer), nur mit coins.read (hologrammnummer, AK-28). */
+  pruefung: '/pruefung',
 } as const

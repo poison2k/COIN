@@ -13,6 +13,7 @@ import { CoinBearbeitenSeite } from '@/pages/coin-bearbeiten'
 import { CoinDetailSeite, type CoinDetailMeldung } from '@/pages/coin-detail'
 import { CoinListeSeite } from '@/pages/coin-liste'
 import { KeinZugriffSeite } from '@/pages/kein-zugriff'
+import { PruefungSeite } from '@/pages/pruefung'
 import { StartSeite } from '@/pages/start'
 import { StartseiteVerwaltungSeite } from '@/pages/startseite-verwaltung'
 import { ROUTEN } from '@/shared/config'
@@ -219,7 +220,19 @@ export function AusgabeDetailRoute() {
       coinId={coinId}
       ausgabeId={ausgabeId}
       darfZertifikat={hatBerechtigung(benutzer, 'issues.write')}
+      darfHologramm={hatBerechtigung(benutzer, 'issues.write')}
     />
+  ) : null
+}
+
+/**
+ * „Zertifikat prüfen“ nur mit coins.read (hologrammnummer, AK-28); mit issues.read über …/mit-empfaenger (AK-31). Ohne
+ * coins.read (z. B. nach Deaktivierung) leer, damit keine Prüfung gesendet wird.
+ */
+export function PruefungRoute() {
+  const { benutzer } = useBenutzerKontext()
+  return hatBerechtigung(benutzer, 'coins.read') ? (
+    <PruefungSeite darfEmpfaenger={hatBerechtigung(benutzer, 'issues.read')} />
   ) : null
 }
 

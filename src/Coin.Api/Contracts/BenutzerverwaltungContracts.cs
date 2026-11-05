@@ -25,7 +25,11 @@ public sealed class BenutzerListeAnfrage
 }
 
 /// <summary>Body von <c>PUT /api/benutzer/{id}/rolle</c>. Als Text gebunden, damit die Meldung deutsch ist (AK-12).</summary>
-public sealed record RolleZuweisenRequest(string? Rolle);
+public sealed record RolleZuweisenRequest(string? Rolle)
+{
+    /// <summary>Ohne Werte (Request-DTOs geben nie Werte aus, hologrammnummer AK-22).</summary>
+    public override string ToString() => nameof(RolleZuweisenRequest);
+}
 
 /// <summary>Body von <c>PUT /api/benutzer/{id}/status</c> (AK-13).</summary>
 public sealed record StatusSetzenRequest(bool? Aktiv);

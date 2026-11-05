@@ -42,13 +42,14 @@ public sealed class PostgresFixture : IAsyncLifetime
         // zertifikat-erzeugen (Abschnitt 6): zertifikat_audit ergänzt; die Sequenz coin_kennung_seq setzt TRUNCATE
         // nicht zurück, Tests erwarten deshalb keine festen Kennungen.
         // startseite (AK-35, Abschnitt 4): startseite_audit, startseite_logo und startseite_konfiguration ergänzt.
+        // hologrammnummer (Abschnitt 6): pruefung_audit, hologramm_audit und ausgabe_hologramm vor ausgabe ergänzt.
         await db.Database.ExecuteSqlRawAsync(
             """
             DO $$
             DECLARE liste text;
             BEGIN
               SELECT string_agg(quote_ident(t), ', ') INTO liste
-              FROM unnest(ARRAY['startseite_audit', 'startseite_logo', 'startseite_konfiguration', 'zertifikat_audit', 'vorlage_audit', 'zertifikat_vorlage', 'ausgabe_audit', 'ausgabe', 'exemplar', 'coin_typ', 'benutzer']) AS t
+              FROM unnest(ARRAY['startseite_audit', 'startseite_logo', 'startseite_konfiguration', 'zertifikat_audit', 'pruefung_audit', 'hologramm_audit', 'ausgabe_hologramm', 'vorlage_audit', 'zertifikat_vorlage', 'ausgabe_audit', 'ausgabe', 'exemplar', 'coin_typ', 'benutzer']) AS t
               WHERE to_regclass(t) IS NOT NULL;
               EXECUTE 'TRUNCATE ' || liste || ' CASCADE';
             END $$;

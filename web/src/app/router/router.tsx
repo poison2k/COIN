@@ -20,6 +20,7 @@ import {
   CoinListeRoute,
   KeinZugriffRoute,
   NichtGefundenInShell,
+  PruefungRoute,
   RueckrufRoute,
   ShellLayout,
   StartRoute,
@@ -146,6 +147,16 @@ const startseiteVerwaltungRoute = createRoute({
   component: StartseiteVerwaltungRoute,
 })
 
+// Zertifikat prüfen, nur mit coins.read (hologrammnummer, AK-28). Die Nummer steht nie in der URL.
+const pruefungRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: ROUTEN.pruefung,
+  beforeLoad: async ({ context, location }) => {
+    erfordertBerechtigung('coins.read')(await context.schutz(), location.href)
+  },
+  component: PruefungRoute,
+})
+
 const routenBaum = wurzel.addChildren([
   rueckrufRoute,
   shellRoute.addChildren([
@@ -160,6 +171,7 @@ const routenBaum = wurzel.addChildren([
     keinZugriffRoute,
     benutzerverwaltungRoute,
     startseiteVerwaltungRoute,
+    pruefungRoute,
   ]),
 ])
 

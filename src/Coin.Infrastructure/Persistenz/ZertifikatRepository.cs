@@ -21,6 +21,10 @@ internal sealed class ZertifikatRepository(CoinDbContext db) : IZertifikatReposi
                     Ausgabe = a,
                     ErfasserName = a.Erfasser.Anzeigename,
                     StorniererName = a.Stornierer != null ? a.Stornierer.Anzeigename : null,
+                    Hologrammnummer = db.Hologramme
+                        .Where(h => h.AusgabeId == a.Id && h.AbgeloestAm == null)
+                        .Select(h => h.Nummer)
+                        .FirstOrDefault(),
                     c.Name,
                     c.Herausgeber,
                     c.Auflage,
@@ -41,7 +45,7 @@ internal sealed class ZertifikatRepository(CoinDbContext db) : IZertifikatReposi
 
         var coin = new CoinEintrag(
             coinId, zeile.Name, zeile.Herausgeber, zeile.Auflage, zeile.Beschreibung, zeile.ErstelltAm.ToUniversalTime(), null);
-        var ausgabe = AusgabeRepository.Eintrag(zeile.Ausgabe, zeile.ErfasserName, zeile.StorniererName);
+        var ausgabe = AusgabeRepository.Eintrag(zeile.Ausgabe, zeile.ErfasserName, zeile.StorniererName, zeile.Hologrammnummer);
         return zeile.AktiveVorlageVersion is { } version && zeile.Inhalt is { } inhalt
             ? new ZertifikatQuelle(coin, ausgabe, version, inhalt)
             : new ZertifikatQuelle(coin, ausgabe, null, null);

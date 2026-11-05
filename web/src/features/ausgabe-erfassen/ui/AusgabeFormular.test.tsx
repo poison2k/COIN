@@ -192,7 +192,11 @@ describe('Absenden', () => {
     await user.click(felder().speichern)
 
     await waitFor(() => expect(api.anfragenMit('POST', POST)).toHaveLength(1))
-    expect(api.anfragenMit('POST', POST)[0].body).toEqual({
+    // hologrammnummer (AK-26): das neue optionale Feld darf ohne Eingabe fehlen oder null sein (Server: null); die
+    // übrigen Felder bleiben exakt wie bisher.
+    const { hologrammnummer, ...bisherige } = api.anfragenMit('POST', POST)[0].body as Record<string, unknown>
+    expect(hologrammnummer ?? null).toBeNull()
+    expect(bisherige).toEqual({
       exemplarNummer: null,
       empfaengerName: 'Max Beispiel',
       empfaengerDienstgrad: null,

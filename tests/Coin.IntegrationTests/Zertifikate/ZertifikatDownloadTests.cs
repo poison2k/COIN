@@ -393,7 +393,8 @@ public class ZertifikatDownloadTests(PostgresFixture fixture) : ZertifikatTestBa
         var json = await JsonAsync(antwort);
 
         Assert.Equal(
-            ["ausgebendeStelle", "begruendung", "datum", "empfaenger", "erfasstAm", "erfasstVon", "exemplarNummer", "gelegenheit", "id", "storno", "zertifikatsnummer"],
+            // hologrammnummer (AK-14, Abschnitt 5.4): zusätzlich hologrammnummer.
+            ["ausgebendeStelle", "begruendung", "datum", "empfaenger", "erfasstAm", "erfasstVon", "exemplarNummer", "gelegenheit", "hologrammnummer", "id", "storno", "zertifikatsnummer"],
             Feldnamen(json));
         Assert.Equal((7, k.Nummer), (json.GetProperty("exemplarNummer").GetInt32(), json.GetProperty("zertifikatsnummer").GetString()));
     }

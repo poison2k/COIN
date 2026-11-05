@@ -17,7 +17,8 @@ function Eintrag({ begriff, children, className }: { begriff: string; children: 
 }
 
 /**
- * Angaben einer Ausgabe als Beschreibungsliste (zertifikat-erzeugen, AK-28): Zertifikatsnummer, Empfänger, Dienstgrad
+ * Angaben einer Ausgabe als Beschreibungsliste (zertifikat-erzeugen, AK-28): Zertifikatsnummer, Hologrammnummer
+ * (Anzeigeform oder „Keine erfasst“, hologrammnummer AK-27), Empfänger, Dienstgrad
  * und Dienststelle (nur wenn vorhanden), Datum, Gelegenheit, Begründung (Zeilenumbrüche sichtbar), Ausgebende Stelle,
  * Erfasst und Status wie in der Historie. Alle Werte als Text, nie als HTML.
  */
@@ -27,6 +28,12 @@ export function AusgabeDetails({ ausgabe }: AusgabeDetailsProps) {
     <dl className="grid gap-3">
       <Eintrag begriff="Zertifikatsnummer" className="font-mono tabular-nums">
         {ausgabe.zertifikatsnummer}
+      </Eintrag>
+      <Eintrag
+        begriff="Hologrammnummer"
+        className={ausgabe.hologrammnummer === null ? undefined : 'font-mono break-words'}
+      >
+        {ausgabe.hologrammnummer ?? <span className="text-muted-foreground">Keine erfasst</span>}
       </Eintrag>
       <Eintrag begriff="Empfänger">{empfaenger.name}</Eintrag>
       {empfaenger.dienstgrad !== null && <Eintrag begriff="Dienstgrad">{empfaenger.dienstgrad}</Eintrag>}

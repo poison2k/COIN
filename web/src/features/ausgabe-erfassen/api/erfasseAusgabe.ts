@@ -13,9 +13,11 @@ export interface AusgabeErfassen {
   gelegenheit: string
   begruendung: string
   ausgebendeStelle: string
+  /** Anzeigeform der Hologrammnummer oder `null` (hologrammnummer, AK-5). */
+  hologrammnummer?: string | null
 }
 
-/** POST /api/coins/{id}/ausgaben – nur mit issues.write; 409 mit `code` (AK-8). */
+/** POST /api/coins/{id}/ausgaben – nur mit issues.write; 409 mit `code` (AK-8, hologrammnummer AK-7). */
 export function erfasseAusgabe(coinId: string, daten: AusgabeErfassen): Promise<ApiErgebnis<Ausgabe>> {
   return sende<Ausgabe>(
     `/api/coins/${encodeURIComponent(coinId)}/ausgaben`,

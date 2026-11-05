@@ -1,3 +1,5 @@
+import { pruefeHologrammnummer } from '@/entities/ausgabe'
+
 /** Wahl des Exemplars: nächstes freies oder eine bestimmte Nummer (AK-27). */
 export type ExemplarWahl = 'naechste' | 'nummer'
 
@@ -12,6 +14,8 @@ export interface AusgabeEingaben {
   gelegenheit: string
   begruendung: string
   ausgebendeStelle: string
+  /** Optional (hologrammnummer, AK-26); fehlt = keine Nummer. */
+  hologrammnummer?: string
 }
 
 export type AusgabeFeld = Exclude<keyof AusgabeEingaben, 'wahl'>
@@ -36,6 +40,7 @@ export const FELD_REIHENFOLGE: readonly AusgabeFeld[] = [
   'gelegenheit',
   'begruendung',
   'ausgebendeStelle',
+  'hologrammnummer',
 ]
 
 function pflicht(wert: string, max: number, bezeichnung: string): string | undefined {
@@ -48,7 +53,7 @@ function optional(wert: string, max: number, bezeichnung: string): string | unde
   return wert.trim().length > max ? `${bezeichnung} darf höchstens ${max} Zeichen lang sein.` : undefined
 }
 
-/** Clientseitige Prüfung mit denselben Texten wie die API (coin-ausgaben AK-7, AK-27). */
+/** Clientseitige Prüfung mit denselben Texten wie die API (coin-ausgaben AK-7, AK-27; hologrammnummer AK-26). */
 export function validiereAusgabe(eingaben: AusgabeEingaben, { auflage, heute }: AusgabeKontext): AusgabeFehler {
   const fehler: AusgabeFehler = {}
 
@@ -69,6 +74,9 @@ export function validiereAusgabe(eingaben: AusgabeEingaben, { auflage, heute }: 
     ['ausgebendeStelle', pflicht(eingaben.ausgebendeStelle, 200, 'Ausgebende Stelle')],
   ]
   for (const [feld, meldung] of pruefungen) if (meldung) fehler[feld] = meldung
+
+  const hologramm = pruefeHologrammnummer(eingaben.hologrammnummer)
+  if (hologramm.art === 'fehler') fehler.hologrammnummer = hologramm.meldung
 
   const datum = eingaben.datum.trim()
   if (datum === '') fehler.datum = 'Datum ist erforderlich.'

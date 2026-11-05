@@ -44,7 +44,8 @@ public class AusgabeErfassenTests(PostgresFixture fixture) : AusgabenTestBasis(f
 
         Assert.Equal(
             // zertifikat-erzeugen (Abschnitt 5.3, AK-3): zusätzlich zertifikatsnummer.
-            ["ausgebendeStelle", "begruendung", "datum", "empfaenger", "erfasstAm", "erfasstVon", "exemplarNummer", "gelegenheit", "id", "storno", "zertifikatsnummer"],
+            // hologrammnummer (AK-14, Abschnitt 5.4): zusätzlich hologrammnummer.
+            ["ausgebendeStelle", "begruendung", "datum", "empfaenger", "erfasstAm", "erfasstVon", "exemplarNummer", "gelegenheit", "hologrammnummer", "id", "storno", "zertifikatsnummer"],
             Feldnamen(json));
     }
 

@@ -76,6 +76,7 @@ internal sealed class StandardvorlageErzeuger : IStandardvorlage, IStandardzerti
         Absatz(JustificationValues.Left, null, Platzhalter("Ausgabe.AusgebendeStelle")),
         Absatz(JustificationValues.Left, null),
         Absatz(JustificationValues.Left, null, Lauf("Zertifikat Nr. "), Platzhalter("Zertifikat.Nummer")),
+        Absatz(JustificationValues.Left, null, Lauf("Hologramm Nr. "), Platzhalter("Zertifikat.Hologrammnummer")),
     ];
 
     private static IEnumerable<OpenXmlElement> Erlaeuterung()

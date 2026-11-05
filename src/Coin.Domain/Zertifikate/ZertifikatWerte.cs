@@ -39,6 +39,7 @@ public sealed class ZertifikatWerte : IReadOnlyDictionary<string, string>
             ["Ausgabe.Gelegenheit"] = g.Gelegenheit,
             ["Ausgabe.Begruendung"] = g.Begruendung,
             ["Ausgabe.AusgebendeStelle"] = g.AusgebendeStelle,
+            ["Zertifikat.Hologrammnummer"] = ausgabe.Hologrammnummer ?? string.Empty,
         };
 
         // Jeder Katalogeintrag hat genau einen Wert (AK-12); eine Lücke ist ein Programmierfehler.

@@ -73,6 +73,30 @@ public interface ICoinSperre : IAsyncDisposable
     /// </summary>
     Task<bool> StammdatenSetzenAsync(string name, string herausgeber, string? beschreibung, CancellationToken ct);
 
+    /// <summary>Aktuelle (nicht abgelöste) Hologrammnummer der Ausgabe oder <c>null</c> (hologrammnummer, ADR-0033).</summary>
+    Task<Hologrammnummer?> HologrammLadenAsync(Guid ausgabeId, CancellationToken ct);
+
+    /// <summary>
+    /// Ist die Normalform einer aktuellen Zuordnung zugeordnet (gleich welcher Coin, auch stornierte Ausgaben)?
+    /// Vorabprüfung für eine klare Antwort; die harte Grenze ist der eindeutige Index.
+    /// </summary>
+    Task<bool> HologrammVergebenAsync(string normalform, CancellationToken ct);
+
+    /// <summary>
+    /// Setzt die Hologrammnummer der Ausgabe: löst eine <paramref name="bisherige"/> Zuordnung ab, fügt die neue ein und
+    /// schreibt den Audit-Eintrag (<c>Gesetzt</c> ohne bisherige, sonst <c>Geaendert</c> mit <paramref name="grund"/>).
+    /// <c>false</c>, wenn der Index <c>ux_ausgabe_hologramm_nummer</c> verletzt wurde (die Transaktion ist dann nicht mehr
+    /// verwendbar).
+    /// </summary>
+    Task<bool> HologrammSetzenAsync(
+        Guid ausgabeId,
+        Hologrammnummer neu,
+        Hologrammnummer? bisherige,
+        string? grund,
+        Guid akteurId,
+        DateTimeOffset jetzt,
+        CancellationToken ct);
+
     /// <summary>Schreibt die Transaktion fest.</summary>
     Task AbschliessenAsync(CancellationToken ct);
 }

@@ -28,6 +28,8 @@ export interface Ausgabe {
   erfasstAm: string
   erfasstVon: AusgabeAkteur
   storno: AusgabeStorno | null
+  /** Aktuelle Hologrammnummer in Anzeigeform (`AB 12-34`) oder `null` (hologrammnummer, AK-14). */
+  hologrammnummer: string | null
 }
 
 /** Filter der Historie. */

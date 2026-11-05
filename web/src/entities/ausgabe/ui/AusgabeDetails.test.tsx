@@ -30,7 +30,9 @@ describe('AusgabeDetails', () => {
   it('nennt alle Begriffe in der Reihenfolge aus AK-28', () => {
     render(<AusgabeDetails ausgabe={testAusgabe()} />)
 
-    expect(begriffe()).toEqual([
+    // hologrammnummer (AK-27): die neue Zeile „Hologrammnummer“ hat keine vorgegebene Position und wird hier
+    // ausgeblendet; die Reihenfolge der Begriffe aus AK-28 bleibt unverändert.
+    expect(begriffe().filter((b) => b !== 'Hologrammnummer')).toEqual([
       'Zertifikatsnummer',
       'Empfänger',
       'Dienstgrad',

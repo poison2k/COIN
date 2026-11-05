@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { AusgabeDetails, ladeAusgabe, type Ausgabe } from '@/entities/ausgabe'
 import { ladeCoin, type Coin } from '@/entities/coin'
+import { HologrammnummerAendern } from '@/features/hologrammnummer-aendern'
 import { ZertifikatHerunterladen } from '@/features/zertifikat-herunterladen'
 import type { ApiErgebnis } from '@/shared/api'
 import { ROUTEN } from '@/shared/config'
@@ -15,6 +16,8 @@ export interface AusgabeDetailSeiteProps {
   ausgabeId: string
   /** Button „Zertifikat herunterladen“ (issues.write, AK-28, AK-29). */
   darfZertifikat: boolean
+  /** Button „Hologrammnummer ergänzen/korrigieren“ (issues.write, hologrammnummer AK-27); ohne Angabe nicht sichtbar. */
+  darfHologramm?: boolean
 }
 
 interface Geladen {
@@ -31,11 +34,17 @@ const ZURUECK = buttonVariants({ variant: 'outline', className: 'justify-self-st
 
 /**
  * Seite „Ausgabe“ (/coins/{id}/ausgaben/{ausgabeId}, zertifikat-erzeugen AK-27 bis AK-30): Überschrift mit Exemplar,
- * Coin-Name als Link, Angaben der Ausgabe und, mit `darfZertifikat`, der Download. Nach 409 `ausgabe_storniert` lädt
+ * Coin-Name als Link, Angaben der Ausgabe, mit `darfHologramm` das Ergänzen/Korrigieren der Hologrammnummer
+ * (hologrammnummer AK-27) und, mit `darfZertifikat`, der Download. Nach 409 `ausgabe_storniert` lädt
  * die Seite neu und zeigt bis dahin den bisherigen Stand (der Alarm am Button bleibt sichtbar). Ohne Router-Hooks,
  * kein eigenes <main>.
  */
-export function AusgabeDetailSeite({ coinId, ausgabeId, darfZertifikat }: AusgabeDetailSeiteProps) {
+export function AusgabeDetailSeite({
+  coinId,
+  ausgabeId,
+  darfZertifikat,
+  darfHologramm = false,
+}: AusgabeDetailSeiteProps) {
   const gueltig = istGuid(coinId) && istGuid(ausgabeId)
   const [neuLaden, setNeuLaden] = useState(0)
   const [geladen, setGeladen] = useState<Geladen | null>(null)
@@ -134,6 +143,17 @@ export function AusgabeDetailSeite({ coinId, ausgabeId, darfZertifikat }: Ausgab
       </div>
 
       <AusgabeDetails ausgabe={ausgabe} />
+
+      {darfHologramm && (
+        <HologrammnummerAendern
+          coinId={coinId}
+          ausgabe={ausgabe}
+          onGeaendert={(neu) =>
+            setGeladen((alt) => (alt && alt.ids === ids ? { ...alt, ausgabe: { art: 'ok', daten: neu } } : alt))
+          }
+          onNeuLaden={() => setNeuLaden((n) => n + 1)}
+        />
+      )}
 
       {darfZertifikat && (
         <ZertifikatHerunterladen

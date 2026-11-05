@@ -11,6 +11,8 @@ namespace Coin.Domain.Ausgaben;
 public sealed class AusgabeService(IAusgabeRepository repository, ICoinKatalogRepository katalog, TimeProvider zeit)
 {
     private const string StatusFehler = "Bitte einen gültigen Status wählen.";
+    private const string GrundFehlt = "Bitte einen Grund für die Korrektur angeben.";
+    private const string GrundZuLang = "Der Grund darf höchstens 500 Zeichen lang sein.";
 
     public async Task<AbfrageErgebnis<ExemplarUebersicht>> ExemplareAsync(
         Guid coinId, string? status, int? seite, int? groesse, CancellationToken ct)
@@ -62,21 +64,37 @@ public sealed class AusgabeService(IAusgabeRepository repository, ICoinKatalogRe
         repository.FindenAsync(coinId, ausgabeId, ct);
 
     /// <summary>
-    /// Erfasst eine Ausgabe. Reihenfolge (AK-8): Angaben (400) → Coin (404) → Auflage unbekannt (409) →
-    /// Exemplar-Nummer außerhalb der Auflage (400) → Exemplar ausgegeben bzw. keines frei (409).
+    /// Erfasst eine Ausgabe, optional mit Hologrammnummer. Reihenfolge (AK-8, hologrammnummer AK-8): Angaben und Nummer
+    /// (400, gemeinsam) → Coin (404) → Auflage unbekannt (409) → Exemplar-Nummer außerhalb der Auflage (400) → Exemplar
+    /// ausgegeben bzw. keines frei (409) → Hologrammnummer vergeben (409). Ausgabe, Zuordnung und Audits entstehen in
+    /// einer Transaktion.
     /// </summary>
     public async Task<AusgabeErfassenErgebnis> ErfassenAsync(
-        Guid coinId, int? exemplarNummer, AusgabeAngabenEingabe eingabe, Guid akteurId, CancellationToken ct)
+        Guid coinId,
+        int? exemplarNummer,
+        AusgabeAngabenEingabe eingabe,
+        string? hologrammnummer,
+        Guid akteurId,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(eingabe);
         var jetzt = Jetzt();
         var pruefung = AusgabeAngaben.Pruefen(
             eingabe.EmpfaengerName, eingabe.EmpfaengerDienstgrad, eingabe.EmpfaengerDienststelle, eingabe.Datum,
             eingabe.Gelegenheit, eingabe.Begruendung, eingabe.AusgebendeStelle, jetzt);
-        if (pruefung.Wert is not { } angaben)
+        var hologramm = Hologrammnummer.Pruefen(hologrammnummer);
+        if (pruefung.Wert is not { } angaben || hologramm is HologrammnummerPruefung.Ungueltig)
         {
-            return new AusgabeErfassenErgebnis.Ungueltig(pruefung.Fehler);
+            var fehler = new Dictionary<string, string[]>(pruefung.Fehler);
+            if (hologramm is HologrammnummerPruefung.Ungueltig ungueltig)
+            {
+                fehler["hologrammnummer"] = [ungueltig.Meldung];
+            }
+
+            return new AusgabeErfassenErgebnis.Ungueltig(fehler);
         }
+
+        var neueNummer = (hologramm as HologrammnummerPruefung.Gueltig)?.Nummer;
 
         Ausgabe ausgabe;
         await using (var sperre = await repository.SperrenAsync(coinId, ct))
@@ -120,15 +138,113 @@ public sealed class AusgabeService(IAusgabeRepository repository, ICoinKatalogRe
 
             // Zertifikatsnummer unter der Sperre aus Kennung und Exemplar (zertifikat-erzeugen AK-3, ADR-0027 Punkt 4).
             ausgabe = Ausgabe.Erstellen(coinId, nummer, angaben, akteurId, jetzt, Zertifikatsnummer.Bilden(sperre.Kennung, nummer));
+            // Vorabprüfung für eine klare Antwort; gleichzeitige Anfragen fängt der eindeutige Index ab (ADR-0033 Punkt 5).
+            if (neueNummer is not null && await sperre.HologrammVergebenAsync(neueNummer.Normalform, ct))
+            {
+                return new AusgabeErfassenErgebnis.HologrammnummerVergeben();
+            }
+
             if (!await sperre.AusgabeHinzufuegenAsync(ausgabe, ct))
             {
                 return new AusgabeErfassenErgebnis.ExemplarAusgegeben(nummer);
+            }
+
+            if (neueNummer is not null
+                && !await sperre.HologrammSetzenAsync(ausgabe.Id, neueNummer, null, null, akteurId, jetzt, ct))
+            {
+                return new AusgabeErfassenErgebnis.HologrammnummerVergeben();
             }
 
             await sperre.AbschliessenAsync(ct);
         }
 
         return new AusgabeErfassenErgebnis.Erfasst(await GespeichertAsync(ausgabe.Id, ct));
+    }
+
+    /// <summary>
+    /// Ergänzt oder korrigiert die Hologrammnummer einer Ausgabe unter der Coin-Sperre (hologrammnummer AK-10, AK-11).
+    /// Reihenfolge: Nummer bzw. Grund zu lang (400) → Coin/Ausgabe (404) → storniert (409) → <paramref name="bisherige"/>
+    /// weicht ab (409) → unverändert (ohne Schreiben) → Grund fehlt bei Korrektur (400) → vergeben (409).
+    /// </summary>
+    public async Task<HologrammnummerAendernErgebnis> HologrammnummerAendernAsync(
+        Guid coinId, Guid ausgabeId, string? nummer, string? grund, string? bisherige, Guid akteurId, CancellationToken ct)
+    {
+        var fehler = new Dictionary<string, string[]>();
+        Hologrammnummer? neu = null;
+        switch (Hologrammnummer.Pruefen(nummer))
+        {
+            case HologrammnummerPruefung.Gueltig gueltig:
+                neu = gueltig.Nummer;
+                break;
+            case HologrammnummerPruefung.Ungueltig ungueltig:
+                fehler["hologrammnummer"] = [ungueltig.Meldung];
+                break;
+            default:
+                fehler["hologrammnummer"] = [Hologrammnummer.MeldungLeer];
+                break;
+        }
+
+        var grundGetrimmt = string.IsNullOrWhiteSpace(grund) ? null : grund.Trim();
+        if (grundGetrimmt is not null && grundGetrimmt.Length > Ausgabe.StornoGrundMaxLaenge)
+        {
+            fehler["grund"] = [GrundZuLang];
+        }
+
+        if (fehler.Count > 0 || neu is null)
+        {
+            return new HologrammnummerAendernErgebnis.Ungueltig(fehler);
+        }
+
+        // „bisherige“ wird normalisiert; null oder leer heißt „keine“, Ungültiges passt zu keiner Nummer.
+        var gelesen = Hologrammnummer.Pruefen(bisherige);
+
+        await using (var sperre = await repository.SperrenAsync(coinId, ct))
+        {
+            if (sperre is null || await sperre.AusgabeLadenAsync(ausgabeId, ct) is not { } ausgabe)
+            {
+                return new HologrammnummerAendernErgebnis.NichtGefunden();
+            }
+
+            if (ausgabe.Storno is not null)
+            {
+                return new HologrammnummerAendernErgebnis.Storniert();
+            }
+
+            var aktuell = await sperre.HologrammLadenAsync(ausgabeId, ct);
+            var gelesenPasst = (aktuell, gelesen) switch
+            {
+                (null, HologrammnummerPruefung.Keine) => true,
+                ({ } a, HologrammnummerPruefung.Gueltig g) => a.Normalform == g.Nummer.Normalform,
+                _ => false,
+            };
+            if (!gelesenPasst)
+            {
+                return new HologrammnummerAendernErgebnis.VeraltetGelesen();
+            }
+
+            if (aktuell is not null && aktuell.Normalform == neu.Normalform)
+            {
+                return new HologrammnummerAendernErgebnis.Unveraendert(await GespeichertAsync(ausgabeId, ct));
+            }
+
+            if (aktuell is not null && grundGetrimmt is null)
+            {
+                return new HologrammnummerAendernErgebnis.Ungueltig(
+                    new Dictionary<string, string[]> { ["grund"] = [GrundFehlt] });
+            }
+
+            // Beim Ergänzen wird ein mitgesendeter Grund ignoriert (AK-10).
+            var auditGrund = aktuell is null ? null : grundGetrimmt;
+            if (await sperre.HologrammVergebenAsync(neu.Normalform, ct)
+                || !await sperre.HologrammSetzenAsync(ausgabeId, neu, aktuell, auditGrund, akteurId, Jetzt(), ct))
+            {
+                return new HologrammnummerAendernErgebnis.Vergeben();
+            }
+
+            await sperre.AbschliessenAsync(ct);
+        }
+
+        return new HologrammnummerAendernErgebnis.Geaendert(await GespeichertAsync(ausgabeId, ct));
     }
 
     /// <summary>Storniert eine aktive Ausgabe. Reihenfolge (AK-12): Grund (400) → Coin/Ausgabe (404) → bereits storniert (409).</summary>

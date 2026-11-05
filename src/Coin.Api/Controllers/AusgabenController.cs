@@ -20,6 +20,9 @@ namespace Coin.Api.Controllers;
 public sealed class AusgabenController(AusgabeService service, IAktuellerBenutzer aktuellerBenutzer) : ControllerBase
 {
     private const string KonfliktTitel = "Ausgabe nicht möglich";
+    private const string HologrammKonfliktTitel = "Hologrammnummer nicht möglich";
+    private const string CodeHologrammVergeben = "hologrammnummer_vergeben";
+    private const string DetailHologrammVergeben = "Diese Hologrammnummer ist bereits vergeben. Bitte die Nummer prüfen.";
 
     [HttpGet]
     [Authorize(Policy = Berechtigungen.IssuesRead)]
@@ -51,7 +54,7 @@ public sealed class AusgabenController(AusgabeService service, IAktuellerBenutze
         [FromRoute] Guid id, [FromBody] AusgabeErfassenRequest request, CancellationToken ct)
     {
         var akteur = await aktuellerBenutzer.LadenAsync(ct);
-        return await service.ErfassenAsync(id, request.ExemplarNummer, request.Eingabe(), akteur.Id, ct) switch
+        return await service.ErfassenAsync(id, request.ExemplarNummer, request.Eingabe(), request.Hologrammnummer, akteur.Id, ct) switch
         {
             AusgabeErfassenErgebnis.Erfasst erfasst =>
                 StatusCode(StatusCodes.Status201Created, AusgabeResponse.Aus(erfasst.Ausgabe)),
@@ -64,7 +67,32 @@ public sealed class AusgabenController(AusgabeService service, IAktuellerBenutze
                 "exemplar_ausgegeben", $"Exemplar Nr. {ausgegeben.Nummer} ist bereits ausgegeben."),
             AusgabeErfassenErgebnis.KeinExemplarFrei => Konflikt(
                 "kein_exemplar_frei", "Alle Exemplare dieses Coins sind ausgegeben."),
+            AusgabeErfassenErgebnis.HologrammnummerVergeben => Konflikt(CodeHologrammVergeben, DetailHologrammVergeben),
             _ => throw new InvalidOperationException("Unbekanntes Ergebnis beim Erfassen."),
+        };
+    }
+
+    /// <summary>Ergänzt oder korrigiert die Hologrammnummer einer aktiven Ausgabe (hologrammnummer AK-10, AK-11).</summary>
+    [HttpPut("{ausgabeId:guid}/hologrammnummer")]
+    [Authorize(Policy = Berechtigungen.IssuesWrite)]
+    [Inhaltstyp("application/json")]
+    public async Task<ActionResult<AusgabeResponse>> HologrammnummerAendern(
+        [FromRoute] Guid id, [FromRoute] Guid ausgabeId, [FromBody] HologrammnummerAendernRequest request, CancellationToken ct)
+    {
+        var akteur = await aktuellerBenutzer.LadenAsync(ct);
+        return await service.HologrammnummerAendernAsync(
+                id, ausgabeId, request.Hologrammnummer, request.Grund, request.Bisherige, akteur.Id, ct) switch
+        {
+            HologrammnummerAendernErgebnis.Geaendert geaendert => Ok(AusgabeResponse.Aus(geaendert.Ausgabe)),
+            HologrammnummerAendernErgebnis.Unveraendert unveraendert => Ok(AusgabeResponse.Aus(unveraendert.Ausgabe)),
+            HologrammnummerAendernErgebnis.Ungueltig ungueltig => this.Validierungsfehler(ungueltig.Fehler),
+            HologrammnummerAendernErgebnis.NichtGefunden => AusgabeNichtGefunden(),
+            HologrammnummerAendernErgebnis.Storniert => HologrammKonflikt(
+                "ausgabe_storniert", "Die Hologrammnummer einer stornierten Ausgabe kann nicht geändert werden."),
+            HologrammnummerAendernErgebnis.VeraltetGelesen => HologrammKonflikt(
+                "hologrammnummer_geaendert", "Die Hologrammnummer wurde inzwischen geändert. Bitte die Seite neu laden."),
+            HologrammnummerAendernErgebnis.Vergeben => HologrammKonflikt(CodeHologrammVergeben, DetailHologrammVergeben),
+            _ => throw new InvalidOperationException("Unbekanntes Ergebnis beim Ändern der Hologrammnummer."),
         };
     }
 
@@ -88,6 +116,9 @@ public sealed class AusgabenController(AusgabeService service, IAktuellerBenutze
 
     private ObjectResult Konflikt(string code, string detail) =>
         this.ProblemMitCode(StatusCodes.Status409Conflict, KonfliktTitel, detail, code);
+
+    private ObjectResult HologrammKonflikt(string code, string detail) =>
+        this.ProblemMitCode(StatusCodes.Status409Conflict, HologrammKonfliktTitel, detail, code);
 
     private ObjectResult AusgabeNichtGefunden() =>
         Problem(statusCode: StatusCodes.Status404NotFound, title: "Ausgabe nicht gefunden");

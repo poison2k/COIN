@@ -16,7 +16,8 @@ public sealed record AusgabeErfassenRequest(
     DateOnly? Datum,
     string? Gelegenheit,
     string? Begruendung,
-    string? AusgebendeStelle)
+    string? AusgebendeStelle,
+    string? Hologrammnummer = null)
 {
     public AusgabeAngabenEingabe Eingabe() => new(
         EmpfaengerName, EmpfaengerDienstgrad, EmpfaengerDienststelle, Datum, Gelegenheit, Begruendung, AusgebendeStelle);
@@ -28,6 +29,15 @@ public sealed record AusgabeErfassenRequest(
 public sealed record AusgabeStornierenRequest(string? Grund)
 {
     public override string ToString() => nameof(AusgabeStornierenRequest);
+}
+
+/// <summary>
+/// Anfrage zum Ergänzen oder Korrigieren der Hologrammnummer (hologrammnummer 5.2). <paramref name="Bisherige"/> ist die
+/// Nummer, die der Benutzer gesehen hat. <see cref="ToString"/> ohne Werte (AK-22).
+/// </summary>
+public sealed record HologrammnummerAendernRequest(string? Hologrammnummer, string? Grund, string? Bisherige)
+{
+    public override string ToString() => nameof(HologrammnummerAendernRequest);
 }
 
 /// <summary>Anfrage zum Ändern der Auflage (AK-17). <see cref="ToString"/> ohne Werte.</summary>
@@ -97,7 +107,8 @@ public sealed record AusgabeResponse(
     string AusgebendeStelle,
     DateTimeOffset ErfasstAm,
     AkteurResponse ErfasstVon,
-    StornoResponse? Storno)
+    StornoResponse? Storno,
+    string? Hologrammnummer)
 {
     public static AusgabeResponse Aus(AusgabeEintrag a)
     {
@@ -114,7 +125,8 @@ public sealed record AusgabeResponse(
             g.AusgebendeStelle,
             a.ErfasstAm,
             new AkteurResponse(a.ErfasstVon.Id, a.ErfasstVon.Name),
-            a.Storno is { } s ? new StornoResponse(s.Am, new AkteurResponse(s.Von.Id, s.Von.Name), s.Grund) : null);
+            a.Storno is { } s ? new StornoResponse(s.Am, new AkteurResponse(s.Von.Id, s.Von.Name), s.Grund) : null,
+            a.Hologrammnummer);
     }
 
     public static SeiteResponse<AusgabeResponse> Seite(Seite<AusgabeEintrag> seite) => SeiteResponse<AusgabeResponse>.Aus(seite, Aus);
