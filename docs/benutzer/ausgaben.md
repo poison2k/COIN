@@ -241,6 +241,6 @@ Fehler zu einzelnen Feldern stehen direkt unter dem Feld; Ihre Eingaben bleiben 
 | „Die aktive Vorlage enthält mehr als 200 Platzhalter. Bitte eine angepasste Vorlage hochladen.“ | Auf **Coin bearbeiten** eine Vorlage mit weniger Platzhaltern hochladen (siehe [Zertifikatsvorlagen](zertifikatsvorlagen.md)). |
 | „Das Zertifikat konnte nicht heruntergeladen werden. Bitte später erneut versuchen.“ | Technisches Problem; später erneut versuchen. Tritt es immer wieder auf, die Vorlage in Word neu speichern und hochladen. |
 | „Sie sind nicht berechtigt, Zertifikate herunterzuladen.“ | Ihrem Konto fehlt die nötige Rolle. Wenden Sie sich an einen Administrator. |
-| „Die Ausgabe konnte nicht geladen werden. Bitte später erneut versuchen.“ | Technisches Problem auf der Seite „Ausgabe“, z. B. keine Verbindung zum Server. |
+| „Die Ausgabe konnte nicht geladen werden. Bitte später erneut versuchen.“ | Technisches Problem auf der Seite „Ausgabe“, z. B. keine Verbindung zum Server. **Erneut versuchen** klicken. |
 | „Sie sind nicht berechtigt, …“ | Ihrem Konto fehlt die nötige Rolle. Wenden Sie sich an einen Administrator. |
 | „Die Exemplare konnten nicht geladen werden. Bitte später erneut versuchen.“ | Technisches Problem, z. B. keine Verbindung zum Server. |

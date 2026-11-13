@@ -49,6 +49,11 @@ Webanwendung zur Verwaltung von Gedenk-Coins. Umgesetzt sind bisher:
   Empfängerdaten sehen nur Benutzer mit `issues.read`. Höchstens 20 Prüfungen je Minute und Benutzer;
   Setzen, Korrigieren und Prüfen stehen unveränderlich in `hologramm_audit` bzw. `pruefung_audit`
   (ADR-0033, ADR-0034).
+- **Einheitliches Erscheinungsbild**: Gestaltung nur über Theme-Tokens (Marineblau, Statusfarben,
+  Schriftskala, Raster; hell und dunkel mit geprüften Kontrasten), Bausteine in `web/src/shared/ui`,
+  App-Layout mit gruppierter Seitenleiste, Kopfzeile mit Name und Rolle, Skip-Link „Zum Inhalt
+  springen“ und Mobilmenü unter 768 px; automatische Prüfung mit axe (ADR-0035 bis ADR-0038,
+  [docs/features/design-fundament.md](docs/features/design-fundament.md)).
 
 Noch offen sind Signatur, PDF, QR-Code und öffentliche Prüfseite der Zertifikate.
 
@@ -303,7 +308,8 @@ npm run dev
 
 Der Vite-Dev-Server läuft auf `http://localhost:5173` und leitet `/api` an
 `http://localhost:5172` weiter. Ein anderes Ziel lässt sich per Umgebungsvariable
-`VITE_API_PROXY_TARGET` setzen. Die API muss für das Frontend laufen.
+`VITE_API_PROXY_TARGET` setzen. Die API muss für das Frontend laufen. Nur im Dev-Server gibt es
+die Bausteinübersicht unter `http://localhost:5173/entwicklung/bausteine` (ohne Anmeldung, ohne API).
 
 Anmeldung: `oidc-client-ts` mit `react-oidc-context` (Authorization Code Flow mit PKCE). Die
 Konfiguration steht eingecheckt in `web/.env.development`:
@@ -335,6 +341,7 @@ Routen:
 | `/anmeldung/rueckruf` | öffentlich | Rückkehr vom Keycloak (ohne App-Shell) |
 | `/abgemeldet` | öffentlich | Bestätigung nach dem Abmelden |
 | `/kein-zugriff` | nur angemeldet | Hinweis für Benutzer ohne Rolle, mit deaktiviertem Konto oder (mit `?grund=berechtigung`) mit Rolle ohne die nötige Berechtigung; alle anderen werden nach `/` geleitet |
+| `/entwicklung/bausteine` | nur Dev-Server, ohne Anmeldung | „Bausteinübersicht“ mit allen Bausteinen aus `shared/ui`, Farben und Schriftstufen (nur synthetische Daten, kein API-Aufruf, kein Sidebar-Eintrag). Die Route gibt es nur bei `import.meta.env.DEV`; im Produktions-Build zeigt der Pfad „Seite nicht gefunden.“ (ADR-0036) |
 
 `/coins/neu` und `/coins/$coinId` sind Geschwister von `/coins`; das statische Segment `neu` geht
 vor dem Parameter. `/coins/$coinId/ausgaben/neu`, `/coins/$coinId/ausgaben/$ausgabeId` und
@@ -383,7 +390,13 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
 - Jeder Slice hat eine `index.ts` als Public API. Von außen wird nur über `@/<schicht>/<slice>`
   importiert, innerhalb eines Slices relativ.
 - Einziger Alias ist `@/` → `src/` (in `tsconfig.json`, `tsconfig.app.json`, `vite.config.ts`).
-- `shared/ui` enthält die shadcn-Komponenten, `shared/lib` u. a. `cn()`, das Farbschema, `istGuid`
+- `shared/ui` enthält die Bausteine (ADR-0036): shadcn-Komponenten und eigene Zusammensetzungen
+  `formularfeld.tsx` (`Formularfeld`), `seitenkopf.tsx` (`Seitenkopf`), `zustaende.tsx`
+  (`Ladeanzeige`, `Leerzustand`, `Fehlerzustand`) und `toast.tsx` (Base UI Toast, `useToast().zeige`,
+  ADR-0038). Neue Seiten nutzen `Seitenkopf` und `Card` ohne eigenen Seitenrand und ohne eigene
+  Maximalbreite; den Container stellt `widgets/app-shell` (Skip-Link, Seitenleiste mit Gruppen,
+  Kopfzeile als einziges `<header>`, `main#inhalt`). `pages/entwicklung-bausteine` ist die
+  Bausteinübersicht. `shared/lib` enthält u. a. `cn()`, das Farbschema, `istGuid`
   (`shared/lib/guid`), Zahl- und Datumsformate (`shared/lib/format.ts`: `de-DE`, Europe/Berlin,
   `heuteInBerlin`), Hooks (`shared/lib/hooks`: `useIsMobile`, `useFokusBeiLadefehler`) und die
   Anmeldung (`shared/lib/anmeldung`: UserManager, Provider, `useAnmeldung`, `sicheresZiel`),
@@ -451,7 +464,7 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
 | Skript | Zweck |
 |---|---|
 | `npm run dev` | Vite-Dev-Server (Port 5173) |
-| `npm run build` | ESLint, TypeScript-Prüfung (`tsc -b`) und Produktions-Build nach `dist/` |
+| `npm run build` | ESLint, TypeScript-Prüfung (`tsc -b`), Produktions-Build nach `dist/` und `scripts/pruefe-produktionsbuild.mjs` (scheitert, wenn eine Datei in `dist/` „Bausteinübersicht“ enthält, die Entwicklungsseite also im Bundle gelandet ist) |
 | `npm run lint` | ESLint und Steiger; keine Warnungen erlaubt, jeder Befund ist ein Fehler |
 | `npm run lint:fix` | ESLint mit automatischer Korrektur |
 | `npm run lint:fsd` | nur Steiger (FSD-Regeln für `src/`) |
@@ -482,7 +495,7 @@ nur, wenn Index und Arbeitsstand übereinstimmen.
 
 | | `web/ui-tests` (`npm run test:ui`) | `e2e/` (`npx playwright test`) |
 |---|---|---|
-| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen, Zertifikat-Download, Startseite (inkl. XSS-Nutzlasten im echten Chromium), Hologrammnummer und Prüfseite: Routing, Seitenleiste, Tastaturbedienung, Darstellung | fachliche Abläufe über alle Schichten |
+| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen, Zertifikat-Download, Startseite (inkl. XSS-Nutzlasten im echten Chromium), Hologrammnummer und Prüfseite: Routing, Seitenleiste, Tastaturbedienung, Darstellung; dazu Barrierefreiheit mit axe (`barrierefreiheit.spec.ts`), 360/768/1280 px (`responsiv.spec.ts`), Tastatur (`tastatur.spec.ts`), Bausteinseite (`bausteine.spec.ts`), reduzierte Bewegung (`bewegung.spec.ts`) und Screenshots (`screenshots.spec.ts`) | fachliche Abläufe über alle Schichten; `design-fundament.spec.ts` prüft die Hauptseiten mit echten Daten per axe und auf horizontales Scrollen bei 360 px |
 | API | gemockt per `page.route`; Proxy-Ziel absichtlich unerreichbar; jeder nicht gemockte `/api`-Aufruf lässt den Test scheitern | echte API (Release-Build) mit Wegwerf-PostgreSQL |
 | Anmeldung | Identitätsanbieter gemockt (`VITE_OIDC_AUTHORITY=http://127.0.0.1:9/realms/coin`) | echter Wegwerf-Keycloak |
 | Voraussetzungen | nur Node.js und Chromium | Docker, .NET 10 SDK, Node.js ≥ 22.18 |
@@ -491,6 +504,20 @@ nur, wenn Index und Arbeitsstand übereinstimmen.
 Ports im Überblick: 5172 API, 5173 Dev-Server, 8180 Dev-Keycloak, 5182/5183/5184 Systemtests,
 5193 UI-Tests. Die Server werden nie wiederverwendet; ist ein Port belegt, bricht der Lauf ab. Die
 Browser-Installation teilen sich beide Projekte.
+
+Barrierefreiheit: Beide Projekte nutzen `@axe-core/playwright` (devDependency) mit den Tags WCAG 2.0/2.1
+A und AA; Verstöße der Stufen `serious` und `critical` lassen den Test scheitern (ADR-0037). Neue
+Seiten gehören in `barrierefreiheit.spec.ts` und `responsiv.spec.ts`.
+
+Screenshots für die Sichtprüfung (6 Seiten × 360/768/1280 px × hell/dunkel = 36 Dateien, gemockte,
+synthetische Daten) liegen eingecheckt in `docs/design/ablage/<seite>_<breite>_<hell|dunkel>.png`.
+Neu erzeugen nur bei Bedarf (in `web/`):
+
+```powershell
+$env:COIN_SCREENSHOTS = "1"; npx playwright test screenshots; Remove-Item Env:COIN_SCREENSHOTS
+```
+
+Ohne die Variable prüft `screenshots.spec.ts` nur, dass genau die 36 Dateien vorhanden sind.
 
 ### shadcn-Komponenten
 
@@ -502,8 +529,17 @@ Seitenleiste, die Ausnahme für Strg+B in Eingabefeldern, die Tab-Falle in `aler
 `dialog.tsx`, „Schließen“ in `dialog.tsx` und den Pfeiltasten-Umlauf in `select.tsx` (vollständige
 Liste in ADR-0009). Seit coin-ausgaben gehören auch `radio-group` und `dialog` dazu, seit startseite
 `switch`, seit hologrammnummer `combobox` und ihre Abhängigkeit `input-group` (deutsche `sr-only`-Namen
-der Icon-Buttons in `combobox.tsx`). Neben den shadcn-Farben gibt es die eigenen Theme-Tokens
-`--success` und `--warning` (`app/styles/index.css`). Danach `npm run format` und `npm run lint` ausführen.
+der Icon-Buttons in `combobox.tsx`), seit design-fundament `checkbox`, `field`, `breadcrumb` („Brotkrumen“,
+„Weitere Seiten“), `empty` und `spinner` („Wird geladen“). Danach `npm run format` und `npm run lint` ausführen.
+
+Gestaltungsregeln (ADR-0035): Farbwerte stehen nur in `src/app/styles/index.css` (Hex, `:root` hell und
+`.dark`), die Tailwind-Standardpalette ist abgeschaltet (`--color-*: initial`), ebenso Schriftstufen über
+`text-3xl` und Schatten außer `xs`/`sm`/`md`. Komponenten verwenden nur Token-Klassen (`bg-primary`,
+`text-muted-foreground`, `bg-overlay`, `bg-logo-surface` …), keine Hex-/Farbfunktionen, keine
+Palettenklassen wie `bg-white` und keine beliebigen Abstände (`p-[13px]`); Fokusringe ohne Deckkraft
+(`ring-ring`, nicht `ring-ring/50`). Das prüfen `src/app/gestaltungsregeln.test.ts` und der Kontrasttest
+`src/app/kontrast.test.ts` (alle Textpaare ≥ 4,5:1, Nicht-Text ≥ 3:1, hell und dunkel). CLI-Komponenten
+nach `npx shadcn add` darauf anpassen.
 
 ## Build und Tests
 
@@ -530,7 +566,7 @@ Frontend (in `web/`, alle Skripte siehe Abschnitt „Frontend“):
 npm test         # Vitest
 npm run lint     # ESLint und Steiger
 npm run test:ui  # Playwright-UI-Tests mit gemockter API
-npm run build    # ESLint, TypeScript-Prüfung und Produktions-Build
+npm run build    # ESLint, TypeScript-Prüfung, Produktions-Build und Prüfung auf die Bausteinseite
 ```
 
 `npm test` und `npm run test:ui` nicht gleichzeitig starten: Unter sehr hoher Last laufen einzelne
@@ -583,6 +619,8 @@ Ablauf pro Lauf (ADR-0007, ADR-0015):
   Betrachter auch den Infotext. Danach schaltet er „Kennzahlen“ aus, verschiebt „Meistausgegebene
   Coins“, prüft die Ablehnung einer SVG-Datei und dass der Betrachter keinen Zugang zur Verwaltung
   hat. Am Ende stellt er die Standardwerte wieder her, damit spätere Specs „Willkommen bei C.O.I.N.“ sehen.
+  `design-fundament.spec.ts` legt als Administrator einen Coin und eine Ausgabe an und prüft sieben
+  Hauptseiten hell und dunkel bei 1280 und 360 px mit axe und auf horizontales Scrollen.
 - Die Tests laufen nacheinander (`workers: 1`): Die Specs teilen sich Datenbank und Testkonten,
   `benutzerverwaltung.spec.ts`, `katalog-seiten.spec.ts`, `coin-ausgaben.spec.ts`,
   `zertifikatsvorlagen.spec.ts`, `zertifikat-erzeugen.spec.ts` und `startseite.spec.ts` brauchen `betrachter@test.local`

@@ -18,8 +18,8 @@ geschickt und kommen danach dorthin zurück.
 3. Kurz erscheint „Anmeldung wird abgeschlossen …“. Danach sind Sie wieder auf der Seite, von der
    aus Sie sich angemeldet haben.
 
-Angemeldet steht rechts oben Ihr Name (auf schmalen Bildschirmen ausgeblendet) und der Button
-**Abmelden**.
+Angemeldet stehen rechts oben Ihr Name, darunter Ihre Rolle (z. B. „Sachbearbeiter“, ohne Rolle
+„Keine Rolle“; beides auf schmalen Bildschirmen ausgeblendet), und der Button **Abmelden**.
 
 Ein eigenes Konto anlegen oder das Passwort ändern können Sie in C.O.I.N. nicht. Wenden Sie sich
 dafür an die zuständige Stelle für Ihr Benutzerkonto.
