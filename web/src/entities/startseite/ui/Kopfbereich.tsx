@@ -13,7 +13,7 @@ export interface KopfbereichProps {
 /** Logo per `<img src>` (öffentliche URL oder Object-URL), höchstens 96 px hoch, auf heller Fläche (A4). */
 function LogoBild({ logo }: { logo: Logo }) {
   return (
-    <span className="inline-flex shrink-0 rounded-lg bg-white p-2">
+    <span className="inline-flex shrink-0 rounded-lg bg-logo-surface p-2">
       <img
         src={logo.url}
         alt={logo.alternativtext}

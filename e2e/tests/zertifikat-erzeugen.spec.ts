@@ -140,7 +140,7 @@ test('Sachbearbeiter lädt das Zertifikat einer Ausgabe herunter; nach Storno ge
       expect(nummer).toMatch(NUMMER)
 
       const download = sb.waitForEvent('download')
-      await zeile.getByRole('button', { name: `Zertifikat ${nummer} herunterladen` }).click()
+      await zeile.getByRole('button', { name: `Zertifikat herunterladen: ${nummer}` }).click()
       await pruefeZertifikat(sb, await download, nummer, empfaenger)
     })
 
@@ -168,7 +168,7 @@ test('Sachbearbeiter lädt das Zertifikat einer Ausgabe herunter; nach Storno ge
       await expect(dialog).toHaveCount(0)
 
       await expect(
-        sb.getByRole('button', { name: `Zertifikat ${nummer} herunterladen (nicht möglich, Ausgabe storniert)` }),
+        sb.getByRole('button', { name: `Zertifikat herunterladen: ${nummer} (nicht möglich, Ausgabe storniert)` }),
       ).toBeDisabled()
 
       await sb.goto(ausgabePfad)

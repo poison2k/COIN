@@ -9,6 +9,9 @@ import type { ApiErgebnis } from '@/shared/api'
 import { istGuid } from '@/shared/lib/guid'
 import { ROUTEN } from '@/shared/config'
 import { buttonVariants } from '@/shared/ui/button'
+import { Card, CardContent } from '@/shared/ui/card'
+import { Seitenkopf } from '@/shared/ui/seitenkopf'
+import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
 
 /** Meldung nach dem Anlegen: mit gespeichertem (oder ohne gewähltes) Bild bzw. bewusst ohne Motivbild. */
 export type CoinAngelegtMeldung = 'mitBild' | 'ohneBild'
@@ -80,6 +83,9 @@ export function CoinDetailSeite({
 }: CoinDetailSeiteProps) {
   const gueltig = istGuid(coinId)
   const [geladen, setGeladen] = useState<{ id: string; ergebnis: ApiErgebnis<Coin> } | null>(null)
+  // „Erneut versuchen“ lädt mit neuem Versuch genau einmal neu; Schlüssel = Coin-Id und Versuch.
+  const [versuch, setVersuch] = useState(0)
+  const schluessel = `${coinId}#${versuch}`
   // Nach „Auflage ändern“: Stammdaten aus der Antwort übernehmen (gilt nur für dieselbe Id).
   const [geaendert, setGeaendert] = useState<Coin | null>(null)
   // Nach einem Storno die Kennzahlen neu laden.
@@ -90,17 +96,17 @@ export function CoinDetailSeite({
 
   useEffect(() => {
     if (!gueltig) return
-    if (anfrage.current?.id !== coinId) anfrage.current = { id: coinId, ergebnis: ladeCoin(coinId) }
+    if (anfrage.current?.id !== schluessel) anfrage.current = { id: schluessel, ergebnis: ladeCoin(coinId) }
     let aktiv = true
     void anfrage.current.ergebnis.then((ergebnis) => {
-      if (aktiv) setGeladen({ id: coinId, ergebnis })
+      if (aktiv) setGeladen({ id: schluessel, ergebnis })
     })
     return () => {
       aktiv = false
     }
-  }, [coinId, gueltig])
+  }, [coinId, gueltig, schluessel])
 
-  const ergebnis = !gueltig ? NICHT_GEFUNDEN : geladen?.id === coinId ? geladen.ergebnis : null
+  const ergebnis = !gueltig ? NICHT_GEFUNDEN : geladen?.id === schluessel ? geladen.ergebnis : null
   const geladenerCoin = ergebnis?.art === 'ok' ? ergebnis.daten : null
   const coin = geladenerCoin && geaendert?.id === geladenerCoin.id ? geaendert : geladenerCoin
 
@@ -111,55 +117,53 @@ export function CoinDetailSeite({
   }, [coinDa, meldung])
 
   if (ergebnis === null) {
-    return (
-      <div className="mx-auto grid w-full max-w-5xl p-6">
-        <p role="status">Coin wird geladen …</p>
-      </div>
-    )
+    return <Ladeanzeige text="Coin wird geladen …" form="karte" />
   }
 
   if (ergebnis.art === 'nichtGefunden') {
     return (
-      <div className="mx-auto grid w-full max-w-5xl justify-items-start gap-4 p-6">
-        <h1 ref={ueberschrift} tabIndex={-1} className="text-2xl font-semibold outline-none">
-          Coin nicht gefunden
-        </h1>
-        <p>Diesen Coin gibt es nicht im Katalog.</p>
-        <Link to={ROUTEN.coinListe} className={buttonVariants()}>
-          Zum Katalog
-        </Link>
-      </div>
+      <Leerzustand
+        titel="Coin nicht gefunden"
+        titelEbene={1}
+        beschreibung="Diesen Coin gibt es nicht im Katalog."
+        aktion={
+          <Link to={ROUTEN.coinListe} className={buttonVariants()}>
+            Zum Katalog
+          </Link>
+        }
+      />
     )
   }
 
   if (coin === null) {
     return (
-      <div className="mx-auto grid w-full max-w-5xl p-6">
-        <p role="alert" className="text-destructive">
-          Der Coin konnte nicht geladen werden. Bitte später erneut versuchen.
-        </p>
-      </div>
+      <Fehlerzustand
+        meldung="Der Coin konnte nicht geladen werden. Bitte später erneut versuchen."
+        onErneutVersuchen={() => setVersuch((n) => n + 1)}
+      />
     )
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-6 p-6">
+    <div className="grid min-w-0 gap-6">
       <div className="grid gap-2">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <h1 ref={ueberschrift} tabIndex={-1} className="min-w-0 text-2xl font-semibold break-words outline-none">
-            {coin.name}
-          </h1>
-          {berechtigungen.bearbeiten && (
-            <Link
-              to={ROUTEN.coinBearbeiten}
-              params={{ coinId: coin.id }}
-              className={buttonVariants({ variant: 'outline' })}
-            >
-              <PencilIcon aria-hidden="true" />
-              Bearbeiten
-            </Link>
-          )}
-        </div>
+        <Seitenkopf
+          titel={coin.name}
+          titelRef={ueberschrift}
+          titelFokussierbar
+          aktionen={
+            berechtigungen.bearbeiten && (
+              <Link
+                to={ROUTEN.coinBearbeiten}
+                params={{ coinId: coin.id }}
+                className={buttonVariants({ variant: 'outline' })}
+              >
+                <PencilIcon aria-hidden="true" />
+                Bearbeiten
+              </Link>
+            )
+          }
+        />
         {meldung && (
           <p role="status" className="text-success">
             {meldungsText(meldung)}
@@ -167,29 +171,41 @@ export function CoinDetailSeite({
         )}
       </div>
 
-      <CoinStammdaten coin={coin} />
+      <Card>
+        <CardContent>
+          <CoinStammdaten coin={coin} />
+        </CardContent>
+      </Card>
 
       {berechtigungen.exemplare && (
-        <CoinExemplare
-          coinId={coin.id}
-          status={status}
-          seite={seite}
-          neuLaden={exemplareNeuLaden}
-          darfErfassen={berechtigungen.erfassen}
-          darfAuflageAendern={berechtigungen.auflage}
-          onStatus={onStatus}
-          onSeite={onSeite}
-          onAuflageGeaendert={setGeaendert}
-        />
+        <Card>
+          <CardContent>
+            <CoinExemplare
+              coinId={coin.id}
+              status={status}
+              seite={seite}
+              neuLaden={exemplareNeuLaden}
+              darfErfassen={berechtigungen.erfassen}
+              darfAuflageAendern={berechtigungen.auflage}
+              onStatus={onStatus}
+              onSeite={onSeite}
+              onAuflageGeaendert={setGeaendert}
+            />
+          </CardContent>
+        </Card>
       )}
 
       {berechtigungen.historie && (
-        <AusgabenHistorie
-          coinId={coin.id}
-          darfStornieren={berechtigungen.erfassen}
-          darfZertifikat={berechtigungen.erfassen}
-          onGeaendert={() => setExemplareNeuLaden((n) => n + 1)}
-        />
+        <Card>
+          <CardContent>
+            <AusgabenHistorie
+              coinId={coin.id}
+              darfStornieren={berechtigungen.erfassen}
+              darfZertifikat={berechtigungen.erfassen}
+              onGeaendert={() => setExemplareNeuLaden((n) => n + 1)}
+            />
+          </CardContent>
+        </Card>
       )}
 
       <Link to={ROUTEN.coinListe} className={buttonVariants({ variant: 'outline', className: 'justify-self-start' })}>

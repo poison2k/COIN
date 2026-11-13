@@ -68,7 +68,7 @@ export function Blaettern({ seite, seiten, onSeite, laedt = false }: BlaetternPr
       ref={navRef}
       aria-label="Seitennavigation"
       tabIndex={-1}
-      className="flex flex-wrap items-center gap-2 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="flex flex-wrap items-center gap-2 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring"
     >
       <Button
         ref={vorherigeRef}

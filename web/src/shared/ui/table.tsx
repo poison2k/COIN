@@ -1,9 +1,35 @@
 import * as React from 'react'
 import { cn } from '@/shared/lib/cn'
 
+/**
+ * Meldet, ob der Container horizontal scrollt. Nur dann ist er per Tastatur fokussierbar (WCAG 2.1.1, axe
+ * „scrollable-region-focusable“); sonst entsteht kein zusätzlicher Tab-Stopp.
+ */
+function useScrolltHorizontal(ref: React.RefObject<HTMLDivElement | null>): boolean {
+  const [scrollt, setScrollt] = React.useState(false)
+  React.useEffect(() => {
+    const element = ref.current
+    if (!element || typeof ResizeObserver === 'undefined') return undefined
+    const pruefen = () => setScrollt(element.scrollWidth > element.clientWidth)
+    pruefen()
+    const beobachter = new ResizeObserver(pruefen)
+    beobachter.observe(element)
+    if (element.firstElementChild) beobachter.observe(element.firstElementChild)
+    return () => beobachter.disconnect()
+  }, [ref])
+  return scrollt
+}
+
 function Table({ className, ...props }: React.ComponentProps<'table'>) {
+  const container = React.useRef<HTMLDivElement>(null)
+  const scrollt = useScrolltHorizontal(container)
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    <div
+      ref={container}
+      data-slot="table-container"
+      tabIndex={scrollt ? 0 : undefined}
+      className="relative w-full overflow-x-auto rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <table data-slot="table" className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   )

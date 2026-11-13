@@ -19,20 +19,20 @@ export interface StartseiteBloeckeProps {
 
 /**
  * Blöcke der Startseite in Reihenfolge (AK-20, AK-21). Ist der Kopfbereich aktiv, ist sein Titel die oberste
- * Überschrift, sonst „Willkommen bei C.O.I.N.“. Kennzahlen und Listen stehen ab `md` nebeneinander.
+ * Überschrift, sonst „Willkommen bei C.O.I.N.“. Kennzahlen und Listen stehen ab `lg` nebeneinander (zwischen `md` und `lg` einspaltig, sonst horizontales Scrollen neben der Seitenleiste).
  */
 export function StartseiteBloecke({ bloecke, ebene }: StartseiteBloeckeProps) {
   const blockEbene = ebene === 1 ? 2 : 3
   const mitKopf = bloecke.some((b) => b.art === 'kopf')
 
   return (
-    <div className="grid gap-6 md:grid-cols-3">
+    <div className="grid gap-6 *:min-w-0 lg:grid-cols-3">
       {mitKopf ? null : <BegruessungsUeberschrift ebene={ebene} />}
       {bloecke.map((block, index) => {
         switch (block.art) {
           case 'kopf':
             return (
-              <div key={`kopf-${index}`} className="md:col-span-3">
+              <div key={`kopf-${index}`} className="lg:col-span-3">
                 <Kopfbereich
                   titel={block.titel}
                   untertitel={block.untertitel}
@@ -44,7 +44,7 @@ export function StartseiteBloecke({ bloecke, ebene }: StartseiteBloeckeProps) {
             )
           case 'infotext':
             return (
-              <div key={`infotext-${index}`} className="md:col-span-3">
+              <div key={`infotext-${index}`} className="lg:col-span-3">
                 <InfotextBlock text={block.text} />
               </div>
             )
@@ -66,5 +66,5 @@ export function StartseiteBloecke({ bloecke, ebene }: StartseiteBloeckeProps) {
 
 function BegruessungsUeberschrift({ ebene }: { ebene: 1 | 2 }) {
   const Tag = ebene === 1 ? 'h1' : 'h2'
-  return <Tag className="text-2xl font-semibold md:col-span-3">{BEGRUESSUNG}</Tag>
+  return <Tag className="text-2xl font-semibold lg:col-span-3">{BEGRUESSUNG}</Tag>
 }

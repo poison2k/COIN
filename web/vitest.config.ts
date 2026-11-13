@@ -12,6 +12,9 @@ export default mergeConfig(
       include: ['src/**/*.test.{ts,tsx}'],
       exclude: [...configDefaults.exclude, 'ui-tests/**'],
       restoreMocks: true,
+      // design-fundament (ADR-0037 Punkt 2/3): Kontrast- und Gestaltungsregel-Test lesen index.css per `?raw`.
+      // Ohne Freigabe liefert Vitest CSS als leeren String.
+      css: { include: [/styles[\\/]index\.css/] },
     },
   }),
 )

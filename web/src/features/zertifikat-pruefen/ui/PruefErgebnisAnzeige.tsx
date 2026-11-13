@@ -34,7 +34,7 @@ const DARSTELLUNG: Record<PruefErgebnisArt, Darstellung> = {
 }
 
 const LINK =
-  'rounded-sm underline underline-offset-4 outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50'
+  'rounded-sm underline underline-offset-4 outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring'
 
 function Eintrag({ begriff, children }: { begriff: string; children: ReactNode }) {
   return (

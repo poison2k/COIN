@@ -1,4 +1,6 @@
 import { PruefFormular } from '@/features/zertifikat-pruefen'
+import { Card, CardContent } from '@/shared/ui/card'
+import { Seitenkopf } from '@/shared/ui/seitenkopf'
 
 export interface PruefungSeiteProps {
   /** issues.read aus /api/me: Prüfung mit Empfängerdaten (hologrammnummer AK-31). */
@@ -11,14 +13,16 @@ export interface PruefungSeiteProps {
  */
 export function PruefungSeite({ darfEmpfaenger }: PruefungSeiteProps) {
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-6 p-6">
-      <div className="grid gap-1">
-        <h1 className="text-2xl font-semibold">Zertifikat prüfen</h1>
-        <p className="text-muted-foreground">
-          Prüfen Sie, ob eine Hologrammnummer zu einem echten, gültigen Zertifikat gehört.
-        </p>
-      </div>
-      <PruefFormular darfEmpfaenger={darfEmpfaenger} />
+    <div className="grid min-w-0 gap-6">
+      <Seitenkopf
+        titel="Zertifikat prüfen"
+        beschreibung="Prüfen Sie, ob eine Hologrammnummer zu einem echten, gültigen Zertifikat gehört."
+      />
+      <Card>
+        <CardContent>
+          <PruefFormular darfEmpfaenger={darfEmpfaenger} />
+        </CardContent>
+      </Card>
     </div>
   )
 }

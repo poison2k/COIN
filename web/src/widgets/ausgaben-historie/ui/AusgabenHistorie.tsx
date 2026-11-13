@@ -101,7 +101,7 @@ export function AusgabenHistorie({ coinId, darfStornieren, darfZertifikat, onGea
         ref={meldungRef}
         role="status"
         tabIndex={-1}
-        className="rounded-md text-sm outline-none empty:sr-only focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="rounded-md text-sm outline-none empty:sr-only focus-visible:ring-3 focus-visible:ring-ring"
       >
         {meldung ?? (laedt && daten === null ? 'Ausgaben werden geladen …' : '')}
       </p>
@@ -110,7 +110,7 @@ export function AusgabenHistorie({ coinId, darfStornieren, darfZertifikat, onGea
           ref={alarmRef}
           role="alert"
           tabIndex={-1}
-          className="rounded-md text-destructive outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="rounded-md text-destructive outline-none focus-visible:ring-3 focus-visible:ring-ring"
         >
           Die Ausgaben konnten nicht geladen werden. Bitte später erneut versuchen.
         </p>
@@ -134,7 +134,7 @@ export function AusgabenHistorie({ coinId, darfStornieren, darfZertifikat, onGea
                           ? `Ausgabe ${ausgabe.zertifikatsnummer} anzeigen`
                           : `Stornierte Ausgabe ${ausgabe.zertifikatsnummer} anzeigen`
                       }
-                      className="rounded-sm font-mono tabular-nums underline underline-offset-4 outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50"
+                      className="rounded-sm font-mono tabular-nums underline underline-offset-4 outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring"
                     >
                       {ausgabe.zertifikatsnummer}
                     </Link>

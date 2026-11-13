@@ -126,7 +126,7 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
           ref={alarmRef}
           role="alert"
           tabIndex={-1}
-          className="rounded-md text-destructive outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="rounded-md text-destructive outline-none focus-visible:ring-3 focus-visible:ring-ring"
         >
           Benutzer konnten nicht geladen werden. Bitte später erneut versuchen.
         </p>

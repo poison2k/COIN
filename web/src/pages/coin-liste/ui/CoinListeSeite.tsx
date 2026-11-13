@@ -2,6 +2,8 @@ import { Link } from '@tanstack/react-router'
 import { PlusIcon } from 'lucide-react'
 import { ROUTEN } from '@/shared/config'
 import { buttonVariants } from '@/shared/ui/button'
+import { Card, CardContent } from '@/shared/ui/card'
+import { Seitenkopf } from '@/shared/ui/seitenkopf'
 import { CoinKatalog } from '@/widgets/coin-katalog'
 
 export interface CoinListeSeiteProps {
@@ -21,17 +23,23 @@ export interface CoinListeSeiteProps {
  */
 export function CoinListeSeite({ suche, seite, darfAnlegen, onSuche, onSeite }: CoinListeSeiteProps) {
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">Katalog</h1>
-        {darfAnlegen && (
-          <Link to={ROUTEN.coinNeu} className={buttonVariants()}>
-            <PlusIcon aria-hidden="true" />
-            Coin hinzufügen
-          </Link>
-        )}
-      </div>
-      <CoinKatalog suche={suche} seite={seite} onSuche={onSuche} onSeite={onSeite} />
+    <div className="grid min-w-0 gap-6">
+      <Seitenkopf
+        titel="Katalog"
+        aktionen={
+          darfAnlegen && (
+            <Link to={ROUTEN.coinNeu} className={buttonVariants()}>
+              <PlusIcon aria-hidden="true" />
+              Coin hinzufügen
+            </Link>
+          )
+        }
+      />
+      <Card>
+        <CardContent>
+          <CoinKatalog suche={suche} seite={seite} onSuche={onSuche} onSeite={onSeite} />
+        </CardContent>
+      </Card>
     </div>
   )
 }

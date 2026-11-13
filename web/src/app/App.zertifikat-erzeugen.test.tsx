@@ -161,7 +161,7 @@ describe('Detailseite – Spalte „Zertifikat“', () => {
 
     const tabelle = await screen.findByRole('table', { name: 'Ausgabehistorie' })
     expect(within(tabelle).getByRole('link', { name: 'Ausgabe C0042-0012 anzeigen' })).toBeInTheDocument()
-    expect(within(tabelle).getByRole('button', { name: 'Zertifikat C0042-0012 herunterladen' })).toBeInTheDocument()
+    expect(within(tabelle).getByRole('button', { name: 'Zertifikat herunterladen: C0042-0012' })).toBeInTheDocument()
   })
 
   it('führt über den Link zur Ausgabe-Seite', async () => {

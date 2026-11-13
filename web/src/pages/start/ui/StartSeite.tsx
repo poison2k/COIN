@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Kopfbereich, ladeKopf, ladeStartseite, type KopfAnsicht, type StartseiteAnsicht } from '@/entities/startseite'
 import { ROUTEN } from '@/shared/config'
 import { buttonVariants } from '@/shared/ui/button'
+import { Fehlerzustand, Ladeanzeige } from '@/shared/ui/zustaende'
 import { BEGRUESSUNG, StartseiteBloecke } from '@/widgets/startseite'
 
 const EINLEITUNG =
@@ -44,7 +45,7 @@ function useLaden<T>(laden: () => Promise<{ art: string; daten?: T }>): Laden<T>
  */
 export function StartSeite({ darfAnsehen = false, bereit = true }: StartSeiteProps) {
   return (
-    <div className="mx-auto grid w-full max-w-5xl justify-items-stretch gap-6 p-6">
+    <div className="grid min-w-0 justify-items-stretch gap-6">
       {!bereit ? <Laedt /> : darfAnsehen ? <MitLeserecht /> : <OhneLeserecht />}
       <div>
         <Link to={ROUTEN.coinListe} className={buttonVariants()}>
@@ -56,11 +57,7 @@ export function StartSeite({ darfAnsehen = false, bereit = true }: StartSeitePro
 }
 
 function Laedt() {
-  return (
-    <p role="status" className="text-muted-foreground">
-      Startseite wird geladen …
-    </p>
-  )
+  return <Ladeanzeige text="Startseite wird geladen …" />
 }
 
 /** Mit coins.read: Blöcke über das Widget; bei einem Fehler Begrüßung und Meldung (AK-21). */
@@ -71,9 +68,7 @@ function MitLeserecht() {
     return (
       <div className="grid gap-4">
         <h1 className="text-2xl font-semibold">{BEGRUESSUNG}</h1>
-        <p role="alert" className="text-destructive">
-          {FEHLERTEXT}
-        </p>
+        <Fehlerzustand meldung={FEHLERTEXT} />
       </div>
     )
   }

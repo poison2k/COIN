@@ -15,7 +15,7 @@ const TEXT_KEINE_DATEI = 'Bitte eine Word-Vorlage (.docx) auswählen.'
 
 /** Styling des nativen Dateifelds wie Input (wie im Formular „Coin anlegen“). */
 const DATEIFELD_KLASSEN =
-  'w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm file:mr-2 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-invalid:border-destructive dark:bg-input/30'
+  'w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm file:mr-2 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring focus-visible:outline-none aria-invalid:border-destructive dark:bg-input/30'
 
 /** Ablehnung als Liste von Meldungen (`liste`) oder als einzelner Text. */
 type Alarm = { art: 'liste'; meldungen: string[] } | { art: 'text'; text: string }

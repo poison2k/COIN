@@ -9,6 +9,9 @@ import { ROUTEN } from '@/shared/config'
 import { formatiereZahl } from '@/shared/lib/format'
 import { istGuid } from '@/shared/lib/guid'
 import { buttonVariants } from '@/shared/ui/button'
+import { Card, CardContent } from '@/shared/ui/card'
+import { Seitenkopf } from '@/shared/ui/seitenkopf'
+import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
 
 export interface AusgabeDetailSeiteProps {
   /** Ids aus der URL; keine GUID → „Ausgabe nicht gefunden“ ohne API-Aufruf (AK-27). */
@@ -29,7 +32,7 @@ interface Geladen {
   ausgabe: ApiErgebnis<Ausgabe>
 }
 
-const LAYOUT = 'mx-auto grid w-full max-w-5xl gap-6 p-6'
+const LAYOUT = 'grid min-w-0 gap-6'
 const ZURUECK = buttonVariants({ variant: 'outline', className: 'justify-self-start' })
 
 /**
@@ -84,37 +87,37 @@ export function AusgabeDetailSeite({
   if (nichtGefunden) {
     const coinBekannt = gueltig && anzeige?.coin.art === 'ok'
     return (
-      <div className={`${LAYOUT} justify-items-start`}>
-        <h1 className="text-2xl font-semibold">Ausgabe nicht gefunden</h1>
-        <p>Diese Ausgabe gibt es nicht.</p>
-        {coinBekannt ? (
-          <Link to={ROUTEN.coinDetail} params={{ coinId }} className={ZURUECK}>
-            Zurück zum Coin
-          </Link>
-        ) : (
-          <Link to={ROUTEN.coinListe} className={buttonVariants()}>
-            Zum Katalog
-          </Link>
-        )}
-      </div>
+      <Leerzustand
+        titel="Ausgabe nicht gefunden"
+        titelEbene={1}
+        beschreibung="Diese Ausgabe gibt es nicht."
+        aktion={
+          coinBekannt ? (
+            <Link to={ROUTEN.coinDetail} params={{ coinId }} className={ZURUECK}>
+              Zurück zum Coin
+            </Link>
+          ) : (
+            <Link to={ROUTEN.coinListe} className={buttonVariants()}>
+              Zum Katalog
+            </Link>
+          )
+        }
+      />
     )
   }
 
   if (anzeige === null) {
-    return (
-      <div className={LAYOUT}>
-        <p role="status">Ausgabe wird geladen …</p>
-      </div>
-    )
+    return <Ladeanzeige text="Ausgabe wird geladen …" form="karte" />
   }
 
   if (anzeige.ausgabe.art !== 'ok') {
     return (
       <div className={LAYOUT}>
-        <h1 className="text-2xl font-semibold">Ausgabe</h1>
-        <p role="alert" className="text-destructive">
-          Die Ausgabe konnte nicht geladen werden. Bitte später erneut versuchen.
-        </p>
+        <Seitenkopf titel="Ausgabe" />
+        <Fehlerzustand
+          meldung="Die Ausgabe konnte nicht geladen werden. Bitte später erneut versuchen."
+          onErneutVersuchen={() => setNeuLaden((n) => n + 1)}
+        />
         <Link to={ROUTEN.coinDetail} params={{ coinId }} className={ZURUECK}>
           Zurück zum Coin
         </Link>
@@ -127,22 +130,26 @@ export function AusgabeDetailSeite({
 
   return (
     <div className={LAYOUT}>
-      <div className="grid gap-1">
-        <h1 className="text-2xl font-semibold">{`Ausgabe von Exemplar Nr. ${formatiereZahl(ausgabe.exemplarNummer)}`}</h1>
-        {coin && (
-          <p className="text-lg break-words">
+      <Seitenkopf
+        titel={`Ausgabe von Exemplar Nr. ${formatiereZahl(ausgabe.exemplarNummer)}`}
+        beschreibung={
+          coin && (
             <Link
               to={ROUTEN.coinDetail}
               params={{ coinId }}
-              className="rounded-sm underline underline-offset-4 outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="rounded-sm text-lg break-words text-primary underline underline-offset-4 outline-none hover:text-primary-hover focus-visible:ring-2 focus-visible:ring-ring"
             >
               {coin.name}
             </Link>
-          </p>
-        )}
-      </div>
+          )
+        }
+      />
 
-      <AusgabeDetails ausgabe={ausgabe} />
+      <Card>
+        <CardContent>
+          <AusgabeDetails ausgabe={ausgabe} />
+        </CardContent>
+      </Card>
 
       {darfHologramm && (
         <HologrammnummerAendern
