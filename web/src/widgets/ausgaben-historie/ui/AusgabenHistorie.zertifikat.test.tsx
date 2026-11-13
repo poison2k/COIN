@@ -125,7 +125,7 @@ describe('Button „Zertifikat herunterladen“ (AK-24, AK-29)', () => {
     await tabelle()
 
     expect(
-      zeilen().map((z) => within(z).getAllByRole('button', { name: /^Zertifikat .* herunterladen/ }).length),
+      zeilen().map((z) => within(z).getAllByRole('button', { name: /^Zertifikat herunterladen: / }).length),
     ).toEqual([1, 1, 1])
   })
 
@@ -133,7 +133,7 @@ describe('Button „Zertifikat herunterladen“ (AK-24, AK-29)', () => {
     zeige(true)
     await tabelle()
 
-    expect(gesperrt(within(zeilen()[0]).getByRole('button', { name: 'Zertifikat C0042-0012 herunterladen' }))).toBe(
+    expect(gesperrt(within(zeilen()[0]).getByRole('button', { name: 'Zertifikat herunterladen: C0042-0012' }))).toBe(
       false,
     )
   })
@@ -143,7 +143,7 @@ describe('Button „Zertifikat herunterladen“ (AK-24, AK-29)', () => {
     await tabelle()
 
     const button = within(zeilen()[1]).getByRole('button', {
-      name: 'Zertifikat C0042-0012 herunterladen (nicht möglich, Ausgabe storniert)',
+      name: 'Zertifikat herunterladen: C0042-0012 (nicht möglich, Ausgabe storniert)',
     })
     expect(gesperrt(button)).toBe(true)
   })
@@ -168,7 +168,7 @@ describe('Button „Zertifikat herunterladen“ (AK-24, AK-29)', () => {
     const { user } = zeige(true)
     await tabelle()
 
-    await user.click(screen.getByRole('button', { name: 'Zertifikat C0042-0012 herunterladen' }))
+    await user.click(screen.getByRole('button', { name: 'Zertifikat herunterladen: C0042-0012' }))
 
     await waitFor(() => expect(downloads.map((d) => d.dateiname)).toEqual(['Zertifikat_C0042-0012.docx']))
     expect(api.anfragenMit('GET', ZERTIFIKAT).map((a) => a.pfad)).toEqual([
@@ -182,7 +182,7 @@ describe('Button „Zertifikat herunterladen“ (AK-24, AK-29)', () => {
     await tabelle()
     const vorher = api.anfragenMit('GET', GET).length
 
-    await user.click(screen.getByRole('button', { name: 'Zertifikat C0042-0003 herunterladen' }))
+    await user.click(screen.getByRole('button', { name: 'Zertifikat herunterladen: C0042-0003' }))
 
     await waitFor(() => expect(api.anfragenMit('GET', GET).length).toBeGreaterThan(vorher))
     expect(
@@ -204,13 +204,13 @@ describe('Fokus nach 409 (AK-26, AK-30)', () => {
     const { user } = zeige(true)
     await tabelle()
     const vorher = api.anfragenMit('GET', GET).length
-    within(zeilen()[2]).getByRole('button', { name: 'Zertifikat C0042-0003 herunterladen' }).focus()
+    within(zeilen()[2]).getByRole('button', { name: 'Zertifikat herunterladen: C0042-0003' }).focus()
 
     await user.keyboard('{Enter}')
 
     await waitFor(() => expect(api.anfragenMit('GET', GET).length).toBeGreaterThan(vorher))
     const button = await within(screen.getByRole('table', { name: 'Ausgabehistorie' })).findByRole('button', {
-      name: 'Zertifikat C0042-0003 herunterladen (nicht möglich, Ausgabe storniert)',
+      name: 'Zertifikat herunterladen: C0042-0003 (nicht möglich, Ausgabe storniert)',
     })
     expect(gesperrt(button)).toBe(true)
     expect(button).toHaveFocus()
@@ -227,10 +227,10 @@ describe('Tastatur und Texte (AK-30)', () => {
     await tabelle()
     const erwartet = [
       within(zeilen()[0]).getByRole('link'),
-      within(zeilen()[0]).getByRole('button', { name: 'Zertifikat C0042-0012 herunterladen' }),
+      within(zeilen()[0]).getByRole('button', { name: 'Zertifikat herunterladen: C0042-0012' }),
       within(zeilen()[1]).getByRole('link'),
       within(zeilen()[2]).getByRole('link'),
-      within(zeilen()[2]).getByRole('button', { name: 'Zertifikat C0042-0003 herunterladen' }),
+      within(zeilen()[2]).getByRole('button', { name: 'Zertifikat herunterladen: C0042-0003' }),
     ]
 
     const erreicht: Element[] = []

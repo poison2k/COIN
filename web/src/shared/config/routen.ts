@@ -24,4 +24,6 @@ export const ROUTEN = {
   startseiteVerwaltung: '/verwaltung/startseite',
   /** Zertifikat prüfen (Hologrammnummer), nur mit coins.read (hologrammnummer, AK-28). */
   pruefung: '/pruefung',
+  /** Bausteinübersicht, nur in der Entwicklungsumgebung (design-fundament, ADR-0036 Punkt 8). */
+  entwicklungBausteine: '/entwicklung/bausteine',
 } as const

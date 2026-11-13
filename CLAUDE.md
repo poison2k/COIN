@@ -40,7 +40,8 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
   JWT-Bearer gegen `Oidc:Authority`; Frontend mit `oidc-client-ts` + `react-oidc-context`.
   Rollen führt C.O.I.N. in der eigenen Datenbank (Tabelle `benutzer`), nie aus dem Keycloak.
 - Tests: xUnit (Unit, Integration mit Testcontainers), Vitest (Frontend), Playwright
-  (UI-Tests mit gemockter API in `web/ui-tests`, Systemtests mit echter API in `e2e/`)
+  (UI-Tests mit gemockter API in `web/ui-tests`, Systemtests mit echter API in `e2e/`),
+  Barrierefreiheit per `@axe-core/playwright` in beiden Playwright-Suiten (ADR-0037)
 
 ## Projektstruktur
 - `src/Coin.Domain` – Fachlogik, Entitäten, keine Abhängigkeit nach außen
@@ -101,7 +102,10 @@ Zeilen, `ausgabe` bleibt unveränderlich), Erfassen/Ergänzen/Korrigieren mit `i
 (`POST /api/pruefung`), Empfängerdaten nur über `POST /api/pruefung/mit-empfaenger` (`issues.read`);
 Ratenbegrenzung 20/min je Benutzer und Instanz; Mindestdauer 250 ms je Prüfung; `hologramm_audit`
 und `pruefung_audit` unveränderlich per Trigger, ohne Lese-Endpunkt; Platzhalter
-`Zertifikat.Hologrammnummer` (14 Platzhalter). Noch nicht vorhanden: Signatur, PDF, QR-Code,
+`Zertifikat.Hologrammnummer` (14 Platzhalter). Design-Fundament (`docs/features/design-fundament.md`,
+ADR-0035–0038): Tokens, Bausteine in `shared/ui`, App-Shell mit gruppierter Seitenleiste, Kopfzeile
+mit Rolle, Skip-Link, Seitenzustände; Bausteinseite `/entwicklung/bausteine` nur im Dev-Server
+(Build-Prüfung `web/scripts/pruefe-produktionsbuild.mjs`); axe in UI- und Systemtests. Noch nicht vorhanden: Signatur, PDF, QR-Code,
 öffentliche Prüfseite,
 Löschkonzept für Audit, Empfängerdaten und Vorlagenversionen.
 Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup im `README.md`.
@@ -121,7 +125,7 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
 - API lokal: `dotnet run --project src/Coin.Api` (http://localhost:5172, https://localhost:7176);
   Migrationen laufen nur in Development/Testing automatisch
 - Frontend (in `web/`): `npm install` (aktiviert den Pre-Commit-Hook: lint + test bei jedem
-  Commit), `npm run dev` (Proxy `/api` → 5172), `npm run build` (ESLint + `tsc -b` + Vite),
+  Commit), `npm run dev` (Proxy `/api` → 5172), `npm run build` (ESLint + `tsc -b` + Vite + `scripts/pruefe-produktionsbuild.mjs`),
   `npm run lint` (ESLint + Steiger, 0 Warnungen), `npm run format`, `npm test` (Vitest,
   einzeln: `npx vitest run <datei> -t "<name>"`), `npm run test:ui` (Playwright, gemockte API,
   vorher einmalig `npm run install-browser`)
@@ -137,6 +141,23 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
 - Architekturentscheidungen als ADR in `docs/adr/` (eine Datei pro Entscheidung)
 - Kleine, fokussierte Commits mit aussagekräftiger Nachricht, ein Branch pro Feature
 - Keine Secrets, Schlüssel oder echten Personendaten im Repository
+
+## Frontend-Standard
+- Gestaltung nur über die Tokens in `web/src/app/styles/index.css` (ADR-0035); keine Farben
+  (Hex, rgb/hsl/oklch, Tailwind-Palette wie `bg-red-500`, `bg-white`) und keine beliebigen
+  Abstände (`p-[13px]`) in Komponenten – geprüft in `web/src/app/gestaltungsregeln.test.ts`.
+  Die Tailwind-Standardpalette ist abgeschaltet (`--color-*: initial`).
+- Bausteine aus `shared/ui` verwenden (Button, Formularfeld, Card, Badge, Hinweisbanner,
+  Seitenkopf, Ladeanzeige/Leerzustand/Fehlerzustand, Toast; Übersicht unter
+  `/entwicklung/bausteine`, nur in Entwicklung). Neue Seiten: `Seitenkopf` + `Card`, kein
+  eigener Seitenrand und keine eigene Maximalbreite (Shell, ADR-0036).
+- WCAG 2.1 AA: Text ≥ 4,5:1, Fokus sichtbar (`ring` ohne Deckkraft), Klickflächen ≥ 40 px,
+  Bedeutung nie nur über Farbe; axe ohne serious/critical (ADR-0037), 360 px ohne
+  horizontales Scrollen. Neue Seiten in `barrierefreiheit.spec.ts`/`responsiv.spec.ts`
+  aufnehmen. Sichtbarer Text ist Teil des zugänglichen Namens (WCAG 2.5.3).
+- Genau ein `<header>` (Kopfzeile); Seitenkopf und Karten nie als `<header>`.
+- Screenshots zur Sichtprüfung: `COIN_SCREENSHOTS=1` mit `web/ui-tests/screenshots.spec.ts`
+  nach `docs/design/ablage/`.
 
 ## Sicherheit und Datenschutz
 - Ausgaben enthalten Personendaten (Empfänger) und gelten als schutzbedürftig. Zugriff nur mit

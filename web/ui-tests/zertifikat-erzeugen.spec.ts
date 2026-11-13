@@ -262,7 +262,7 @@ test('Sachbearbeiter lädt das Zertifikat der aktiven Zeile per Tastatur herunte
   await page.goto(`/coins/${COIN.id}`)
   await expect(historie(page)).toBeVisible()
 
-  const button = historie(page).getByRole('button', { name: `Zertifikat ${NUMMER} herunterladen`, exact: true })
+  const button = historie(page).getByRole('button', { name: `Zertifikat herunterladen: ${NUMMER}`, exact: true })
   await expect(button).toBeVisible()
   await tabBis(page, button)
   const download = page.waitForEvent('download')
@@ -279,7 +279,7 @@ test('Der Button der stornierten Zeile ist gesperrt und nennt den Grund', async 
   await page.goto(`/coins/${COIN.id}`)
 
   const gesperrt = historie(page).getByRole('button', {
-    name: `Zertifikat ${NUMMER} herunterladen (nicht möglich, Ausgabe storniert)`,
+    name: `Zertifikat herunterladen: ${NUMMER} (nicht möglich, Ausgabe storniert)`,
   })
 
   await expect(gesperrt).toBeDisabled()
@@ -296,7 +296,7 @@ test('Nach 409 ausgabe_storniert erscheint der Alarm, der Fokus bleibt und die H
   naechsterDownload = 'storniert'
   const vorher = ausgabenAnfragen.filter((p) => p.endsWith('/ausgaben')).length
 
-  const button = historie(page).getByRole('button', { name: `Zertifikat ${NUMMER} herunterladen`, exact: true })
+  const button = historie(page).getByRole('button', { name: `Zertifikat herunterladen: ${NUMMER}`, exact: true })
   await expect(button).toBeVisible()
   await button.focus()
   await page.keyboard.press('Enter')
@@ -309,7 +309,10 @@ test('Nach 409 ausgabe_storniert erscheint der Alarm, der Fokus bleibt und die H
     .getByRole('table', { name: 'Ausgabehistorie' })
     .getByRole('row')
     .nth(1)
-    .getByRole('button', { name: `Zertifikat ${NUMMER} herunterladen (nicht möglich, Ausgabe storniert)`, exact: true })
+    .getByRole('button', {
+      name: `Zertifikat herunterladen: ${NUMMER} (nicht möglich, Ausgabe storniert)`,
+      exact: true,
+    })
   await expect(gesperrt).toBeDisabled()
   await expect(gesperrt).toBeFocused()
 })
@@ -371,7 +374,7 @@ test('Link und Button der Historie haben einen sichtbaren Fokus', async ({ page 
   await tabBis(page, link)
   expect(await hatSichtbarenFokus(link)).toBe(true)
   await page.keyboard.press('Tab')
-  const button = historie(page).getByRole('button', { name: `Zertifikat ${NUMMER} herunterladen`, exact: true })
+  const button = historie(page).getByRole('button', { name: `Zertifikat herunterladen: ${NUMMER}`, exact: true })
   await expect(button).toBeFocused()
   expect(await hatSichtbarenFokus(button)).toBe(true)
 })

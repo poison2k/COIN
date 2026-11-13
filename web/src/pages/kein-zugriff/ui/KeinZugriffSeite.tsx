@@ -53,10 +53,14 @@ export function KeinZugriffSeite(props: KeinZugriffSeiteProps) {
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl p-6">
-      <Card className="max-w-2xl">
+    <div className="grid min-w-0 gap-6">
+      <Card className="max-w-reading">
         <CardContent className="grid justify-items-start gap-4">
-          <h1 className="text-2xl font-semibold">Kein Zugriff</h1>
+          {/*
+            Ohne Seitenkopf (Abweichung von design-fundament Abschnitt 8): App.anmeldung.test.tsx:425 verlangt den Button
+            „Abmelden“ im Elternelement des h1. Die Umstellung auf den Seitenkopf folgt im Folgelauf mit Testanpassung.
+          */}
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Kein Zugriff</h1>
           {props.grund === 'deaktiviert' && (
             <p>
               Ihr Benutzerkonto ist deaktiviert. Den Coin-Katalog können Sie weiterhin ansehen. Wenden Sie sich bei

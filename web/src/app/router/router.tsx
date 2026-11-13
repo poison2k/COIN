@@ -3,6 +3,7 @@ import {
   createRootRouteWithContext,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   Outlet,
   redirect,
   type RouterHistory,
@@ -157,28 +158,53 @@ const pruefungRoute = createRoute({
   component: PruefungRoute,
 })
 
-const routenBaum = wurzel.addChildren([
-  rueckrufRoute,
-  shellRoute.addChildren([
-    startRoute,
-    coinListeRoute,
-    coinNeuRoute,
-    coinDetailRoute,
-    coinAusgabeNeuRoute,
-    ausgabeDetailRoute,
-    coinBearbeitenRoute,
-    abgemeldetRoute,
-    keinZugriffRoute,
-    benutzerverwaltungRoute,
-    startseiteVerwaltungRoute,
-    pruefungRoute,
-  ]),
-])
+const SHELL_ROUTEN = [
+  startRoute,
+  coinListeRoute,
+  coinNeuRoute,
+  coinDetailRoute,
+  coinAusgabeNeuRoute,
+  ausgabeDetailRoute,
+  coinBearbeitenRoute,
+  abgemeldetRoute,
+  keinZugriffRoute,
+  benutzerverwaltungRoute,
+  startseiteVerwaltungRoute,
+  pruefungRoute,
+] as const
+
+/**
+ * Bausteinübersicht (design-fundament, ADR-0036 Punkt 8): ohne Anmeldung, ohne Sidebar-Eintrag, per dynamischem Import.
+ * Wird nur unter import.meta.env.DEV aufgerufen; im Produktions-Build entfallen Zweig und Chunk.
+ */
+function erstelleBausteineRoute() {
+  return createRoute({
+    getParentRoute: () => shellRoute,
+    path: ROUTEN.entwicklungBausteine,
+    component: lazyRouteComponent(() => import('@/pages/entwicklung-bausteine'), 'BausteineSeite'),
+  })
+}
+
+function erstelleRoutenBaum(entwicklung: boolean) {
+  const entwicklungsRouten = import.meta.env.DEV && entwicklung ? [erstelleBausteineRoute()] : []
+  return wurzel.addChildren([rueckrufRoute, shellRoute.addChildren([...SHELL_ROUTEN, ...entwicklungsRouten])])
+}
+
+export interface RouterOptionen {
+  /**
+   * Entwicklungsseiten (Bausteinübersicht) einbinden; Standard import.meta.env.DEV. Wirkt nur in der Entwicklung, damit
+   * Tests den Produktionsfall nachstellen können, ohne dass im Build ein Laufzeitzweig übrig bleibt.
+   */
+  entwicklung?: boolean
+}
 
 /** Erzeugt den Router; Tests übergeben eine Memory-History. Den Anmeldezustand setzt App über den Kontext. */
-export function erstelleRouter(history: RouterHistory = createBrowserHistory()) {
+export function erstelleRouter(
+  history: RouterHistory = createBrowserHistory(),
+  { entwicklung = import.meta.env.DEV }: RouterOptionen = {},
+) {
   return createRouter({
-    routeTree: routenBaum,
+    routeTree: erstelleRoutenBaum(entwicklung),
     history,
     context: OHNE_ANMELDUNG,
     defaultNotFoundComponent: NichtGefunden,

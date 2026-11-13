@@ -67,7 +67,7 @@ export function LogoFeld({
     <fieldset className="grid gap-3 rounded-lg border p-4">
       <legend className="px-1 font-medium">{LOGO_NAMEN[platz]}</legend>
       {url ? (
-        <span className="inline-flex w-fit rounded-lg bg-white p-2">
+        <span className="inline-flex w-fit rounded-lg bg-logo-surface p-2">
           <img
             src={url}
             alt={alternativtext || 'Vorschau des ausgewählten Logos'}

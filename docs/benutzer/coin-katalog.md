@@ -11,28 +11,39 @@ Sachbearbeiter. Wie Sie sich anmelden, steht in der [Anleitung zur Anmeldung](an
 
 ## Navigation
 
-Links befindet sich die Seitenleiste:
+Links befindet sich die Seitenleiste mit dem Titel „C.O.I.N.“. Die Einträge sind in Gruppen geordnet.
+Sie sehen nur die Gruppen, in denen Sie mindestens einen Eintrag nutzen dürfen:
 
-- **Startseite**: Kopfbereich bzw. Begrüßung, mit Rolle zusätzlich Infotext, Kennzahlen und Coin-Listen,
-  dazu der Button **Zum Katalog** (siehe [Startseite](startseite.md)).
-- **Katalog**: Liste aller Coins mit Suche. Der Eintrag ist auch auf der Detailseite eines Coins, auf
-  **Coin hinzufügen**, **Coin bearbeiten** und den Seiten zu Ausgaben (**Ausgabe erfassen**,
-  **Ausgabe**) hervorgehoben.
-- **Zertifikat prüfen**: für alle angemeldeten Benutzer mit Rolle (siehe [Zertifikat prüfen](zertifikat-pruefen.md)).
-- **Benutzerverwaltung**: nur für Administratoren (siehe [Benutzerverwaltung](benutzerverwaltung.md)).
-- **Startseite verwalten**: nur für Administratoren (siehe [Startseite](startseite.md#startseite-verwalten)).
+- Gruppe **Übersicht** – **Startseite**: Kopfbereich bzw. Begrüßung, mit Rolle zusätzlich Infotext,
+  Kennzahlen und Coin-Listen, dazu der Button **Zum Katalog** (siehe [Startseite](startseite.md)).
+- Gruppe **Coins** – **Katalog**: Liste aller Coins mit Suche. Der Eintrag ist auch auf der Detailseite
+  eines Coins, auf **Coin hinzufügen**, **Coin bearbeiten** und den Seiten zu Ausgaben
+  (**Ausgabe erfassen**, **Ausgabe**) hervorgehoben.
+- Gruppe **Prüfung** – **Zertifikat prüfen**: für alle angemeldeten Benutzer mit Rolle (siehe
+  [Zertifikat prüfen](zertifikat-pruefen.md)).
+- Gruppe **Verwaltung** – **Benutzerverwaltung** und **Startseite verwalten**: nur für Administratoren
+  (siehe [Benutzerverwaltung](benutzerverwaltung.md) und [Startseite](startseite.md#startseite-verwalten)).
 
-Rechts in der Kopfzeile stehen **Anmelden** bzw. Ihr Name und **Abmelden**.
+Ohne Anmeldung sehen Sie also nur **Übersicht** und **Coins**.
 
-Der Eintrag der aktuell geöffneten Seite ist hervorgehoben.
+Der Eintrag der aktuell geöffneten Seite ist hervorgehoben: farbig hinterlegt, mit einem Balken am
+linken Rand und in fetter Schrift.
+
+Rechts in der Kopfzeile stehen **Anmelden** bzw. Ihr Name mit Ihrer Rolle (z. B. „Administrator“)
+und **Abmelden**, ganz rechts der Button **Farbschema wählen**. Auf schmalen Bildschirmen (unter
+640 Pixel Breite) entfallen Name und Rolle, die Buttons bleiben.
 
 Mit dem Button ganz links in der Kopfzeile (**Seitenleiste ein-/ausblenden**) blenden Sie die
 Seitenleiste aus und wieder ein. Dasselbe geht mit **Strg+B** (am Mac **Cmd+B**), solange der
 Cursor nicht in einem Eingabefeld steht. Dort behält die Tastenkombination ihre übliche Wirkung.
 
-Auf schmalen Bildschirmen, z. B. auf dem Smartphone, ist die Seitenleiste zunächst verborgen.
-Der Button öffnet sie als Überlagerung über der Seite. Nach der Auswahl eines Eintrags schließt
-sie sich wieder.
+Auf schmalen Bildschirmen (unter 768 Pixel Breite, z. B. auf dem Smartphone) ist die Seitenleiste
+zunächst verborgen. Der Button öffnet sie als Menü über der Seite. Nach der Auswahl eines Eintrags
+schließt es sich wieder, mit **Esc** schließen Sie es ohne Auswahl.
+
+**Bedienung mit der Tastatur:** Drücken Sie nach dem Laden einer Seite einmal **Tab**. Dann erscheint
+oben links der Link **Zum Inhalt springen**. Mit **Enter** springen Sie direkt zum Inhalt der Seite,
+ohne vorher durch Seitenleiste und Kopfzeile zu gehen.
 
 Ruft man eine Adresse auf, die es nicht gibt, erscheint „Seite nicht gefunden.“ mit einem Link
 **Zur Startseite**.
@@ -109,7 +120,8 @@ Die Auflage ändern Sie auch direkt auf der Detailseite (**Auflage ändern**, si
 [Ausgaben](ausgaben.md#auflage-ändern)). Löschen lässt sich ein Coin nicht. Gibt es den Coin nicht (z. B. bei
 einer falsch abgetippten Adresse), erscheint „Coin nicht gefunden“ mit dem Link **Zum Katalog**.
 Kann der Coin nicht geladen werden, erscheint „Der Coin konnte nicht geladen werden. Bitte später
-erneut versuchen.“
+erneut versuchen.“ mit dem Button **Erneut versuchen**, der die Seite neu lädt. Dasselbe gilt auf
+**Coin bearbeiten** und **Ausgabe erfassen**.
 
 ## Coin hinzufügen
 

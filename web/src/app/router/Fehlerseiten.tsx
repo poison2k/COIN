@@ -1,28 +1,34 @@
 import { Link } from '@tanstack/react-router'
 import { ROUTEN } from '@/shared/config'
 import { buttonVariants } from '@/shared/ui/button'
+import { Fehlerzustand, Leerzustand } from '@/shared/ui/zustaende'
 
-// Deutsche Not-Found- und Fehlerkomponente des Routers (AK-17).
+// Deutsche Not-Found- und Fehlerkomponente des Routers (AK-17), als Leer- bzw. Fehlerzustand (design-fundament, AK-35).
 
 export function NichtGefunden() {
   return (
-    <div className="mx-auto grid w-full max-w-5xl justify-items-start gap-4 p-6">
-      <p>Seite nicht gefunden.</p>
-      <Link to={ROUTEN.start} className={buttonVariants({ variant: 'outline' })}>
-        Zur Startseite
-      </Link>
-    </div>
+    <Leerzustand
+      titel="Seite nicht gefunden."
+      titelEbene={1}
+      aktion={
+        <Link to={ROUTEN.start} className={buttonVariants({ variant: 'outline' })}>
+          Zur Startseite
+        </Link>
+      }
+    />
   )
 }
 
 /** Zeigt bewusst keine Fehlermeldung oder technischen Details an. */
 export function Fehler() {
   return (
-    <div role="alert" className="mx-auto grid w-full max-w-5xl justify-items-start gap-4 p-6">
-      <p>Es ist ein unerwarteter Fehler aufgetreten. Bitte die Seite neu laden.</p>
-      <Link to={ROUTEN.start} className={buttonVariants({ variant: 'outline' })}>
-        Zur Startseite
-      </Link>
-    </div>
+    <Fehlerzustand
+      meldung="Es ist ein unerwarteter Fehler aufgetreten. Bitte die Seite neu laden."
+      aktion={
+        <Link to={ROUTEN.start} className={buttonVariants({ variant: 'outline' })}>
+          Zur Startseite
+        </Link>
+      }
+    />
   )
 }

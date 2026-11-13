@@ -7,8 +7,10 @@ import {
   zuAnsicht,
   type Formular,
 } from '@/features/startseite-konfigurieren'
-import { Button } from '@/shared/ui/button'
+import { Card, CardContent } from '@/shared/ui/card'
+import { Seitenkopf } from '@/shared/ui/seitenkopf'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
+import { Fehlerzustand, Ladeanzeige } from '@/shared/ui/zustaende'
 import { StartseiteBloecke } from '@/widgets/startseite'
 
 export interface StartseiteVerwaltungSeiteProps {
@@ -89,29 +91,23 @@ export function StartseiteVerwaltungSeite({ onGeaendert }: StartseiteVerwaltungS
   }, [zustand.art])
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-4 p-6">
-      <div className="grid gap-1">
-        <h1 className="text-2xl font-semibold">Startseite verwalten</h1>
-        {zustand.art === 'ok' && !zustand.konfiguration.standard && zustand.konfiguration.geaendertAm ? (
-          <p className="text-sm text-muted-foreground">
-            {`Zuletzt gespeichert am ${formatiereZeitpunkt(zustand.konfiguration.geaendertAm)} von ${
-              zustand.konfiguration.geaendertVon ?? 'unbekannt'
-            }`}
-          </p>
-        ) : null}
-      </div>
-      {zustand.art === 'laedt' ? (
-        <p role="status" className="text-muted-foreground">
-          Konfiguration wird geladen …
-        </p>
-      ) : null}
+    <div className="grid min-w-0 gap-6">
+      <Seitenkopf
+        titel="Startseite verwalten"
+        beschreibung={
+          zustand.art === 'ok' && !zustand.konfiguration.standard && zustand.konfiguration.geaendertAm
+            ? `Zuletzt gespeichert am ${formatiereZeitpunkt(zustand.konfiguration.geaendertAm)} von ${
+                zustand.konfiguration.geaendertVon ?? 'unbekannt'
+              }`
+            : undefined
+        }
+      />
+      {zustand.art === 'laedt' ? <Ladeanzeige text="Konfiguration wird geladen …" form="karte" /> : null}
       {zustand.art === 'fehler' ? (
-        <div role="alert" className="flex flex-wrap items-center gap-3 text-destructive">
-          <p>Die Konfiguration der Startseite konnte nicht geladen werden. Bitte später erneut versuchen.</p>
-          <Button type="button" variant="outline" onClick={neuLaden}>
-            Erneut versuchen
-          </Button>
-        </div>
+        <Fehlerzustand
+          meldung="Die Konfiguration der Startseite konnte nicht geladen werden. Bitte später erneut versuchen."
+          onErneutVersuchen={neuLaden}
+        />
       ) : null}
       {zustand.art === 'ok' && neuLadenFehler ? (
         <p role="alert" className="text-destructive">
@@ -177,22 +173,30 @@ function Bearbeitung({
         <TabsTrigger value="bearbeiten">Bearbeiten</TabsTrigger>
         <TabsTrigger value="vorschau">Vorschau</TabsTrigger>
       </TabsList>
-      <TabsContent value="bearbeiten" keepMounted className="min-w-0 pt-2">
-        <StartseiteFormular
-          konfiguration={konfiguration}
-          formular={formular}
-          logoUrls={logoUrls}
-          onAendern={onFormular}
-          onGespeichert={onGespeichert}
-          onNeuLaden={onNeuLaden}
-          gesperrt={gesperrt}
-          neuGeladen={neuGeladen}
-        />
+      <TabsContent value="bearbeiten" keepMounted className="min-w-0 pt-4">
+        <Card>
+          <CardContent>
+            <StartseiteFormular
+              konfiguration={konfiguration}
+              formular={formular}
+              logoUrls={logoUrls}
+              onAendern={onFormular}
+              onGespeichert={onGespeichert}
+              onNeuLaden={onNeuLaden}
+              gesperrt={gesperrt}
+              neuGeladen={neuGeladen}
+            />
+          </CardContent>
+        </Card>
       </TabsContent>
-      <TabsContent value="vorschau" className="min-w-0 pt-2">
-        <section aria-label="Vorschau der Startseite" className="rounded-xl border p-4">
-          <StartseiteBloecke bloecke={zuAnsicht(formular, konfiguration.daten, logoUrls)} ebene={2} />
-        </section>
+      <TabsContent value="vorschau" className="min-w-0 pt-4">
+        <Card>
+          <CardContent>
+            <section aria-label="Vorschau der Startseite" className="min-w-0">
+              <StartseiteBloecke bloecke={zuAnsicht(formular, konfiguration.daten, logoUrls)} ebene={2} />
+            </section>
+          </CardContent>
+        </Card>
       </TabsContent>
     </Tabs>
   )

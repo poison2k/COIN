@@ -22,7 +22,7 @@ export function NeuesteCoinsBlock({ eintraege, ebene }: NeuesteCoinsBlockProps) 
               {coin.bildUrl ? (
                 <img src={coin.bildUrl} alt="" width={48} height={48} className="size-12 rounded-md object-cover" />
               ) : (
-                <span aria-hidden="true" className="size-12 shrink-0 rounded-md bg-muted" />
+                <span aria-hidden="true" className="size-12 shrink-0 rounded-md border bg-muted" />
               )}
               <span className="grid min-w-0">
                 <Link

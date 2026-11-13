@@ -19,6 +19,7 @@ Administratoren in der Benutzerverwaltung.
 5. Detailansicht eines Coins mit Ausgabehistorie (umgesetzt, `docs/features/katalog-seiten.md`, `docs/features/coin-ausgaben.md`: Stammdaten, Motivbild, Abschnitt „Exemplare“ mit `coins.read`, Abschnitt „Ausgabehistorie“ mit `issues.read`)
 6. Benutzer- und Rollenverwaltung mit Audit-Log (umgesetzt, `docs/features/rollen-benutzerverwaltung.md`): Benutzer suchen, Rolle zuweisen oder entziehen, Benutzer deaktivieren und reaktivieren; Schutz des letzten aktiven Administrators; jede Rollen- und Statusänderung im Audit-Log
 7. Startseite (umgesetzt, `docs/features/startseite.md`, ADR-0030 bis ADR-0032): `/` zeigt bis zu fünf Blöcke – Kopfbereich (Titel, Untertitel, Logo des Bereitstellers und der Software), Infotext (eingeschränktes Markdown), Kennzahlen über alle Coins, neueste Coins, meistausgegebene Coins. Administratoren pflegen Ein/Aus, Reihenfolge, Texte, Anzahlen und Logos auf `/verwaltung/startseite` mit Vorschau (`startpage.manage`). Ohne Konfiguration gelten Standardblöcke mit Standardtexten. Den Kopfbereich sehen alle Besucher ohne Anmeldung, die übrigen Blöcke nur mit `coins.read`. Nicht enthalten: freier Layout-Editor, mehrere Sprachen, Startseiten je Rolle, zeitgesteuerte Veröffentlichung, Entwurf/Freigabe, Diagramme.
+8. Einheitliches Erscheinungsbild (Design-Fundament, umgesetzt, `docs/features/design-fundament.md`, ADR-0035 bis ADR-0038): sachlich, ruhig, behördentauglich. Gestaltungsregeln als Tailwind-Theme-Tokens (Palette mit Primär-, Neutral- und Statusfarben, Schriftskala, 4/8-px-Raster, Radien, Schatten; hell und dunkel über den bestehenden Theme-Provider), Bausteine in `shared/ui` (Button, Eingabefeld, Textbereich, Auswahl, Checkbox, Formularfeld, Karte, Tabelle, Badge, Dialog, Hinweisbanner, Leerzustand, Ladeanzeige, Toast, Seitenkopf mit Brotkrumen), App-Layout mit gruppierter, einklappbarer Seitenleiste, Kopfzeile mit Name, Rolle, Theme und Abmelden, Inhaltsbereich mit fester Lesebreite, Mobilmenü unter 768 px; einheitliche Zustände für Laden, Leer und Fehler (zunächst auf Seitenebene); Bausteinübersicht `/entwicklung/bausteine` nur in der Entwicklungsumgebung. Funktion und Backend bleiben unverändert. Offen für Folgeläufe: Brotkrumen auf bestehenden Seiten, Zustände in Widgets, Umbau von Formularen, Tabellen und Dashboards.
 
 ## Zertifikate
 Ein Zertifikat ist der Echtheitsnachweis für eine Ausgabe. Es entsteht in dieser Reihenfolge; die
@@ -47,6 +48,9 @@ Coin (mit Kennung), Exemplar (Seriennummer), Ausgabe (Person, Datum, Gelegenheit
 ## Nichtfunktionale Anforderungen
 - Datenschutz: Zugriff auf Personendaten nur nach Rolle, Änderungen nachvollziehbar (Audit-Log). Umgesetzt für Rollen- und Statusänderungen von Benutzern (ADR-0017) sowie für das Erfassen und Stornieren von Ausgaben (ADR-0020, ohne Empfängerdaten) und für Upload und Zurücksetzen von Zertifikatsvorlagen (ADR-0023) und für den Download von Zertifikaten (ADR-0029) und für Änderungen an der Startseite (`startseite_audit`, ADR-0030, ohne Textinhalte, kein Lese-Endpunkt) sowie für das Setzen und Korrigieren von Hologrammnummern (`hologramm_audit`) und jede Hologrammprüfung (`pruefung_audit`, ADR-0033, ADR-0034, ohne Empfängerdaten, kein Lese-Endpunkt). Stammdatenänderungen an Coins werden nicht protokolliert (zertifikatsvorlagen F3). Zertifikate enthalten Personendaten; sie landen nicht in Logs und werden auf dem Server nicht zwischengespeichert.
 - Zertifikate fälschungssicher (Signatur), Prüfung ohne Preisgabe von Personendaten
+- Barrierefreiheit (design-fundament, ADR-0035 bis ADR-0037): WCAG 2.1 AA / BITV – Textkontrast ≥ 4,5:1 (hell und dunkel, per Test aus den Tokens berechnet), sichtbarer Tastaturfokus, alle Bedienelemente per Tastatur erreichbar, Bedeutung nie nur über Farbe, deutsche Beschriftungen für Screenreader, Klickflächen ≥ 40 px; automatische Prüfung mit axe (keine Verstöße der Stufen „serious“/„critical“). Ein manueller BITV-Test ist damit nicht ersetzt.
+- Responsivität (design-fundament): Darstellung für 360, 768 und 1280 px Breite ohne horizontales Scrollen; unter 768 px Seitenleiste als ausklappbares Menü.
+- Gestaltung (design-fundament, ADR-0035): Farben und Abstände nur über die Theme-Tokens, keine hartkodierten Werte in Komponenten (per Code-Test geprüft).
 - Betrieb: noch offen [?] (lokal, Intranet, Cloud)
 
 ## Offene Fragen
@@ -122,6 +126,21 @@ Coin (mit Kennung), Exemplar (Seriennummer), Ausgabe (Person, Datum, Gelegenheit
   - H9: Jede Prüfung dauert mindestens 250 ms.
   - H10: Kein Lese-Endpunkt für `hologramm_audit` und `pruefung_audit`; Aufbewahrung unbegrenzt bis zum Löschkonzept.
   - H11: Die Standardvorlage hat einen eigenen Absatz „Hologramm Nr. …“ nach der Zertifikatsnummer; ohne Nummer bleibt die Beschriftung stehen.
+- Entschieden (2026-11-13, design-fundament D1–D13, ADR-0035 bis ADR-0038; Funktion 8; Details in `docs/features/design-fundament.md`, Abschnitt 13):
+  - D1: Bestehende Seiten bekommen in diesem Lauf keine Brotkrumen; der Baustein ist da, eingesetzt wird er in einem Folgelauf.
+  - D2: Einheitliche Zustände zunächst nur auf Seitenebene, einschließlich „Erneut versuchen“; Zustände in Widgets folgen mit deren Umbau.
+  - D3: Primärfarbe Marineblau; ein späteres Corporate Design wird nur über die Tokens übernommen.
+  - D4: Seitenleiste mit den Gruppen „Übersicht“, „Coins“, „Prüfung“ und „Verwaltung“, „Ausgaben“ erst mit einer Übersichtsseite.
+  - D5: Einklappen durch vollständiges Ausblenden (`offcanvas`), keine Icon-Leiste.
+  - D6: Toast mit Base UI, kein `sonner`.
+  - D7: Screenshots in `docs/design/ablage/` werden eingecheckt und nur bei Bedarf neu erzeugt.
+  - D8: Den Abschnitt „Frontend-Standard“ in `CLAUDE.md` ergänzt der Mensch bzw. die Hauptsitzung.
+  - D9: Klickflächen ≥ 40 px auch in bestehenden Formularen; Textlinks in Tabellen bis zum Tabellen-Umbau ausgenommen.
+  - D10: Die Bausteinseite ist nur in der Entwicklungsumgebung erreichbar, per URL, ohne Anmeldung und ohne Sidebar-Eintrag.
+  - D11: Tests, die nur wegen des Tab-Stopps des Skip-Links rot werden, dürfen begründet um diesen Tab-Stopp ergänzt werden.
+  - D12: Schrift Geist Variable.
+  - D13: Ungenutzte Pakete (`framer-motion`, `react-day-picker`) werden in einem eigenen `chore/*`-Branch entfernt.
+  - Zusätzlich (2026-11-13, WCAG 2.5.3): Der Zertifikat-Button heißt für Screenreader „Zertifikat herunterladen: <Nummer>“ (bei Storno mit Zusatz „(nicht möglich, Ausgabe storniert)“); bestehende Tests wurden dafür mit Freigabe angepasst.
 - [?] Welche Schutzstufe haben die Daten, und wo darf die Anwendung betrieben werden?
 - [?] Sprache der Oberfläche (nur Deutsch oder auch Englisch)?
 

@@ -1,5 +1,5 @@
 import { RotateCcwIcon } from 'lucide-react'
-import type { Benutzer } from '@/entities/benutzer'
+import { ROLLEN_ANZEIGE, type Benutzer } from '@/entities/benutzer'
 import { AbmeldenButton, AnmeldenButton } from '@/features/anmeldung'
 import { Button } from '@/shared/ui/button'
 
@@ -13,6 +13,25 @@ export type BenutzerZustand =
   | { art: 'deaktiviert' }
   | { art: 'fehler'; erneutVersuchen: () => void }
 
+/**
+ * Name und Rolle des angemeldeten Benutzers (design-fundament, Abschnitt 6.3, AK-31). Ab 640 px sichtbar, darunter nur
+ * für Screenreader. Die Rolle ist reine Anzeige (ROLLEN_ANZEIGE), nie Grundlage für Sichtbarkeit.
+ */
+function NameUndRolle({ benutzer }: { benutzer: Benutzer }) {
+  return (
+    <span className="sr-only min-w-0 sm:not-sr-only sm:flex sm:max-w-48 sm:flex-col sm:items-end sm:text-right">
+      <span className="truncate text-sm font-medium">
+        <span className="sr-only">Angemeldet als </span>
+        {benutzer.name}
+      </span>
+      <span className="truncate text-xs text-muted-foreground">
+        <span className="sr-only">, Rolle: </span>
+        {ROLLEN_ANZEIGE[benutzer.rolle]}
+      </span>
+    </span>
+  )
+}
+
 /** Anmeldebereich der Kopfzeile. Während der Prüfung bleibt er leer, die Seite wird trotzdem angezeigt. */
 export function AnmeldeBereich({ zustand }: { zustand: BenutzerZustand }) {
   switch (zustand.art) {
@@ -24,10 +43,7 @@ export function AnmeldeBereich({ zustand }: { zustand: BenutzerZustand }) {
     case 'angemeldet':
       return (
         <div className="flex min-w-0 items-center gap-2">
-          <span className="sr-only text-sm sm:not-sr-only sm:max-w-48 sm:truncate">
-            <span className="sr-only">Angemeldet als </span>
-            {zustand.benutzer.name}
-          </span>
+          <NameUndRolle benutzer={zustand.benutzer} />
           <AbmeldenButton variant="ghost" />
         </div>
       )

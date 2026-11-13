@@ -7,6 +7,9 @@ import type { ApiErgebnis } from '@/shared/api'
 import { ROUTEN } from '@/shared/config'
 import { istGuid } from '@/shared/lib/guid'
 import { buttonVariants } from '@/shared/ui/button'
+import { Card, CardContent } from '@/shared/ui/card'
+import { Seitenkopf } from '@/shared/ui/seitenkopf'
+import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
 import { ZertifikatsvorlageVerwalten } from '@/widgets/zertifikatsvorlage'
 
 export interface CoinBearbeitenSeiteProps {
@@ -25,6 +28,9 @@ const NICHT_GEFUNDEN: ApiErgebnis<Coin> = { art: 'nichtGefunden' }
 export function CoinBearbeitenSeite({ coinId, onGespeichert }: CoinBearbeitenSeiteProps) {
   const gueltig = istGuid(coinId)
   const [geladen, setGeladen] = useState<{ id: string; ergebnis: ApiErgebnis<Coin> } | null>(null)
+  // „Erneut versuchen“ lädt mit neuem Versuch genau einmal neu; Schlüssel = Coin-Id und Versuch.
+  const [versuch, setVersuch] = useState(0)
+  const schluessel = `${coinId}#${versuch}`
   // Nach dem Bild-Upload: Coin aus der Antwort übernehmen (gilt nur für dieselbe Id).
   const [aktualisiert, setAktualisiert] = useState<Coin | null>(null)
   // Laufende Anfrage je Id wiederverwenden (z. B. im StrictMode), damit es genau einen Request gibt.
@@ -32,90 +38,97 @@ export function CoinBearbeitenSeite({ coinId, onGespeichert }: CoinBearbeitenSei
 
   useEffect(() => {
     if (!gueltig) return
-    if (anfrage.current?.id !== coinId) anfrage.current = { id: coinId, ergebnis: ladeCoin(coinId) }
+    if (anfrage.current?.id !== schluessel) anfrage.current = { id: schluessel, ergebnis: ladeCoin(coinId) }
     let aktiv = true
     void anfrage.current.ergebnis.then((ergebnis) => {
-      if (aktiv) setGeladen({ id: coinId, ergebnis })
+      if (aktiv) setGeladen({ id: schluessel, ergebnis })
     })
     return () => {
       aktiv = false
     }
-  }, [coinId, gueltig])
+  }, [coinId, gueltig, schluessel])
 
-  const ergebnis = !gueltig ? NICHT_GEFUNDEN : geladen?.id === coinId ? geladen.ergebnis : null
+  const ergebnis = !gueltig ? NICHT_GEFUNDEN : geladen?.id === schluessel ? geladen.ergebnis : null
   const geladenerCoin = ergebnis?.art === 'ok' ? ergebnis.daten : null
   const coin = geladenerCoin && aktualisiert?.id === geladenerCoin.id ? aktualisiert : geladenerCoin
 
   if (ergebnis === null) {
-    return (
-      <div className="mx-auto grid w-full max-w-5xl p-6">
-        <p role="status">Coin wird geladen …</p>
-      </div>
-    )
+    return <Ladeanzeige text="Coin wird geladen …" form="karte" />
   }
 
   if (ergebnis.art === 'nichtGefunden') {
     return (
-      <div className="mx-auto grid w-full max-w-5xl justify-items-start gap-4 p-6">
-        <h1 className="text-2xl font-semibold">Coin nicht gefunden</h1>
-        <p>Diesen Coin gibt es nicht im Katalog.</p>
-        <Link to={ROUTEN.coinListe} className={buttonVariants()}>
-          Zum Katalog
-        </Link>
-      </div>
+      <Leerzustand
+        titel="Coin nicht gefunden"
+        titelEbene={1}
+        beschreibung="Diesen Coin gibt es nicht im Katalog."
+        aktion={
+          <Link to={ROUTEN.coinListe} className={buttonVariants()}>
+            Zum Katalog
+          </Link>
+        }
+      />
     )
   }
 
   if (coin === null) {
     return (
-      <div className="mx-auto grid w-full max-w-5xl p-6">
-        <p role="alert" className="text-destructive">
-          Der Coin konnte nicht geladen werden. Bitte später erneut versuchen.
-        </p>
-      </div>
+      <Fehlerzustand
+        meldung="Der Coin konnte nicht geladen werden. Bitte später erneut versuchen."
+        onErneutVersuchen={() => setVersuch((n) => n + 1)}
+      />
     )
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-8 p-6">
-      <div className="grid gap-1">
-        <h1 className="text-2xl font-semibold">Coin bearbeiten</h1>
-        <p className="break-words text-muted-foreground">{coin.name}</p>
-      </div>
+    <div className="grid min-w-0 gap-6">
+      <Seitenkopf titel="Coin bearbeiten" beschreibung={coin.name} />
 
-      <section aria-labelledby="coin-bearbeiten-stammdaten" className="grid gap-4">
-        <h2 id="coin-bearbeiten-stammdaten" className="text-lg font-semibold">
-          Stammdaten
-        </h2>
-        <CoinBearbeitenFormular key={geladenerCoin?.id} coin={coin} onGespeichert={onGespeichert} />
-        <Link
-          to={ROUTEN.coinDetail}
-          params={{ coinId: coin.id }}
-          className={buttonVariants({ variant: 'outline', className: 'justify-self-start' })}
-        >
-          Abbrechen
-        </Link>
-      </section>
+      <Card>
+        <CardContent>
+          <section aria-labelledby="coin-bearbeiten-stammdaten" className="grid gap-4">
+            <h2 id="coin-bearbeiten-stammdaten" className="text-xl font-semibold">
+              Stammdaten
+            </h2>
+            <CoinBearbeitenFormular key={geladenerCoin?.id} coin={coin} onGespeichert={onGespeichert} />
+            <Link
+              to={ROUTEN.coinDetail}
+              params={{ coinId: coin.id }}
+              className={buttonVariants({ variant: 'outline', className: 'justify-self-start' })}
+            >
+              Abbrechen
+            </Link>
+          </section>
+        </CardContent>
+      </Card>
 
-      <section aria-labelledby="coin-bearbeiten-motivbild" className="grid gap-4">
-        <h2 id="coin-bearbeiten-motivbild" className="text-lg font-semibold">
-          Motivbild
-        </h2>
-        {coin.bildUrl ? (
-          <img
-            className="block h-auto max-h-80 w-auto max-w-80 rounded-lg border object-contain"
-            src={coin.bildUrl}
-            alt={`Motiv: ${coin.name}`}
-            width={320}
-            height={320}
-          />
-        ) : (
-          <p className="text-muted-foreground">Kein Motivbild vorhanden.</p>
-        )}
-        <MotivbildHochladen coin={coin} onGespeichert={setAktualisiert} />
-      </section>
+      <Card>
+        <CardContent>
+          <section aria-labelledby="coin-bearbeiten-motivbild" className="grid gap-4">
+            <h2 id="coin-bearbeiten-motivbild" className="text-xl font-semibold">
+              Motivbild
+            </h2>
+            {coin.bildUrl ? (
+              <img
+                className="block h-auto max-h-80 w-auto max-w-80 rounded-lg border object-contain"
+                src={coin.bildUrl}
+                alt={`Motiv: ${coin.name}`}
+                width={320}
+                height={320}
+              />
+            ) : (
+              <p className="text-muted-foreground">Kein Motivbild vorhanden.</p>
+            )}
+            <MotivbildHochladen coin={coin} onGespeichert={setAktualisiert} />
+          </section>
+        </CardContent>
+      </Card>
 
-      <ZertifikatsvorlageVerwalten coinId={coin.id} />
+      <Card>
+        <CardContent>
+          <ZertifikatsvorlageVerwalten coinId={coin.id} />
+        </CardContent>
+      </Card>
     </div>
   )
 }

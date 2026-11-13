@@ -9,6 +9,9 @@ import { ROUTEN } from '@/shared/config'
 import { formatiereZahl } from '@/shared/lib/format'
 import { istGuid } from '@/shared/lib/guid'
 import { buttonVariants } from '@/shared/ui/button'
+import { Card, CardContent } from '@/shared/ui/card'
+import { Seitenkopf } from '@/shared/ui/seitenkopf'
+import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
 
 const TEXT_AUFLAGE_UNBEKANNT =
   'Für diesen Coin ist keine Auflage erfasst. Ausgaben sind erst nach dem Festlegen der Auflage möglich.'
@@ -34,16 +37,19 @@ interface Geladen {
 export function AusgabeErfassenSeite({ coinId, onErfasst }: AusgabeErfassenSeiteProps) {
   const gueltig = istGuid(coinId)
   const [geladen, setGeladen] = useState<Geladen | null>(null)
+  // „Erneut versuchen“ lädt mit neuem Versuch genau einmal neu; Schlüssel = Coin-Id und Versuch.
+  const [versuch, setVersuch] = useState(0)
+  const schluessel = `${coinId}#${versuch}`
   // Laufende Anfragen je Id wiederverwenden (z. B. im StrictMode), damit es je genau einen Request gibt.
   const anfrage = useRef<{ id: string; ergebnis: Promise<Geladen> } | null>(null)
 
   useEffect(() => {
     if (!gueltig) return
-    if (anfrage.current?.id !== coinId) {
+    if (anfrage.current?.id !== schluessel) {
       anfrage.current = {
-        id: coinId,
+        id: schluessel,
         ergebnis: Promise.all([ladeCoin(coinId), ladeExemplare(coinId, { seite: 1 })]).then(([coin, exemplare]) => ({
-          id: coinId,
+          id: schluessel,
           coin,
           exemplare,
         })),
@@ -56,39 +62,39 @@ export function AusgabeErfassenSeite({ coinId, onErfasst }: AusgabeErfassenSeite
     return () => {
       aktiv = false
     }
-  }, [coinId, gueltig])
+  }, [coinId, gueltig, schluessel])
 
-  const aktuell = geladen?.id === coinId ? geladen : null
+  const aktuell = geladen?.id === schluessel ? geladen : null
   const nichtGefunden = !gueltig || aktuell?.coin.art === 'nichtGefunden' || aktuell?.exemplare.art === 'nichtGefunden'
   const zurueck = { to: ROUTEN.coinDetail, params: { coinId } } as const
 
   if (nichtGefunden) {
     return (
-      <div className="mx-auto grid w-full max-w-5xl justify-items-start gap-4 p-6">
-        <h1 className="text-2xl font-semibold">Coin nicht gefunden</h1>
-        <p>Diesen Coin gibt es nicht im Katalog.</p>
-        <Link to={ROUTEN.coinListe} className={buttonVariants()}>
-          Zum Katalog
-        </Link>
-      </div>
+      <Leerzustand
+        titel="Coin nicht gefunden"
+        titelEbene={1}
+        beschreibung="Diesen Coin gibt es nicht im Katalog."
+        aktion={
+          <Link to={ROUTEN.coinListe} className={buttonVariants()}>
+            Zum Katalog
+          </Link>
+        }
+      />
     )
   }
 
   if (aktuell === null) {
-    return (
-      <div className="mx-auto grid w-full max-w-5xl p-6">
-        <p role="status">Coin wird geladen …</p>
-      </div>
-    )
+    return <Ladeanzeige text="Coin wird geladen …" form="karte" />
   }
 
   if (aktuell.coin.art !== 'ok' || aktuell.exemplare.art !== 'ok') {
     return (
-      <div className="mx-auto grid w-full max-w-5xl gap-4 p-6">
-        <h1 className="text-2xl font-semibold">Ausgabe erfassen</h1>
-        <p role="alert" className="text-destructive">
-          Der Coin konnte nicht geladen werden. Bitte später erneut versuchen.
-        </p>
+      <div className="grid min-w-0 gap-6">
+        <Seitenkopf titel="Ausgabe erfassen" />
+        <Fehlerzustand
+          meldung="Der Coin konnte nicht geladen werden. Bitte später erneut versuchen."
+          onErneutVersuchen={() => setVersuch((n) => n + 1)}
+        />
         <Link {...zurueck} className={buttonVariants({ variant: 'outline', className: 'justify-self-start' })}>
           Zurück zum Coin
         </Link>
@@ -102,9 +108,9 @@ export function AusgabeErfassenSeite({ coinId, onErfasst }: AusgabeErfassenSeite
     kennzahlen.auflage === null ? TEXT_AUFLAGE_UNBEKANNT : kennzahlen.verfuegbar === 0 ? TEXT_KEIN_FREI : null
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-6 p-6">
+    <div className="grid min-w-0 gap-6">
       <div className="grid gap-1">
-        <h1 className="text-2xl font-semibold">Ausgabe erfassen</h1>
+        <Seitenkopf titel="Ausgabe erfassen" />
         <p className="text-lg break-words">{coin.name}</p>
         {kennzahlen.auflage !== null && (
           <p className="text-muted-foreground">
@@ -113,21 +119,25 @@ export function AusgabeErfassenSeite({ coinId, onErfasst }: AusgabeErfassenSeite
         )}
       </div>
 
-      {grund ? (
-        <>
-          <p>{grund}</p>
-          <Link {...zurueck} className={buttonVariants({ variant: 'outline', className: 'justify-self-start' })}>
-            Zurück zum Coin
-          </Link>
-        </>
-      ) : (
-        <>
-          <AusgabeFormular coin={coin} kennzahlen={kennzahlen} onErfasst={onErfasst} />
-          <Link {...zurueck} className={buttonVariants({ variant: 'outline', className: 'justify-self-start' })}>
-            Abbrechen
-          </Link>
-        </>
-      )}
+      <Card className="max-w-reading">
+        <CardContent className="grid gap-6">
+          {grund ? (
+            <>
+              <p>{grund}</p>
+              <Link {...zurueck} className={buttonVariants({ variant: 'outline', className: 'justify-self-start' })}>
+                Zurück zum Coin
+              </Link>
+            </>
+          ) : (
+            <>
+              <AusgabeFormular coin={coin} kennzahlen={kennzahlen} onErfasst={onErfasst} />
+              <Link {...zurueck} className={buttonVariants({ variant: 'outline', className: 'justify-self-start' })}>
+                Abbrechen
+              </Link>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

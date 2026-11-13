@@ -59,8 +59,8 @@ export function ZertifikatHerunterladen({
   const storniert = ausgabe.storno !== null
   const nummer = ausgabe.zertifikatsnummer
   const name = storniert
-    ? `Zertifikat ${nummer} herunterladen (nicht möglich, Ausgabe storniert)`
-    : `Zertifikat ${nummer} herunterladen`
+    ? `Zertifikat herunterladen: ${nummer} (nicht möglich, Ausgabe storniert)`
+    : `Zertifikat herunterladen: ${nummer}`
   const mitHinweis = storniert && variante === 'seite'
 
   async function herunterladen() {

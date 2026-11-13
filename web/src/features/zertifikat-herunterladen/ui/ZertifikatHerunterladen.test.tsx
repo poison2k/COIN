@@ -27,8 +27,8 @@ import { ZertifikatHerunterladen } from '../index'
 const COIN_ID = '0199a1b2-0000-7000-8000-0000000000d1'
 const AUSGABE_ID = '0199a1b2-0000-7000-8000-0000000000e7'
 const PFAD = /^\/api\/coins\/[^/]+\/ausgaben\/[^/]+\/zertifikat$/
-const NAME = 'Zertifikat C0042-0012 herunterladen'
-const NAME_STORNIERT = 'Zertifikat C0042-0012 herunterladen (nicht möglich, Ausgabe storniert)'
+const NAME = 'Zertifikat herunterladen: C0042-0012'
+const NAME_STORNIERT = 'Zertifikat herunterladen: C0042-0012 (nicht möglich, Ausgabe storniert)'
 
 const TEXTE = {
   storniert: 'Diese Ausgabe wurde inzwischen storniert. Ein Zertifikat kann nicht mehr heruntergeladen werden.',
