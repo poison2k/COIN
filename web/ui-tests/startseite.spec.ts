@@ -589,7 +589,11 @@ test('Administrator: 400 zeigt den Feldfehler am Titel', async ({ page }) => {
 
   const titel = page.getByRole('textbox', { name: /^Titel/ })
   await expect(titel).toHaveAttribute('aria-invalid', 'true')
-  await expect(page.getByText('Der Titel darf höchstens 100 Zeichen lang sein.')).toBeVisible()
+  // formulare-detailseiten (AK-7): Die Meldung steht auch in der Fehlerzusammenfassung (role="alert"); geprüft wird
+  // die Meldung am Feld, also außerhalb der Zusammenfassung.
+  await expect(
+    page.getByText('Der Titel darf höchstens 100 Zeichen lang sein.').and(page.locator(':not([role="alert"] *)')),
+  ).toBeVisible()
 })
 
 test('Administrator: 413 zeigt die Meldung am Logo-Feld', async ({ page }) => {
@@ -609,7 +613,11 @@ test('Administrator: 413 zeigt die Meldung am Logo-Feld', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Speichern' }).click()
 
-  await expect(page.getByText('Das Logo der Software darf höchstens 2 MB groß sein.')).toBeVisible()
+  // formulare-detailseiten (AK-7): Die Meldung steht auch in der Fehlerzusammenfassung (role="alert"); geprüft wird
+  // die Meldung am Feld, also außerhalb der Zusammenfassung.
+  await expect(
+    page.getByText('Das Logo der Software darf höchstens 2 MB groß sein.').and(page.locator(':not([role="alert"] *)')),
+  ).toBeVisible()
 })
 
 test('Administrator: 409 zeigt die Meldung mit „Neu laden“', async ({ page }) => {

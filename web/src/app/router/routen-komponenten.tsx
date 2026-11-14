@@ -1,5 +1,5 @@
-import { getRouteApi, Outlet, useBlocker, useLocation, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { getRouteApi, Outlet, useLocation, useNavigate } from '@tanstack/react-router'
+import { useCallback, useEffect, useState } from 'react'
 import type { Ausgabe } from '@/entities/ausgabe'
 import type { Coin } from '@/entities/coin'
 import { hatBerechtigung } from '@/entities/benutzer'
@@ -10,7 +10,7 @@ import { RueckrufSeite } from '@/pages/anmeldung-rueckruf'
 import { BenutzerverwaltungSeite } from '@/pages/benutzerverwaltung'
 import { CoinAnlegenSeite } from '@/pages/coin-anlegen'
 import { CoinBearbeitenSeite } from '@/pages/coin-bearbeiten'
-import { CoinDetailSeite, type CoinDetailMeldung } from '@/pages/coin-detail'
+import { CoinDetailSeite, type CoinDetailMeldung, type CoinDetailReiter } from '@/pages/coin-detail'
 import { CoinListeSeite } from '@/pages/coin-liste'
 import { KeinZugriffSeite } from '@/pages/kein-zugriff'
 import { PruefungSeite } from '@/pages/pruefung'
@@ -18,16 +18,7 @@ import { StartSeite } from '@/pages/start'
 import { StartseiteVerwaltungSeite } from '@/pages/startseite-verwaltung'
 import { ROUTEN } from '@/shared/config'
 import { sicheresZiel, useAnmeldung } from '@/shared/lib/anmeldung'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/shared/ui/alert-dialog'
+import { VerlassenWarnung } from '@/shared/ui/verlassen-warnung'
 import { AppShell } from '@/widgets/app-shell'
 import { useBenutzerKontext } from '../anmeldung/benutzer-kontext'
 import { NichtGefunden } from './Fehlerseiten'
@@ -121,7 +112,7 @@ export function CoinAnlegenRoute() {
  */
 export function CoinDetailRoute() {
   const { coinId } = coinDetailApi.useParams()
-  const { status, seite = 1 } = coinDetailApi.useSearch()
+  const { status, seite = 1, reiter } = coinDetailApi.useSearch()
   const { benutzer } = useBenutzerKontext()
   const coinAngelegt = useLocation({ select: (ort) => ort.state.coinAngelegt })
   const ausgabeNummer = useLocation({ select: (ort) => ort.state.ausgabeErfasst?.nummer })
@@ -156,6 +147,13 @@ export function CoinDetailRoute() {
     },
     [routeNavigate],
   )
+  // Reiterwechsel ersetzt den Verlaufseintrag und behält status/seite (formulare-detailseiten AK-23, ADR-0042).
+  const onReiter = useCallback(
+    (neu: CoinDetailReiter) => {
+      void routeNavigate({ search: (alt) => ({ ...alt, reiter: neu }), replace: true, resetScroll: false })
+    },
+    [routeNavigate],
+  )
 
   const meldung = gemerkt?.coinId === coinId ? gemerkt.meldung : undefined
   return (
@@ -168,11 +166,14 @@ export function CoinDetailRoute() {
         erfassen: hatBerechtigung(benutzer, 'issues.write'),
         auflage: hatBerechtigung(benutzer, 'coins.write'),
         bearbeiten: hatBerechtigung(benutzer, 'coins.write'),
+        vorlage: hatBerechtigung(benutzer, 'coins.write'),
       }}
       status={status}
       seite={seite}
       onStatus={onStatus}
       onSeite={onSeite}
+      reiter={reiter}
+      onReiter={onReiter}
     />
   )
 }
@@ -221,6 +222,7 @@ export function AusgabeDetailRoute() {
       ausgabeId={ausgabeId}
       darfZertifikat={hatBerechtigung(benutzer, 'issues.write')}
       darfHologramm={hatBerechtigung(benutzer, 'issues.write')}
+      darfStornieren={hatBerechtigung(benutzer, 'issues.write')}
     />
   ) : null
 }
@@ -316,56 +318,21 @@ export function StartRoute() {
 
 /**
  * „Startseite verwalten“ nur mit startpage.manage (startseite, AK-26). Ungespeicherte Änderungen sichern das Verlassen
- * über die App per AlertDialog und Neuladen/Schließen per beforeunload ab (AK-32).
+ * über die App und Neuladen/Schließen per beforeunload ab (AK-32) – mit dem gemeinsamen Baustein `VerlassenWarnung`
+ * (formulare-detailseiten AK-16, ADR-0040 Punkt 6).
  */
 export function StartseiteVerwaltungRoute() {
   const { benutzer } = useBenutzerKontext()
   const [geaendert, setGeaendert] = useState(false)
-  const geaendertRef = useRef(false)
-  useEffect(() => {
-    geaendertRef.current = geaendert
-  }, [geaendert])
-
-  const blocker = useBlocker({
-    shouldBlockFn: ({ current, next }) => geaendertRef.current && current.pathname !== next.pathname,
-    enableBeforeUnload: false,
-    withResolver: true,
-  })
-
-  useEffect(() => {
-    if (!geaendert) return undefined
-    const warnen = (ereignis: BeforeUnloadEvent) => {
-      ereignis.preventDefault()
-    }
-    window.addEventListener('beforeunload', warnen)
-    return () => window.removeEventListener('beforeunload', warnen)
-  }, [geaendert])
 
   if (!hatBerechtigung(benutzer, 'startpage.manage')) return null
   return (
     <>
       <StartseiteVerwaltungSeite onGeaendert={setGeaendert} />
-      <AlertDialog
-        open={blocker.status === 'blocked'}
-        onOpenChange={(offen) => {
-          if (!offen) blocker.reset?.()
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Ungespeicherte Änderungen</AlertDialogTitle>
-            <AlertDialogDescription>
-              Die Änderungen an der Startseite sind nicht gespeichert. Seite trotzdem verlassen?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => blocker.reset?.()}>Bleiben</AlertDialogCancel>
-            <AlertDialogAction type="button" onClick={() => blocker.proceed?.()}>
-              Verlassen
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <VerlassenWarnung
+        aktiv={geaendert}
+        beschreibung="Die Änderungen an der Startseite sind nicht gespeichert. Seite trotzdem verlassen?"
+      />
     </>
   )
 }

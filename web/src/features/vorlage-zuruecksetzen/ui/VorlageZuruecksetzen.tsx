@@ -1,15 +1,8 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type RefObject } from 'react'
 import type { VorlagenStatus } from '@/entities/zertifikatsvorlage'
 import type { ApiErgebnis } from '@/shared/api'
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/shared/ui/alert-dialog'
+import { useSendeSperre } from '@/shared/lib/formular'
+import { Bestaetigungsdialog } from '@/shared/ui/bestaetigungsdialog'
 import { Button } from '@/shared/ui/button'
 import { setzeVorlageZurueck } from '../api/setzeVorlageZurueck'
 
@@ -35,18 +28,22 @@ export interface VorlageZuruecksetzenProps {
 }
 
 /**
- * Button „Auf Standardvorlage zurücksetzen“ mit Bestätigungsdialog (zertifikatsvorlagen, AK-20, AK-30). Escape und
- * „Abbrechen“ schließen ohne Request und geben den Fokus an den Button zurück.
+ * Button „Auf Standardvorlage zurücksetzen“ mit Bestätigungsdialog (zertifikatsvorlagen, AK-20, AK-30;
+ * formulare-detailseiten AK-17/AK-18). Escape und „Abbrechen“ schließen ohne Request und geben den Fokus an den Button
+ * zurück. Texte unverändert (F5).
  */
 export function VorlageZuruecksetzen({ coinId, onZurueckgesetzt }: VorlageZuruecksetzenProps) {
   const [offen, setOffen] = useState(false)
   const [alarm, setAlarm] = useState<string | null>(null)
-  const [sendet, setSendet] = useState(false)
-  // Synchroner Schutz gegen Mehrfachsendung.
-  const sendetGerade = useRef(false)
+  const { sendet, mitSperre } = useSendeSperre()
   // Nach Erfolg gibt der Dialog den Fokus nicht an den (dann entfernten) Button zurück.
   const erfolgreich = useRef(false)
   const ausloeser = useRef<HTMLButtonElement>(null)
+  const fokusZiel: RefObject<HTMLElement | null> = {
+    get current() {
+      return erfolgreich.current ? null : ausloeser.current
+    },
+  }
 
   function oeffnen() {
     erfolgreich.current = false
@@ -54,12 +51,9 @@ export function VorlageZuruecksetzen({ coinId, onZurueckgesetzt }: VorlageZuruec
     setOffen(true)
   }
 
-  async function zuruecksetzen() {
-    if (sendetGerade.current) return
-    sendetGerade.current = true
-    setSendet(true)
-    setAlarm(null)
-    try {
+  function zuruecksetzen() {
+    void mitSperre(async () => {
+      setAlarm(null)
       const ergebnis = await setzeVorlageZurueck(coinId)
       if (ergebnis.art === 'ok') {
         erfolgreich.current = true
@@ -68,10 +62,7 @@ export function VorlageZuruecksetzen({ coinId, onZurueckgesetzt }: VorlageZuruec
         return
       }
       setAlarm(fehlertext(ergebnis))
-    } finally {
-      sendetGerade.current = false
-      setSendet(false)
-    }
+    })
   }
 
   return (
@@ -79,42 +70,18 @@ export function VorlageZuruecksetzen({ coinId, onZurueckgesetzt }: VorlageZuruec
       <Button ref={ausloeser} type="button" variant="outline" onClick={oeffnen}>
         Auf Standardvorlage zurücksetzen
       </Button>
-      <AlertDialog
-        open={offen}
-        onOpenChange={(neu) => {
-          // Escape und „Abbrechen“ schließen während der Anfrage nicht.
-          if (sendetGerade.current) return
-          setOffen(neu)
-        }}
-      >
-        <AlertDialogContent finalFocus={() => (erfolgreich.current ? false : ausloeser.current)} aria-busy={sendet}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Auf Standardvorlage zurücksetzen?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Die eigene Vorlage bleibt als Version gespeichert. Künftig wird die Standardvorlage verwendet.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {alarm && (
-            <p role="alert" className="text-sm text-destructive">
-              {alarm}
-            </p>
-          )}
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={sendet} focusableWhenDisabled>
-              Abbrechen
-            </AlertDialogCancel>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => void zuruecksetzen()}
-              disabled={sendet}
-              focusableWhenDisabled
-            >
-              Zurücksetzen
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Bestaetigungsdialog
+        offen={offen}
+        onOffenAendern={setOffen}
+        titel="Auf Standardvorlage zurücksetzen?"
+        folge="Die eigene Vorlage bleibt als Version gespeichert. Künftig wird die Standardvorlage verwendet."
+        bestaetigen="Zurücksetzen"
+        variante="gefaehrlich"
+        laedt={sendet}
+        fehler={alarm}
+        onBestaetigen={zuruecksetzen}
+        ausloeserRef={fokusZiel}
+      />
     </>
   )
 }

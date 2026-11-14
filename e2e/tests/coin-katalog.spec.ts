@@ -53,6 +53,8 @@ test('Coin mit Bild anlegen: Detailseite zeigt das geladene Motivbild, die Liste
   await expect(page).toHaveURL(DETAIL_URL)
   await expect(page.getByText('Coin wurde angelegt.')).toBeVisible()
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
+  // formulare-detailseiten (F1): Standard ist „Exemplare“; Motivbild und Stammdaten stehen im Reiter „Stammdaten“.
+  await page.getByRole('tab', { name: 'Stammdaten' }).click()
   const motiv = page.getByRole('img', { name: `Motiv: ${name}` })
   await expect(motiv).toBeVisible()
   await expect.poll(() => motiv.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0)
@@ -84,6 +86,8 @@ test('Coin mit Bild bleibt nach Neuladen der Detailseite mit Motivbild erhalten'
 
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
   await expect(page.getByText('Coin wurde angelegt.')).toHaveCount(0)
+  // formulare-detailseiten (F1): Standard ist „Exemplare“; Motivbild und Stammdaten stehen im Reiter „Stammdaten“.
+  await page.getByRole('tab', { name: 'Stammdaten' }).click()
   const motiv = page.getByRole('img', { name: `Motiv: ${name}` })
   await expect(motiv).toBeVisible()
   await expect.poll(() => motiv.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0)
@@ -97,7 +101,10 @@ test('Coin ohne Auflage und ohne Bild: Detailseite und Liste zeigen „unbekannt
 
   await expect(page).toHaveURL(DETAIL_URL)
   // coin-ausgaben: Die Detailseite kann eine zweite Beschreibungsliste (Kennzahlen) enthalten; Stammdaten stehen zuerst.
-  await expect(page.locator('dl').first()).toContainText('unbekannt')
+  // formulare-detailseiten (F1): Standard ist „Exemplare“; Motivbild und Stammdaten stehen im Reiter „Stammdaten“.
+  await page.getByRole('tab', { name: 'Stammdaten' }).click()
+  // Eindeutiger Selektor: die Beschreibungsliste im Reiter „Stammdaten“ (die Kennzahlen stehen jetzt im Kopf).
+  await expect(page.getByRole('tabpanel', { name: 'Stammdaten' }).locator('dl')).toContainText('unbekannt')
   await expect(page.getByText('Kein Motivbild vorhanden.')).toBeVisible()
 
   await sucheImKatalog(page, name)

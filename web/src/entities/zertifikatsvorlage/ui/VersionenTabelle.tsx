@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Badge } from '@/shared/ui/badge'
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
+import { DatenTabelle, type DatenSpalte, type Sortierung } from '@/shared/ui/daten-tabelle'
 import { groesseAnzeige, zeitpunktAnzeige, type VorlagenVersion } from '../model/types'
 
 export interface VersionenTabelleProps {
@@ -10,39 +10,80 @@ export interface VersionenTabelleProps {
   aktion?: (version: VorlagenVersion) => ReactNode
 }
 
-/** Versionen der Zertifikatsvorlage (zertifikatsvorlagen, AK-30); Status als Text-Badge, kein „Aktivieren“ (F6). */
+const SPALTEN: ReadonlyArray<DatenSpalte<VorlagenVersion>> = [
+  {
+    id: 'version',
+    titel: 'Version',
+    breite: 'schmal',
+    ausrichtung: 'rechts',
+    karte: 'titel',
+    zelle: (version) => version.version,
+    kartenZelle: (version) => `Version ${version.version}`,
+    sortierwert: (version) => version.version,
+  },
+  {
+    id: 'hochgeladenAm',
+    titel: 'Hochgeladen am',
+    breite: 'mittel',
+    karte: 'feld',
+    zelle: (version) => <time dateTime={version.hochgeladenAm}>{zeitpunktAnzeige(version.hochgeladenAm)}</time>,
+    sortierwert: (version) => Date.parse(version.hochgeladenAm),
+  },
+  {
+    id: 'hochgeladenVon',
+    titel: 'Hochgeladen von',
+    breite: 'breit',
+    karte: 'feld',
+    zelle: (version) => version.hochgeladenVon.name,
+  },
+  {
+    id: 'groesse',
+    titel: 'Größe',
+    breite: 'schmal',
+    ausrichtung: 'rechts',
+    karte: 'feld',
+    zelle: (version) => groesseAnzeige(version.groesseBytes),
+    sortierwert: (version) => version.groesseBytes,
+  },
+  {
+    id: 'status',
+    titel: 'Status',
+    breite: 'schmal',
+    karte: 'feld',
+    zelle: (version) => version.aktiv && <Badge>aktiv</Badge>,
+  },
+]
+
+/**
+ * Versionen der Zertifikatsvorlage (zertifikatsvorlagen, AK-30); Status als Text-Badge, kein „Aktivieren“ (F6). Die
+ * Liste ist vollständig geladen und clientseitig sortierbar, Standard Version absteigend (formulare-detailseiten
+ * AK-31); Karten unter 768 px (AK-30).
+ */
 export function VersionenTabelle({ versionen, aktion }: VersionenTabelleProps) {
+  const [sortierung, setSortierung] = useState<Sortierung>({ spalte: 'version', richtung: 'absteigend' })
+  const spalten: ReadonlyArray<DatenSpalte<VorlagenVersion>> = aktion
+    ? [
+        ...SPALTEN,
+        {
+          id: 'aktion',
+          titel: 'Aktionen',
+          titelVersteckt: true,
+          breite: 'schmal',
+          ausrichtung: 'rechts',
+          karte: 'aktion',
+          zelle: aktion,
+        },
+      ]
+    : SPALTEN
   return (
-    <Table>
-      <TableCaption className="sr-only">Versionen der Zertifikatsvorlage</TableCaption>
-      <TableHeader>
-        <TableRow>
-          <TableHead scope="col">Version</TableHead>
-          <TableHead scope="col">Hochgeladen am</TableHead>
-          <TableHead scope="col">Hochgeladen von</TableHead>
-          <TableHead scope="col">Größe</TableHead>
-          <TableHead scope="col">Status</TableHead>
-          {aktion && (
-            <TableHead scope="col">
-              <span className="sr-only">Aktionen</span>
-            </TableHead>
-          )}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {versionen.map((version) => (
-          <TableRow key={version.version}>
-            <TableCell>{version.version}</TableCell>
-            <TableCell>
-              <time dateTime={version.hochgeladenAm}>{zeitpunktAnzeige(version.hochgeladenAm)}</time>
-            </TableCell>
-            <TableCell>{version.hochgeladenVon.name}</TableCell>
-            <TableCell>{groesseAnzeige(version.groesseBytes)}</TableCell>
-            <TableCell>{version.aktiv && <Badge>aktiv</Badge>}</TableCell>
-            {aktion && <TableCell className="text-right">{aktion(version)}</TableCell>}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <DatenTabelle
+      beschriftung="Versionen der Zertifikatsvorlage"
+      zeilen={versionen}
+      schluessel={(version) => String(version.version)}
+      spalten={spalten}
+      sortierung={sortierung}
+      onSortierung={setSortierung}
+      kartenUnter="md"
+    />
   )
 }

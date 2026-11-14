@@ -1,21 +1,16 @@
 import { Link } from '@tanstack/react-router'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useState } from 'react'
 import type { Coin } from '@/entities/coin'
-import {
-  ExemplarTabelle,
-  Kennzahlen,
-  ladeExemplare,
-  type ExemplarSeite,
-  type ExemplarStatus,
-} from '@/entities/exemplar'
+import { ExemplarTabelle, Kennzahlen, type ExemplarStatus } from '@/entities/exemplar'
 import { AuflageAendern } from '@/features/auflage-aendern'
-import type { ApiErgebnis } from '@/shared/api'
 import { ROUTEN } from '@/shared/config'
 import { useFokusBeiLadefehler } from '@/shared/lib/hooks'
 import { Blaettern, seitenAnzahl } from '@/shared/ui/blaettern'
 import { buttonVariants } from '@/shared/ui/button'
+import { Filterleiste } from '@/shared/ui/filterleiste'
 import { Label } from '@/shared/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
+import { useExemplare, type ExemplareDaten } from '../model/use-exemplare'
 
 type Filter = ExemplarStatus | 'alle'
 
@@ -25,10 +20,7 @@ const FILTER = [
   { value: 'ausgegeben', label: 'Ausgegeben' },
 ] satisfies Array<{ value: Filter; label: string }>
 
-interface Geladen {
-  schluessel: string
-  ergebnis: ApiErgebnis<ExemplarSeite>
-}
+const FILTER_TEXT: Readonly<Record<ExemplarStatus, string>> = { verfuegbar: 'Verfügbar', ausgegeben: 'Ausgegeben' }
 
 export interface CoinExemplareProps {
   coinId: string
@@ -47,11 +39,19 @@ export interface CoinExemplareProps {
   onSeite: (seite: number) => void
   /** Nach dem Ändern der Auflage mit dem geänderten Coin (Stammdaten aktualisieren). */
   onAuflageGeaendert?: (coin: Coin) => void
+  /**
+   * Daten von außen (kontrolliert, formulare-detailseiten ADR-0042 Punkt 4): Die Detailseite lädt …/exemplare selbst und
+   * teilt die Antwort mit den Kennzahlen im Kopf; dann lädt das Widget nicht.
+   */
+  daten?: ExemplareDaten
+  /** Kennzahlen im Abschnitt zeigen (Standard `true`); die Detailseite zeigt sie im Kopf. */
+  kennzahlenZeigen?: boolean
 }
 
 /**
- * Abschnitt „Exemplare“ der Detailseite (coin-ausgaben AK-20, AK-23, AK-25): Kennzahlen, Status-Filter, Tabelle und
- * Blättern. Filter und Seite kommen als Props (URL); eine Antwort gilt nur, solange sie zu den Props passt.
+ * Abschnitt „Exemplare“ der Detailseite (coin-ausgaben AK-20, AK-23, AK-25): Kennzahlen, Status-Filter mit Chip
+ * (formulare-detailseiten AK-24), Tabelle bzw. Karten und Blättern. Filter und Seite kommen als Props (URL); eine
+ * Antwort gilt nur, solange sie zu den Props passt.
  */
 export function CoinExemplare({
   coinId,
@@ -63,34 +63,24 @@ export function CoinExemplare({
   onStatus,
   onSeite,
   onAuflageGeaendert,
+  daten: datenVonAussen,
+  kennzahlenZeigen = true,
 }: CoinExemplareProps) {
-  const [geladen, setGeladen] = useState<Geladen | null>(null)
   // Eigener Zähler für „Auflage geändert“; zusammen mit `neuLaden` Teil des Schlüssels.
   const [eigenesNeuLaden, setEigenesNeuLaden] = useState(0)
   const [meldung, setMeldung] = useState<string | null>(null)
-  const anfrage = useRef<{ schluessel: string; ergebnis: Promise<ApiErgebnis<ExemplarSeite>> } | null>(null)
   const basis = useId()
   const ueberschriftId = `${basis}-ueberschrift`
   const filterId = `${basis}-filter`
 
-  const schluessel = JSON.stringify([coinId, status ?? null, seite, neuLaden, eigenesNeuLaden])
-
-  useEffect(() => {
-    if (anfrage.current?.schluessel !== schluessel) {
-      anfrage.current = { schluessel, ergebnis: ladeExemplare(coinId, { status, seite }) }
-    }
-    let aktiv = true
-    void anfrage.current.ergebnis.then((ergebnis) => {
-      if (aktiv) setGeladen({ schluessel, ergebnis })
-    })
-    return () => {
-      aktiv = false
-    }
-  }, [schluessel, coinId, status, seite])
-
-  const ergebnis = geladen?.schluessel === schluessel ? geladen.ergebnis : null
-  // Beim Nachladen bleibt die vorige Anzeige stehen, bis die Antwort da ist (Tabelle und Blättern nicht aushängen).
-  const anzeige = ergebnis ?? (geladen?.ergebnis.art === 'ok' ? geladen.ergebnis : null)
+  const eigene = useExemplare({
+    coinId,
+    status,
+    seite,
+    neuLaden: `${neuLaden}-${eigenesNeuLaden}`,
+    aktiv: datenVonAussen === undefined,
+  })
+  const { ergebnis, anzeige } = datenVonAussen ?? eigene
   const laedt = ergebnis === null
   const fehlgeschlagen = ergebnis !== null && ergebnis.art !== 'ok'
   const { bereichRef, alarmRef, merkeFokus } = useFokusBeiLadefehler(!laedt, fehlgeschlagen)
@@ -133,19 +123,21 @@ export function CoinExemplare({
         </p>
       )}
 
-      {daten && (
+      {daten && (kennzahlenZeigen || darfAuflageAendern || darfErfassen) && (
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <Kennzahlen kennzahlen={daten.kennzahlen} />
-          <div className="flex flex-wrap gap-2">
-            {darfAuflageAendern && (
-              <AuflageAendern coinId={coinId} auflage={daten.kennzahlen.auflage} onGeaendert={auflageGeaendert} />
-            )}
-            {darfErfassen && auflageBekannt && (
-              <Link to={ROUTEN.coinAusgabeNeu} params={{ coinId }} className={buttonVariants({ size: 'sm' })}>
-                Ausgabe erfassen
-              </Link>
-            )}
-          </div>
+          {kennzahlenZeigen && <Kennzahlen kennzahlen={daten.kennzahlen} />}
+          {(darfAuflageAendern || (darfErfassen && auflageBekannt)) && (
+            <div className="flex flex-wrap gap-2">
+              {darfAuflageAendern && (
+                <AuflageAendern coinId={coinId} auflage={daten.kennzahlen.auflage} onGeaendert={auflageGeaendert} />
+              )}
+              {darfErfassen && auflageBekannt && (
+                <Link to={ROUTEN.coinAusgabeNeu} params={{ coinId }} className={buttonVariants({ size: 'sm' })}>
+                  Ausgabe erfassen
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -156,21 +148,29 @@ export function CoinExemplare({
           </p>
         ) : (
           <>
-            <div className="grid gap-1.5">
-              <Label htmlFor={filterId}>Status</Label>
-              <Select<Filter> items={FILTER} value={status ?? 'alle'} onValueChange={filterGewaehlt}>
-                <SelectTrigger id={filterId} className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FILTER.map((eintrag) => (
-                    <SelectItem key={eintrag.value} value={eintrag.value}>
-                      {eintrag.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Filterleiste
+              chips={
+                status
+                  ? [{ id: 'status', text: `Status: ${FILTER_TEXT[status]}`, onEntfernen: () => onStatus(undefined) }]
+                  : []
+              }
+            >
+              <div className="grid gap-1.5">
+                <Label htmlFor={filterId}>Status</Label>
+                <Select<Filter> items={FILTER} value={status ?? 'alle'} onValueChange={filterGewaehlt}>
+                  <SelectTrigger id={filterId} className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FILTER.map((eintrag) => (
+                      <SelectItem key={eintrag.value} value={eintrag.value}>
+                        {eintrag.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </Filterleiste>
             {daten.gesamt === 0 ? (
               <p className="text-muted-foreground">Keine Exemplare mit diesem Status.</p>
             ) : (

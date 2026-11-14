@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Coin } from '@/entities/coin'
 import { erstelleFakeApi, offeneAntwort, problemAntwort, testCoin, type FakeApi } from '../../../../test/fakeApi'
@@ -68,6 +69,31 @@ function zeige(props: Partial<CoinDetailSeiteProps> = {}) {
       start: `/coins/${props.coinId ?? ID}`,
     },
   )
+  return { user, router }
+}
+
+/**
+ * formulare-detailseiten (K1): rendert die Seite mit Reiter-Zustand wie die Route (Wechsel per `onReiter`), damit Tests
+ * die Ausgabehistorie über den Reiter „Ausgaben“ öffnen können.
+ */
+function zeigeMitReitern(props: Partial<CoinDetailSeiteProps> = {}) {
+  function MitReitern() {
+    const [reiter, setReiter] = useState<CoinDetailSeiteProps['reiter']>(props.reiter)
+    return (
+      <CoinDetailSeite
+        coinId={ID}
+        berechtigungen={KEINE_RECHTE}
+        seite={1}
+        onStatus={() => {}}
+        onSeite={() => {}}
+        {...props}
+        reiter={reiter}
+        onReiter={setReiter}
+      />
+    )
+  }
+  const user = userEvent.setup()
+  const { router } = zeigeMitRouter(() => <MitReitern />, { pfad: '/coins/$coinId', start: `/coins/${ID}` })
   return { user, router }
 }
 
@@ -432,16 +458,21 @@ describe('Betrachter (coins.read ohne issues.read, AK-20, AK-22)', () => {
 })
 
 describe('Sachbearbeiter (alle Rechte, AK-22 bis AK-25)', () => {
+  // formulare-detailseiten K1: Die Ausgabehistorie steht im Reiter „Ausgaben“ (Standard „Exemplare“); der Test öffnet
+  // den Reiter, Prüfinhalt unverändert.
   it('zeigt „Exemplare“ und „Ausgabehistorie“ als Überschriften der Ebene 2', async () => {
-    zeige({ berechtigungen: STUFEN.sachbearbeiter })
+    const { user } = zeigeMitReitern({ berechtigungen: STUFEN.sachbearbeiter })
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Exemplare' })).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Ausgaben' }))
     expect(await screen.findByRole('heading', { level: 2, name: 'Ausgabehistorie' })).toBeInTheDocument()
   })
 
+  // formulare-detailseiten K1: Reiter „Ausgaben“ öffnen; Request-Zählung über beide Reiter.
   it('lädt Exemplare und Historie je genau einmal', async () => {
-    zeige({ berechtigungen: STUFEN.sachbearbeiter })
+    const { user } = zeigeMitReitern({ berechtigungen: STUFEN.sachbearbeiter })
     await screen.findByRole('table', { name: 'Exemplare' })
+    await user.click(screen.getByRole('tab', { name: 'Ausgaben' }))
     await screen.findByText('Für diesen Coin wurden noch keine Ausgaben erfasst.')
 
     expect(api.anfragenMit('GET', EXEMPLARE)).toHaveLength(1)
@@ -507,6 +538,26 @@ describe('Auflage ändern auf der Detailseite (AK-25)', () => {
     await waitFor(() => expect(meldungMit('Auflage wurde geändert.')?.getAttribute('role')).toBe('status'))
     await waitFor(() => expect(wertZu('Auflage')).toHaveTextContent(/^200$/))
     await waitFor(() => expect(api.anfragenMit('GET', EXEMPLARE).length).toBeGreaterThanOrEqual(2))
+  })
+
+  // formulare-detailseiten, Abschnitt 4.5 (QA-Runde 1): Die Live-Region muss vor der Meldung leer im DOM stehen, sonst
+  // lesen Screenreader „Auflage wurde geändert.“ nicht zuverlässig vor.
+  it('schreibt „Auflage wurde geändert.“ in eine Statusregion, die vorher schon leer im DOM stand', async () => {
+    starte(testCoin({ id: ID, auflage: 150 }))
+    const { user } = zeige({ berechtigungen: STUFEN.sachbearbeiter })
+    await screen.findByRole('table', { name: 'Exemplare' })
+    const leereRegionen = screen.queryAllByRole('status').filter((el) => (el.textContent ?? '').trim() === '')
+    expect(leereRegionen.length, 'keine leere Statusregion vor der Meldung').toBeGreaterThan(0)
+
+    await user.click(screen.getByRole('button', { name: 'Auflage ändern' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Auflage ändern' })
+    const feld = within(dialog).getByLabelText(/^Auflage/)
+    await user.clear(feld)
+    await user.type(feld, '200')
+    await user.click(within(dialog).getByRole('button', { name: 'Speichern' }))
+
+    await waitFor(() => expect(meldungMit('Auflage wurde geändert.')).toBeDefined())
+    expect(leereRegionen).toContain(meldungMit('Auflage wurde geändert.'))
   })
 })
 
@@ -608,9 +659,11 @@ describe('deutsche Texte', () => {
     return [seitentext(), ...attribute].join(' ')
   }
 
+  // formulare-detailseiten K1: Reiter „Ausgaben“ öffnen, damit auch die Historie geprüft wird.
   it('enthält mit allen Berechtigungen keine englischen Texte', async () => {
-    zeige({ berechtigungen: STUFEN.sachbearbeiter })
+    const { user } = zeigeMitReitern({ berechtigungen: STUFEN.sachbearbeiter })
     await screen.findByRole('table', { name: 'Exemplare' })
+    await user.click(screen.getByRole('tab', { name: 'Ausgaben' }))
     await screen.findByText('Für diesen Coin wurden noch keine Ausgaben erfasst.')
 
     expect(alleTexte()).not.toMatch(ENGLISCH)

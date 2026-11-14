@@ -40,6 +40,8 @@ const ENGLISCH =
 
 const ALPHA = testCoin({ id: '0199a1b2-0000-7000-8000-0000000000a1', name: 'Coin Alpha', auflage: 150 })
 const BEARBEITEN = `/coins/${ALPHA.id}/bearbeiten`
+// formulare-detailseiten K5: Ort der Vorlagenverwaltung seit F2.
+const VORLAGE_REITER = `/coins/${ALPHA.id}?reiter=vorlage`
 const VORLAGEN_PFAD = /zertifikatsvorlage/
 
 let api: FakeApi
@@ -151,17 +153,19 @@ describe('/coins/{id}/bearbeiten – Zugriff', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Coin nicht gefunden' })).toBeInTheDocument()
   })
 
+  // formulare-detailseiten K5: Die Vorlagenverwaltung steht im Reiter „Zertifikatsvorlage“ der Detailseite (F2).
   it('hat genau ein h1 und keine englischen Texte', async () => {
-    zeigeApp(BEARBEITEN)
-    await screen.findByRole('heading', { level: 1, name: 'Coin bearbeiten' })
+    zeigeApp(VORLAGE_REITER)
+    await screen.findByRole('heading', { level: 1, name: 'Coin Alpha' })
     await waitFor(() => expect(seitenText()).toContain('Aktiv: eigene Vorlage, Version 1'))
 
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     expect(alleTexte()).not.toMatch(ENGLISCH)
   })
 
+  // formulare-detailseiten K5: Zurücksetzen steht im Reiter „Zertifikatsvorlage“ der Detailseite (F2).
   it('zeigt im Zurücksetzen-Dialog keine englischen Texte', async () => {
-    const { user } = zeigeApp(BEARBEITEN)
+    const { user } = zeigeApp(VORLAGE_REITER)
 
     await user.click(await screen.findByRole('button', { name: 'Auf Standardvorlage zurücksetzen' }))
     await screen.findByRole('alertdialog', { name: 'Auf Standardvorlage zurücksetzen?' })

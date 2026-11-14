@@ -428,7 +428,9 @@ export const SEITEN: readonly SeitenFall[] = [
   { name: 'coin-anlegen', pfad: '/coins/neu', als: ADMIN, bereit: h1('Coin hinzufügen') },
   {
     name: 'coin-detail',
-    pfad: `/coins/${COIN.id}`,
+    // formulare-detailseiten (Freigabe 2026-11-14, wie K3): Die Historie steht im Reiter „Ausgaben“; die Seite wird
+    // direkt mit diesem Reiter geöffnet, damit `bereit` weiter auf die Empfängerdaten warten kann.
+    pfad: `/coins/${COIN.id}?reiter=ausgaben`,
     als: ADMIN,
     bereit: async (page) => {
       await h1(COIN.name)(page)

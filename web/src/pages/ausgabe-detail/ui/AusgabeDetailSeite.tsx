@@ -1,7 +1,8 @@
 import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
-import { AusgabeDetails, ladeAusgabe, type Ausgabe } from '@/entities/ausgabe'
+import { AusgabeDetails, AusgabeStatusChip, AusgabeVerlauf, ladeAusgabe, type Ausgabe } from '@/entities/ausgabe'
 import { ladeCoin, type Coin } from '@/entities/coin'
+import { AusgabeStornieren } from '@/features/ausgabe-stornieren'
 import { HologrammnummerAendern } from '@/features/hologrammnummer-aendern'
 import { ZertifikatHerunterladen } from '@/features/zertifikat-herunterladen'
 import type { ApiErgebnis } from '@/shared/api'
@@ -9,7 +10,7 @@ import { ROUTEN } from '@/shared/config'
 import { formatiereZahl } from '@/shared/lib/format'
 import { istGuid } from '@/shared/lib/guid'
 import { buttonVariants } from '@/shared/ui/button'
-import { Card, CardContent } from '@/shared/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Seitenkopf } from '@/shared/ui/seitenkopf'
 import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
 
@@ -21,6 +22,8 @@ export interface AusgabeDetailSeiteProps {
   darfZertifikat: boolean
   /** Button „Hologrammnummer ergänzen/korrigieren“ (issues.write, hologrammnummer AK-27); ohne Angabe nicht sichtbar. */
   darfHologramm?: boolean
+  /** Button „Stornieren“ bei aktiver Ausgabe (issues.write, formulare-detailseiten AK-28); ohne Angabe nicht sichtbar. */
+  darfStornieren?: boolean
 }
 
 interface Geladen {
@@ -36,23 +39,32 @@ const LAYOUT = 'grid min-w-0 gap-6'
 const ZURUECK = buttonVariants({ variant: 'outline', className: 'justify-self-start' })
 
 /**
- * Seite „Ausgabe“ (/coins/{id}/ausgaben/{ausgabeId}, zertifikat-erzeugen AK-27 bis AK-30): Überschrift mit Exemplar,
- * Coin-Name als Link, Angaben der Ausgabe, mit `darfHologramm` das Ergänzen/Korrigieren der Hologrammnummer
- * (hologrammnummer AK-27) und, mit `darfZertifikat`, der Download. Nach 409 `ausgabe_storniert` lädt
- * die Seite neu und zeigt bis dahin den bisherigen Stand (der Alarm am Button bleibt sichtbar). Ohne Router-Hooks,
- * kein eigenes <main>.
+ * Seite „Ausgabe“ (/coins/{id}/ausgaben/{ausgabeId}, zertifikat-erzeugen AK-27 bis AK-30, formulare-detailseiten
+ * AK-26 bis AK-28): Kopf mit Exemplar, Coin-Name als Link, Status-Chip und den Aktionen „Zertifikat herunterladen“
+ * (`darfZertifikat`) und „Stornieren“ (`darfStornieren`, nur aktive Ausgaben); Abschnitte „Zertifikat“ (mit
+ * `darfHologramm` das Ergänzen/Korrigieren der Hologrammnummer), „Empfängerdaten“, „Ausgabedaten“ und „Verlauf“. Nach
+ * 409 `ausgabe_storniert` lädt die Seite neu und zeigt bis dahin den bisherigen Stand (der Alarm am Button bleibt
+ * sichtbar); nach einem Storno zeigt sie die Antwort ohne Neuladen. Ohne Router-Hooks, kein eigenes <main>.
  */
 export function AusgabeDetailSeite({
   coinId,
   ausgabeId,
   darfZertifikat,
   darfHologramm = false,
+  darfStornieren = false,
 }: AusgabeDetailSeiteProps) {
   const gueltig = istGuid(coinId) && istGuid(ausgabeId)
   const [neuLaden, setNeuLaden] = useState(0)
   const [geladen, setGeladen] = useState<Geladen | null>(null)
   // Laufende Anfragen je Schlüssel wiederverwenden (z. B. im StrictMode), damit es je genau einen Request gibt.
   const anfrage = useRef<{ schluessel: string; ergebnis: Promise<Geladen> } | null>(null)
+  const [stornoMeldung, setStornoMeldung] = useState(false)
+  const meldungRef = useRef<HTMLParagraphElement>(null)
+
+  // Nach dem Storno die Statusmeldung fokussieren („Stornieren“ entfällt, AK-28).
+  useEffect(() => {
+    if (stornoMeldung) meldungRef.current?.focus()
+  }, [stornoMeldung])
 
   const ids = JSON.stringify([coinId, ausgabeId])
   const schluessel = JSON.stringify([coinId, ausgabeId, neuLaden])
@@ -127,41 +139,19 @@ export function AusgabeDetailSeite({
 
   const ausgabe = anzeige.ausgabe.daten
   const coin = anzeige.coin.art === 'ok' ? anzeige.coin.daten : null
+  const aktiv = ausgabe.storno === null
 
-  return (
-    <div className={LAYOUT}>
-      <Seitenkopf
-        titel={`Ausgabe von Exemplar Nr. ${formatiereZahl(ausgabe.exemplarNummer)}`}
-        beschreibung={
-          coin && (
-            <Link
-              to={ROUTEN.coinDetail}
-              params={{ coinId }}
-              className="rounded-sm text-lg break-words text-primary underline underline-offset-4 outline-none hover:text-primary-hover focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {coin.name}
-            </Link>
-          )
-        }
-      />
+  function uebernehmen(neu: Ausgabe) {
+    setGeladen((alt) => (alt && alt.ids === ids ? { ...alt, ausgabe: { art: 'ok', daten: neu } } : alt))
+  }
 
-      <Card>
-        <CardContent>
-          <AusgabeDetails ausgabe={ausgabe} />
-        </CardContent>
-      </Card>
+  function storniert(neu: Ausgabe) {
+    uebernehmen(neu)
+    setStornoMeldung(true)
+  }
 
-      {darfHologramm && (
-        <HologrammnummerAendern
-          coinId={coinId}
-          ausgabe={ausgabe}
-          onGeaendert={(neu) =>
-            setGeladen((alt) => (alt && alt.ids === ids ? { ...alt, ausgabe: { art: 'ok', daten: neu } } : alt))
-          }
-          onNeuLaden={() => setNeuLaden((n) => n + 1)}
-        />
-      )}
-
+  const aktionen = (darfZertifikat || (darfStornieren && aktiv)) && (
+    <>
       {darfZertifikat && (
         <ZertifikatHerunterladen
           coinId={coinId}
@@ -170,6 +160,65 @@ export function AusgabeDetailSeite({
           onStorniertErkannt={() => setNeuLaden((n) => n + 1)}
         />
       )}
+      {darfStornieren && aktiv && (
+        <AusgabeStornieren coinId={coinId} ausgabe={ausgabe} onStorniert={storniert} variante="gefaehrlich" />
+      )}
+    </>
+  )
+
+  return (
+    <div className={LAYOUT}>
+      <div className="grid gap-3">
+        <Seitenkopf
+          titel={`Ausgabe von Exemplar Nr. ${formatiereZahl(ausgabe.exemplarNummer)}`}
+          beschreibung={
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              {coin && (
+                <Link
+                  to={ROUTEN.coinDetail}
+                  params={{ coinId }}
+                  className="rounded-sm text-lg break-words text-primary underline underline-offset-4 outline-none hover:text-primary-hover focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {coin.name}
+                </Link>
+              )}
+              <AusgabeStatusChip ausgabe={ausgabe} />
+            </span>
+          }
+          aktionen={aktionen || undefined}
+        />
+        <p
+          ref={meldungRef}
+          role="status"
+          tabIndex={-1}
+          className="rounded-md text-success outline-none empty:sr-only focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {stornoMeldung ? 'Die Ausgabe wurde storniert.' : ''}
+        </p>
+      </div>
+
+      <AusgabeDetails
+        ausgabe={ausgabe}
+        hologrammAktion={
+          darfHologramm && (
+            <HologrammnummerAendern
+              coinId={coinId}
+              ausgabe={ausgabe}
+              onGeaendert={uebernehmen}
+              onNeuLaden={() => setNeuLaden((n) => n + 1)}
+            />
+          )
+        }
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle ebene={2}>Verlauf</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AusgabeVerlauf ausgabe={ausgabe} />
+        </CardContent>
+      </Card>
 
       <Link to={ROUTEN.coinDetail} params={{ coinId }} className={ZURUECK}>
         Zurück zum Coin

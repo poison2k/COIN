@@ -7,6 +7,8 @@ import type { LogoEingabe } from '../model/formular'
 
 export interface LogoFeldProps {
   platz: LogoPlatz
+  /** Fester Präfix der Feld-Ids (`<idBasis>-datei`, `<idBasis>-alt`), z. B. für die Fehlerzusammenfassung. */
+  idBasis?: string
   eingabe: LogoEingabe
   /** Object-URL der ausgewählten Datei (Vorschau); `null` ohne Auswahl. */
   vorschauUrl: string | null
@@ -28,6 +30,7 @@ export interface LogoFeldProps {
  */
 export function LogoFeld({
   platz,
+  idBasis,
   eingabe,
   vorschauUrl,
   hinweisIds,
@@ -38,7 +41,8 @@ export function LogoFeld({
   onAlternativtext,
   gesperrt = false,
 }: LogoFeldProps) {
-  const basis = useId()
+  const eigeneId = useId()
+  const basis = idBasis ?? eigeneId
   const dateiRef = useRef<HTMLInputElement>(null)
   const dateiId = `${basis}-datei`
   const dateiFehlerId = `${basis}-datei-fehler`

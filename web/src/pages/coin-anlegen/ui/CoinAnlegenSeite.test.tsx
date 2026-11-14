@@ -91,6 +91,8 @@ describe('Abbrechen', () => {
     await fuelleAus(user, PFLICHT)
 
     await user.click(screen.getByRole('link', { name: 'Abbrechen' }))
+    // formulare-detailseiten (analog K6): Nach Eingaben fragt die Verlassen-Warnung nach; bestätigt mit „Verlassen“.
+    await user.click(await screen.findByRole('button', { name: 'Verlassen' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/coins'))
     expect(api.anfragenMit('POST')).toHaveLength(0)
@@ -160,8 +162,10 @@ describe('deutsche Texte', () => {
 // ---------- zertifikatsvorlagen, AK-31: Abschnitt „Zertifikatsvorlage“ ----------
 
 describe('Abschnitt „Zertifikatsvorlage“ (zertifikatsvorlagen, AK-31)', () => {
+  // formulare-detailseiten K5 (F2): Die Vorlage wird jetzt im Reiter „Zertifikatsvorlage“ der Detailseite hochgeladen;
+  // der Hinweistext ist im Entwurf (Abschnitt 11, K5) wortgleich vorgegeben.
   const HINWEIS =
-    'Laden Sie die Standardvorlage herunter, um daraus in Word eine Urkunde zu gestalten. Die fertige Vorlage laden Sie nach dem Anlegen auf der Seite „Coin bearbeiten“ hoch.'
+    'Laden Sie die Standardvorlage herunter, um daraus in Word eine Urkunde zu gestalten. Die fertige Vorlage laden Sie nach dem Anlegen auf der Detailseite des Coins im Reiter „Zertifikatsvorlage“ hoch.'
 
   it('hat die Überschrift „Zertifikatsvorlage“ als Ebene 2', async () => {
     zeigeSeite()

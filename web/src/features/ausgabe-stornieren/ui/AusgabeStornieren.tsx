@@ -1,23 +1,26 @@
-import { useId, useRef, useState } from 'react'
+import { useRef, useState, type RefObject, type FormEvent } from 'react'
 import type { Ausgabe } from '@/entities/ausgabe'
 import type { ApiErgebnis } from '@/shared/api'
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/shared/ui/alert-dialog'
+import { useFormular, useSendeSperre } from '@/shared/lib/formular'
+import { Bestaetigungsdialog } from '@/shared/ui/bestaetigungsdialog'
 import { Button } from '@/shared/ui/button'
-import { Label } from '@/shared/ui/label'
+import { Formularfeld } from '@/shared/ui/formularfeld'
 import { Textarea } from '@/shared/ui/textarea'
 import { storniereAusgabe } from '../api/storniereAusgabe'
 
 const GRUND_MAX = 500
 const TEXT_GRUND_FEHLT = 'Bitte einen Grund für das Storno angeben.'
-const TEXT_HINWEIS = 'Bitte keine Personendaten in den Grund schreiben.'
+const TEXT_HINWEIS = 'Bitte keine Personendaten in den Grund schreiben. Höchstens 500 Zeichen.'
+
+interface Werte {
+  grund: string
+}
+
+const AUSGANG: Werte = { grund: '' }
+
+function pruefe(werte: Werte): Partial<Record<keyof Werte, string>> {
+  return werte.grund.trim() === '' ? { grund: TEXT_GRUND_FEHLT } : {}
+}
 
 function fehlertext(ergebnis: Exclude<ApiErgebnis<Ausgabe>, { art: 'ok' }>): string {
   switch (ergebnis.art) {
@@ -47,151 +50,106 @@ export interface AusgabeStornierenProps {
   onFehler?: () => void
   /** Der Dialog wurde ohne Storno geschlossen (Abbrechen, Escape). */
   onGeschlossen?: () => void
+  /** Darstellung des Auslösers: in Tabellen sekundär (Standard), im Seitenkopf gefährlich. */
+  variante?: 'sekundaer' | 'gefaehrlich'
 }
 
 /**
- * Button „Stornieren“ mit Bestätigungsdialog und Pflichtfeld „Grund“ (coin-ausgaben AK-24). Der Hinweis „keine
- * Personendaten“ ist per `aria-describedby` mit dem Feld verbunden (F6).
+ * Button „Stornieren“ mit Bestätigungsdialog und Pflichtfeld „Grund“ (coin-ausgaben AK-24, formulare-detailseiten
+ * AK-17/AK-18). Titel, Beschreibung und Buttonnamen bleiben wortgleich (F5); der Hinweis „keine Personendaten“ steht
+ * in der Beschreibung des Felds (F6).
  */
-export function AusgabeStornieren({ coinId, ausgabe, onStorniert, onFehler, onGeschlossen }: AusgabeStornierenProps) {
+export function AusgabeStornieren({
+  coinId,
+  ausgabe,
+  onStorniert,
+  onFehler,
+  onGeschlossen,
+  variante = 'sekundaer',
+}: AusgabeStornierenProps) {
   const [offen, setOffen] = useState(false)
-  const [grund, setGrund] = useState('')
-  const [feldFehler, setFeldFehler] = useState<string | null>(null)
   const [alarm, setAlarm] = useState<string | null>(null)
-  const [sendet, setSendet] = useState(false)
-  // Synchroner Schutz gegen Mehrfachsendung: Zwei Klicks vor dem nächsten Rendern sehen den State noch nicht.
-  const sendetGerade = useRef(false)
+  const { sendet, mitSperre } = useSendeSperre()
   // Nach Erfolg gibt der Dialog den Fokus nicht an den (dann entfernten) Button zurück.
   const erfolgreich = useRef(false)
   const ausloeser = useRef<HTMLButtonElement>(null)
-  const feld = useRef<HTMLTextAreaElement>(null)
-  const basis = useId()
-  const formularId = `${basis}-formular`
-  const feldId = `${basis}-grund`
-  const hinweisId = `${basis}-hinweis`
-  const fehlerId = `${basis}-fehler`
+  const fokusZiel: RefObject<HTMLElement | null> = {
+    get current() {
+      return erfolgreich.current ? null : ausloeser.current
+    },
+  }
+  const formular = useFormular<Werte>({ ausgangswerte: AUSGANG, pruefe, reihenfolge: ['grund'] })
+  const grund = formular.feld('grund')
 
   function oeffnen() {
     erfolgreich.current = false
-    setGrund('')
-    setFeldFehler(null)
+    formular.zuruecksetzen(AUSGANG)
     setAlarm(null)
     setOffen(true)
   }
 
-  async function stornieren() {
-    if (sendetGerade.current) return
-    const text = grund.trim()
-    if (text === '') {
-      setFeldFehler(TEXT_GRUND_FEHLT)
-      feld.current?.focus()
-      return
-    }
-
-    sendetGerade.current = true
-    setSendet(true)
-    setAlarm(null)
-    setFeldFehler(null)
-    try {
-      const ergebnis = await storniereAusgabe(coinId, ausgabe.id, text)
+  function senden(werte: Werte) {
+    return mitSperre(async () => {
+      setAlarm(null)
+      const ergebnis = await storniereAusgabe(coinId, ausgabe.id, werte.grund.trim())
       if (ergebnis.art === 'ok') {
         erfolgreich.current = true
         setOffen(false)
         onStorniert(ergebnis.daten)
         return
       }
-      setAlarm(fehlertext(ergebnis))
+      if (ergebnis.art === 'validierung' && ergebnis.fehler.grund) {
+        formular.setzeServerFehler({ grund: ergebnis.fehler.grund.join(' ') })
+      } else {
+        setAlarm(fehlertext(ergebnis))
+      }
       onFehler?.()
-    } finally {
-      sendetGerade.current = false
-      setSendet(false)
-    }
+    })
   }
 
-  const beschreibung = [hinweisId, feldFehler ? fehlerId : undefined].filter(Boolean).join(' ')
+  // Der Handler wird erst im Ereignis gebaut (react-hooks/refs: keine Ref-Zugriffe beim Rendern).
+  const stornieren = (ereignis?: FormEvent) => formular.absenden(senden)(ereignis)
 
   return (
     <>
       <Button
         ref={ausloeser}
         type="button"
-        variant="outline"
+        variant={variante === 'gefaehrlich' ? 'destructive' : 'outline'}
         size="sm"
         aria-label={`Ausgabe von Exemplar Nr. ${ausgabe.exemplarNummer} stornieren`}
         onClick={oeffnen}
       >
         Stornieren
       </Button>
-      <AlertDialog
-        open={offen}
-        onOpenChange={(neu) => {
-          // Escape und „Abbrechen“ schließen während der Anfrage nicht.
-          if (sendetGerade.current) return
+      <Bestaetigungsdialog
+        offen={offen}
+        onOffenAendern={(neu) => {
           setOffen(neu)
           if (!neu) onGeschlossen?.()
         }}
+        titel="Ausgabe stornieren?"
+        folge={`Die Ausgabe von Exemplar Nr. ${ausgabe.exemplarNummer} bleibt in der Historie sichtbar. Das Exemplar ist danach wieder verfügbar.`}
+        bestaetigen="Stornieren"
+        variante="gefaehrlich"
+        laedt={sendet}
+        fehler={alarm}
+        onBestaetigen={() => stornieren()}
+        ausloeserRef={fokusZiel}
       >
-        <AlertDialogContent
-          initialFocus={feld}
-          finalFocus={() => (erfolgreich.current ? false : ausloeser.current)}
-          aria-busy={sendet}
+        <Formularfeld
+          label="Grund"
+          pflicht
+          hilfetext={TEXT_HINWEIS}
+          id={grund.id}
+          fehler={grund.fehler}
+          onBlur={grund.onBlur}
         >
-          <AlertDialogHeader>
-            <AlertDialogTitle>Ausgabe stornieren?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {`Die Ausgabe von Exemplar Nr. ${ausgabe.exemplarNummer} bleibt in der Historie sichtbar. Das Exemplar ist danach wieder verfügbar.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <form
-            id={formularId}
-            className="grid gap-1.5"
-            noValidate
-            onSubmit={(e) => {
-              e.preventDefault()
-              void stornieren()
-            }}
-          >
-            <Label htmlFor={feldId}>
-              Grund{' '}
-              <span aria-hidden="true" className="text-destructive">
-                *
-              </span>
-              <span className="sr-only">(Pflichtfeld)</span>
-            </Label>
-            <Textarea
-              ref={feld}
-              id={feldId}
-              rows={3}
-              maxLength={GRUND_MAX}
-              value={grund}
-              onChange={(e) => setGrund(e.target.value)}
-              aria-invalid={feldFehler ? true : undefined}
-              aria-describedby={beschreibung}
-            />
-            <p id={hinweisId} className="text-sm text-muted-foreground">
-              {TEXT_HINWEIS}
-            </p>
-            {feldFehler && (
-              <p id={fehlerId} className="text-sm text-destructive">
-                {feldFehler}
-              </p>
-            )}
-          </form>
-          {alarm && (
-            <p role="alert" className="text-sm text-destructive">
-              {alarm}
-            </p>
+          {(feld) => (
+            <Textarea {...feld} rows={3} maxLength={GRUND_MAX} value={grund.value} onChange={grund.onChange} />
           )}
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={sendet} focusableWhenDisabled>
-              Abbrechen
-            </AlertDialogCancel>
-            <Button type="submit" form={formularId} variant="destructive" disabled={sendet} focusableWhenDisabled>
-              Stornieren
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        </Formularfeld>
+      </Bestaetigungsdialog>
     </>
   )
 }

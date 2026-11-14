@@ -8,18 +8,13 @@ import {
   type Konfiguration,
   type LogoPlatz,
 } from '@/entities/startseite'
+import { pruefeNachZeigerklick } from '@/shared/lib/formular'
 import { formatiereZahl } from '@/shared/lib/format'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/shared/ui/alert-dialog'
+import { Aktionsleiste } from '@/shared/ui/aktionsleiste'
+import { Bestaetigungsdialog } from '@/shared/ui/bestaetigungsdialog'
 import { Button } from '@/shared/ui/button'
+import { Fehlerzusammenfassung, type Feldbefund } from '@/shared/ui/fehlerzusammenfassung'
+import { Formularfeld } from '@/shared/ui/formularfeld'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
@@ -38,7 +33,6 @@ import {
 import { BlockKarte } from './BlockKarte'
 import { LogoFeld } from './LogoFeld'
 
-const TEXT_PRUEFEN = 'Bitte die markierten Eingaben prüfen.'
 const TEXT_KONFLIKT = 'Die Startseite wurde inzwischen geändert. Bitte die Seite neu laden.'
 const TEXT_GESPEICHERT = 'Die Startseite wurde gespeichert.'
 const TEXT_NEU_GELADEN = 'Die Konfiguration wurde neu geladen.'
@@ -93,9 +87,10 @@ export interface StartseiteFormularProps {
 }
 
 /**
- * Formular „Bearbeiten“ der Startseite (AK-27 bis AK-31): je Block eine Karte in aktueller Reihenfolge, Client-
- * Vorprüfung mit Feldfehlern und Zusammenfassung, Speichern als Ganzes, Serverfehler am Feld, „Änderungen verwerfen“
- * mit Rückfrage. Eingaben und ausgewählte Dateien bleiben bei jedem Fehler erhalten.
+ * Formular „Bearbeiten“ der Startseite (AK-27 bis AK-31): je Block eine Karte (Abschnitt) in aktueller Reihenfolge,
+ * Client-Vorprüfung mit Feldfehlern beim Verlassen und Absenden und Zusammenfassung oben (schon ab einem Fehler,
+ * formulare-detailseiten AK-7), Speichern als Ganzes, Serverfehler am Feld, „Änderungen verwerfen“ mit Rückfrage.
+ * Eingaben und ausgewählte Dateien bleiben bei jedem Fehler erhalten.
  */
 export function StartseiteFormular({
   konfiguration,
@@ -120,6 +115,72 @@ export function StartseiteFormular({
   const meldungRef = useRef<HTMLParagraphElement>(null)
   const buttons = useRef(new Map<string, HTMLButtonElement>())
   const fokus = useRef<Fokus | null>(neuGeladen ? { art: 'meldung' } : null)
+  // Felder, die seit dem Laden geändert wurden: Nur sie werden beim Verlassen geprüft (ADR-0039).
+  const geaenderteFelder = useRef(new Set<string>())
+  // Aktueller Formularzustand für die verzögerte Prüfung nach einem Zeigerklick.
+  const formularRef = useRef(formular)
+  useEffect(() => {
+    formularRef.current = formular
+  })
+
+  const titelId = `${basis}-titel`
+  const untertitelId = `${basis}-untertitel`
+  const infotextId = `${basis}-infotext`
+  const logoId = (platz: LogoPlatz) => `${basis}-logo-${platz}`
+
+  /** Feld-Id und Beschriftung je Fehlerschlüssel (für die Zusammenfassung), in Formularreihenfolge. */
+  function feldbefunde(): Feldbefund[] {
+    const befunde: Feldbefund[] = []
+    const dazu = (schluessel: string, feldId: string, label: string) => {
+      const text = fehler[schluessel]
+      if (text) befunde.push({ feldId, label, text })
+    }
+    for (const art of formular.reihenfolge) {
+      if (art === 'kopf') {
+        dazu('kopf.titel', titelId, 'Titel')
+        dazu('kopf.untertitel', untertitelId, 'Untertitel')
+        for (const platz of LOGO_PLAETZE) {
+          dazu(LOGO_FELD[platz], `${logoId(platz)}-datei`, `${LOGO_NAMEN[platz]}: Logo auswählen`)
+          dazu(alttextFeld(platz), `${logoId(platz)}-alt`, `${LOGO_NAMEN[platz]}: Alternativtext`)
+        }
+      } else if (art === 'infotext') {
+        dazu('infotext.text', infotextId, 'Infotext')
+      } else if (art === 'neueste' || art === 'meistausgegeben') {
+        dazu(`${art}.anzahl`, `${basis}-${art}-anzahl`, `${BLOCK_NAMEN[art]}: Anzahl`)
+      }
+    }
+    return befunde
+  }
+
+  /** Eingabe: Feld als geändert merken; ein angezeigter Fehler verschwindet, sobald er nicht mehr zutrifft. */
+  function aendereFeld(schluessel: string, aendern: (alt: Formular) => Formular) {
+    geaenderteFelder.current.add(schluessel)
+    onAendern(aendern)
+    if (fehler[schluessel] === undefined) return
+    const neu = validiere(aendern(formular))[schluessel]
+    if (neu !== fehler[schluessel]) {
+      setFehler((alt) => {
+        const kopie = { ...alt }
+        delete kopie[schluessel]
+        return kopie
+      })
+    }
+  }
+
+  /** Verlassen: geänderte Felder prüfen (bestehende Regeln aus `validiere`). */
+  function verlasse(schluessel: string) {
+    if (!geaenderteFelder.current.has(schluessel)) return
+    pruefeNachZeigerklick(() => {
+      const meldung = validiere(formularRef.current)[schluessel]
+      setFehler((alt) => {
+        if (alt[schluessel] === meldung) return alt
+        const kopie = { ...alt }
+        if (meldung) kopie[schluessel] = meldung
+        else delete kopie[schluessel]
+        return kopie
+      })
+    })
+  }
 
   function setAnsage(text: string) {
     setAnsageZustand((alt) => ({ text, nr: alt.nr + 1 }))
@@ -182,6 +243,7 @@ export function StartseiteFormular({
       const ergebnis = await speichereKonfiguration(formular, konfiguration.version)
       switch (ergebnis.art) {
         case 'gespeichert':
+          geaenderteFelder.current.clear()
           onGespeichert(ergebnis.konfiguration)
           setMeldung({ art: 'gespeichert' })
           fokus.current = { art: 'meldung' }
@@ -205,6 +267,7 @@ export function StartseiteFormular({
   }
 
   function verwerfen() {
+    geaenderteFelder.current.clear()
     onAendern(() => ausKonfiguration(konfiguration))
     setFehler({})
     setMeldung(null)
@@ -243,38 +306,49 @@ export function StartseiteFormular({
   }
 
   function kopfFelder() {
-    const titel = feld(`${basis}-titel`, 'kopf.titel')
-    const untertitel = feld(`${basis}-untertitel`, 'kopf.untertitel')
     const hinweisIds = `${basis}-hinweis-format ${basis}-hinweis-metadaten ${basis}-hinweis-oeffentlich`
     return (
       <>
-        <div className="grid gap-1.5">
-          <Label htmlFor={titel.attribute.id}>Titel</Label>
-          <Input
-            type="text"
-            value={formular.titel}
-            onChange={(e) => {
-              const wert = e.target.value
-              onAendern((alt) => ({ ...alt, titel: wert }))
-            }}
-            disabled={sendet}
-            {...titel.attribute}
-          />
-          {titel.meldung}
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor={untertitel.attribute.id}>Untertitel</Label>
-          <Input
-            type="text"
-            value={formular.untertitel}
-            onChange={(e) => {
-              const wert = e.target.value
-              onAendern((alt) => ({ ...alt, untertitel: wert }))
-            }}
-            disabled={sendet}
-            {...untertitel.attribute}
-          />
-          {untertitel.meldung}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Formularfeld
+            label="Titel"
+            pflicht={formular.aktiv.kopf}
+            id={titelId}
+            fehler={fehler['kopf.titel']}
+            onBlur={() => verlasse('kopf.titel')}
+          >
+            {(attribute) => (
+              <Input
+                {...attribute}
+                type="text"
+                value={formular.titel}
+                onChange={(e) => {
+                  const wert = e.target.value
+                  aendereFeld('kopf.titel', (alt) => ({ ...alt, titel: wert }))
+                }}
+                disabled={sendet}
+              />
+            )}
+          </Formularfeld>
+          <Formularfeld
+            label="Untertitel"
+            id={untertitelId}
+            fehler={fehler['kopf.untertitel']}
+            onBlur={() => verlasse('kopf.untertitel')}
+          >
+            {(attribute) => (
+              <Input
+                {...attribute}
+                type="text"
+                value={formular.untertitel}
+                onChange={(e) => {
+                  const wert = e.target.value
+                  aendereFeld('kopf.untertitel', (alt) => ({ ...alt, untertitel: wert }))
+                }}
+                disabled={sendet}
+              />
+            )}
+          </Formularfeld>
         </div>
         <div className="grid gap-1 text-sm text-muted-foreground">
           <p id={`${basis}-hinweis-format`}>{HINWEIS_FORMAT}</p>
@@ -286,6 +360,7 @@ export function StartseiteFormular({
             <LogoFeld
               key={platz}
               platz={platz}
+              idBasis={logoId(platz)}
               eingabe={formular.logos[platz]}
               vorschauUrl={logoUrls[platz]}
               hinweisIds={hinweisIds}
@@ -316,27 +391,31 @@ export function StartseiteFormular({
   }
 
   function infotextFelder() {
-    const hilfeId = `${basis}-infotext-hilfe`
-    const infotext = feld(`${basis}-infotext`, 'infotext.text', hilfeId)
     return (
-      <div className="grid gap-1.5">
-        <Label htmlFor={infotext.attribute.id}>Infotext</Label>
-        <Textarea
-          rows={6}
-          value={formular.infotext}
-          onChange={(e) => {
-            const wert = e.target.value
-            onAendern((alt) => ({ ...alt, infotext: wert }))
-          }}
-          disabled={sendet}
-          {...infotext.attribute}
-        />
-        <p className="text-sm text-muted-foreground">{`${formatiereZahl(formular.infotext.length)} von 5.000 Zeichen`}</p>
-        <p id={hilfeId} className="text-sm text-muted-foreground">
-          {HILFE_INFOTEXT}
-        </p>
-        {infotext.meldung}
-      </div>
+      <Formularfeld
+        label="Infotext"
+        pflicht={formular.aktiv.infotext}
+        hilfetext={HILFE_INFOTEXT}
+        id={infotextId}
+        fehler={fehler['infotext.text']}
+        onBlur={() => verlasse('infotext.text')}
+      >
+        {(attribute) => (
+          <>
+            <Textarea
+              {...attribute}
+              rows={6}
+              value={formular.infotext}
+              onChange={(e) => {
+                const wert = e.target.value
+                aendereFeld('infotext.text', (alt) => ({ ...alt, infotext: wert }))
+              }}
+              disabled={sendet}
+            />
+            <p className="text-sm text-muted-foreground">{`${formatiereZahl(formular.infotext.length)} von 5.000 Zeichen`}</p>
+          </>
+        )}
+      </Formularfeld>
     )
   }
 
@@ -371,11 +450,19 @@ export function StartseiteFormular({
     )
   }
 
+  const befunde = meldung?.art === 'pruefen' ? feldbefunde() : []
+  const zusammenfassung = meldung?.art === 'pruefen' && (befunde.length > 0 || meldung.weitere.length > 0)
+
   return (
     <form ref={formRef} className="grid gap-4" onSubmit={(e) => void absenden(e)} noValidate>
       <p role="status" className="sr-only">
         {ansage.text ? <span key={ansage.nr}>{ansage.text}</span> : null}
       </p>
+      {zusammenfassung && meldung?.art === 'pruefen' && (
+        <Fehlerzusammenfassung fehler={befunde} weitere={meldung.weitere} />
+      )}
+      <MeldungAnzeige meldung={meldung} meldungRef={meldungRef} onNeuLaden={onNeuLaden} gesperrt={sendet} />
+
       {formular.reihenfolge.map((art, index) => (
         <BlockKarte
           key={art}
@@ -396,12 +483,7 @@ export function StartseiteFormular({
         </BlockKarte>
       ))}
 
-      <MeldungAnzeige meldung={meldung} meldungRef={meldungRef} onNeuLaden={onNeuLaden} gesperrt={sendet} />
-
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" disabled={sendet} focusableWhenDisabled>
-          Speichern
-        </Button>
+      <Aktionsleiste>
         <Button
           type="button"
           variant="outline"
@@ -411,24 +493,20 @@ export function StartseiteFormular({
         >
           Änderungen verwerfen
         </Button>
-      </div>
+        <Button type="submit" laedt={sendet}>
+          Speichern
+        </Button>
+      </Aktionsleiste>
 
-      <AlertDialog open={verwerfenOffen} onOpenChange={setVerwerfenOffen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Änderungen verwerfen?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Alle ungespeicherten Änderungen an der Startseite gehen verloren.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction type="button" onClick={verwerfen}>
-              Verwerfen
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Bestaetigungsdialog
+        offen={verwerfenOffen}
+        onOffenAendern={setVerwerfenOffen}
+        titel="Änderungen verwerfen?"
+        folge="Alle ungespeicherten Änderungen an der Startseite gehen verloren."
+        bestaetigen="Verwerfen"
+        variante="gefaehrlich"
+        onBestaetigen={verwerfen}
+      />
     </form>
   )
 }
@@ -454,18 +532,8 @@ function MeldungAnzeige({
         </p>
       )
     case 'pruefen':
-      return (
-        <div role="alert" className="grid gap-1 text-destructive">
-          <p className="font-medium">{TEXT_PRUEFEN}</p>
-          {meldung.weitere.length > 0 ? (
-            <ul className="list-disc pl-6 text-sm">
-              {meldung.weitere.map((text) => (
-                <li key={text}>{text}</li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      )
+      // Die Zusammenfassung rendert das Formular selbst (Fehlerzusammenfassung oben).
+      return null
     case 'konflikt':
       return (
         <div role="alert" className="flex flex-wrap items-center gap-3 text-destructive">

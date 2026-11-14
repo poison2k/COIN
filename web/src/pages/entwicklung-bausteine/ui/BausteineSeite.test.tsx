@@ -32,6 +32,18 @@ const ABSCHNITTE: ReadonlyArray<[string, RegExp]> = [
   ['Toast', /^Toast\b/],
   ['Seitenkopf', /^Seitenkopf\b/],
   ['Brotkrumen', /^Brotkrumen\b/],
+  // formulare-detailseiten (Abschnitt 4.8, AK-35): neue Abschnitte in dieser Reihenfolge nach „Brotkrumen“.
+  ['Fortschrittsbalken', /^Fortschrittsbalken\b/],
+  ['Formularabschnitt', /^Formularabschnitt\b/],
+  ['Fehlerzusammenfassung', /^Fehlerzusammenfassung\b/],
+  ['Aktionsleiste', /^Aktionsleiste\b/],
+  ['Bestätigungsdialog', /^Bestätigungsdialog/],
+  ['Verlassen-Warnung', /^Verlassen-Warnung\b/],
+  ['Kennzahlkarte', /^Kennzahlkarte\b/],
+  ['Zeitleiste', /^Zeitleiste\b/],
+  ['Datentabelle', /^Datentabelle\b/],
+  ['Filterleiste', /^Filterleiste\b/],
+  ['Blättern', /^Blättern/],
 ]
 
 /** Farbtokens aus Abschnitt 4.1. */
@@ -344,5 +356,117 @@ describe('Deutsche Texte und Daten (AK-38, AK-43)', () => {
     await zeige()
 
     expect(document.body.textContent).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.]+/)
+  })
+})
+
+// ---------- formulare-detailseiten, AK-35 (Abschnitt 4.8): neue Bausteine mit Varianten und Zuständen ----------
+
+/** Erstes Bedienelement einer Rolle im Abschnitt; schlägt mit Hinweis fehl, wenn es fehlt. */
+function erstes(muster: RegExp, rolle: string, optionen: { name?: string } = {}): HTMLElement {
+  const element = rollen(muster, rolle, optionen)[0]
+  expect(element, `${rolle} ${optionen.name ?? ''} im Abschnitt ${muster} fehlt`).toBeDefined()
+  return element
+}
+
+describe('Neue Bausteine (formulare-detailseiten, AK-35)', () => {
+  it('zeigt einen Fortschrittsbalken mit aria-valuetext', async () => {
+    await zeige()
+
+    const balken = rollen(/^Fortschrittsbalken\b/, 'progressbar')
+    expect(balken.length).toBeGreaterThan(0)
+    expect(balken.every((b) => (b.getAttribute('aria-valuetext') ?? '') !== '')).toBe(true)
+  })
+
+  it('zeigt einen Formularabschnitt als Gruppe', async () => {
+    await zeige()
+
+    expect(rollen(/^Formularabschnitt\b/, 'group').length).toBeGreaterThan(0)
+  })
+
+  it('zeigt eine Fehlerzusammenfassung mit Links', async () => {
+    await zeige()
+
+    const alarme = rollen(/^Fehlerzusammenfassung\b/, 'alert')
+    expect(alarme.some((a) => a.textContent?.includes('Bitte die markierten Eingaben prüfen.'))).toBe(true)
+    expect(rollen(/^Fehlerzusammenfassung\b/, 'link').length).toBeGreaterThan(0)
+  })
+
+  it('zeigt eine Aktionsleiste mit „Abbrechen“ und einer Hauptaktion im Zustand „lädt“', async () => {
+    await zeige()
+
+    const bedienelemente = [...rollen(/^Aktionsleiste\b/, 'button'), ...rollen(/^Aktionsleiste\b/, 'link')]
+    expect(bedienelemente.some((b) => b.textContent?.trim() === 'Abbrechen')).toBe(true)
+    expect(rollen(/^Aktionsleiste\b/, 'button').some((b) => b.getAttribute('aria-busy') === 'true')).toBe(true)
+  })
+
+  it('öffnet den Bestätigungsdialog per Button als alertdialog', async () => {
+    const user = await zeige()
+
+    await user.click(erstes(/^Bestätigungsdialog/, 'button'))
+
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+  })
+
+  it('öffnet die Verlassen-Warnung per Button ohne Navigation', async () => {
+    const user = await zeige()
+
+    await user.click(erstes(/^Verlassen-Warnung\b/, 'button'))
+
+    expect(await screen.findByRole('alertdialog', { name: 'Ungespeicherte Änderungen' })).toBeInTheDocument()
+  })
+
+  it('zeigt Kennzahlkarten als Beschreibungsliste', async () => {
+    await zeige()
+
+    expect(imAbschnitt(/^Kennzahlkarte\b/, [...document.querySelectorAll('dl')]).length).toBeGreaterThan(0)
+  })
+
+  it('zeigt eine Zeitleiste als geordnete Liste', async () => {
+    await zeige()
+
+    expect(imAbschnitt(/^Zeitleiste\b/, [...document.querySelectorAll('ol')]).length).toBeGreaterThan(0)
+  })
+
+  it('zeigt eine Datentabelle mit sortierbarer Spalte (aria-sort)', async () => {
+    await zeige()
+
+    expect(rollen(/^Datentabelle\b/, 'table').length).toBeGreaterThan(0)
+    expect(imAbschnitt(/^Datentabelle\b/, [...document.querySelectorAll('th[aria-sort]')]).length).toBeGreaterThan(0)
+  })
+
+  it('schaltet die Datentabelle per „Kartenansicht zeigen“ in die Kartenansicht', async () => {
+    const user = await zeige()
+    const umschalter = [
+      ...rollen(/^Datentabelle\b/, 'switch', { name: 'Kartenansicht zeigen' }),
+      ...rollen(/^Datentabelle\b/, 'checkbox', { name: 'Kartenansicht zeigen' }),
+      ...rollen(/^Datentabelle\b/, 'button', { name: 'Kartenansicht zeigen' }),
+    ][0]
+    expect(umschalter, 'Umschalter „Kartenansicht zeigen“ fehlt').toBeDefined()
+
+    await user.click(umschalter)
+
+    const listen = rollen(/^Datentabelle\b/, 'list')
+    expect(listen.some((l) => within(l).queryAllByRole('heading', { level: 3 }).length > 0)).toBe(true)
+  })
+
+  it('zeigt eine Filterleiste mit Chips', async () => {
+    await zeige()
+
+    expect(rollen(/^Filterleiste\b/, 'list', { name: 'Aktive Filter' }).length).toBeGreaterThan(0)
+  })
+
+  it('zeigt das Blättern mit „Vorherige Seite“ und „Nächste Seite“', async () => {
+    await zeige()
+
+    expect(rollen(/^Blättern/, 'button', { name: 'Vorherige Seite' }).length).toBeGreaterThan(0)
+    expect(rollen(/^Blättern/, 'button', { name: 'Nächste Seite' }).length).toBeGreaterThan(0)
+  })
+
+  it('enthält mit geöffnetem Bestätigungsdialog keine englischen Texte', async () => {
+    const user = await zeige()
+    await user.click(erstes(/^Bestätigungsdialog/, 'button'))
+    await screen.findByRole('alertdialog')
+
+    expect(alleTexte(document.body)).not.toMatch(ENGLISCH)
   })
 })

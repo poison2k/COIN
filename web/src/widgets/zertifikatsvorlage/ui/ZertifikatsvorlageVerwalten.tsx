@@ -72,14 +72,17 @@ interface Meldung {
 
 export interface ZertifikatsvorlageVerwaltenProps {
   coinId: string
+  /** Eine Vorlage ist gewählt, aber nicht hochgeladen (Verlassen-Warnung des Reiters, formulare-detailseiten AK-13). */
+  onGeaendert?: (geaendert: boolean) => void
 }
 
 /**
- * Abschnitt „Zertifikatsvorlage“ auf „Coin bearbeiten“ (zertifikatsvorlagen, AK-30): Status als Text, Downloads,
+ * Abschnitt „Zertifikatsvorlage“ im gleichnamigen Reiter der Detailseite (zertifikatsvorlagen, AK-30;
+ * formulare-detailseiten F2): Status als Text, Downloads,
  * Versionstabelle, Upload und – nur mit eigener aktiver Vorlage – Zurücksetzen. Antworten zu einem anderen Coin werden
  * verworfen.
  */
-export function ZertifikatsvorlageVerwalten({ coinId }: ZertifikatsvorlageVerwaltenProps) {
+export function ZertifikatsvorlageVerwalten({ coinId, onGeaendert }: ZertifikatsvorlageVerwaltenProps) {
   const [geladen, setGeladen] = useState<{ coinId: string; ergebnis: ApiErgebnis<VorlagenStatus> } | null>(null)
   const [meldung, setMeldung] = useState<Meldung | null>(null)
   const [downloadFehler, setDownloadFehler] = useState<string | null>(null)
@@ -191,13 +194,20 @@ export function ZertifikatsvorlageVerwalten({ coinId }: ZertifikatsvorlageVerwal
                   size="sm"
                   aria-label={`Version ${version.version} herunterladen`}
                 >
-                  Herunterladen
+                  {/* Unter 1280 px nur das Symbol, damit die Tabelle neben der Seitenleiste passt (AK-30). */}
+                  <DownloadIcon aria-hidden="true" />
+                  <span className="max-xl:sr-only">Herunterladen</span>
                 </DownloadKnopf>
               )}
             />
           )}
 
-          <VorlageHochladen coinId={coinId} onHochgeladen={hochgeladen} onUploadBeginnt={uploadBeginnt} />
+          <VorlageHochladen
+            coinId={coinId}
+            onHochgeladen={hochgeladen}
+            onUploadBeginnt={uploadBeginnt}
+            onGeaendert={onGeaendert}
+          />
         </>
       )}
     </section>

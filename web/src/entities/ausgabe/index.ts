@@ -2,4 +2,6 @@ export type { Ausgabe, AusgabeAkteur, AusgabeStatus, AusgabeStorno } from './mod
 export { AUSGABEN_JE_SEITE, ladeAusgabe, ladeAusgaben, type AusgabenAnfrage } from './api/ausgaben'
 export { HOLOGRAMMNUMMER_MAX, pruefeHologrammnummer, type HologrammnummerPruefung } from './model/hologrammnummer'
 export { AusgabeDetails, type AusgabeDetailsProps } from './ui/AusgabeDetails'
+export { AusgabeStatusChip, type AusgabeStatusChipProps } from './ui/AusgabeStatusChip'
+export { AusgabeVerlauf, type AusgabeVerlaufProps } from './ui/AusgabeVerlauf'
 export { AusgabenTabelle, type AusgabenTabelleProps } from './ui/AusgabenTabelle'

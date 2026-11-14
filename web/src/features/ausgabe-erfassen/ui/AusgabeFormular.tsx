@@ -1,12 +1,17 @@
-import { useId, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { HOLOGRAMMNUMMER_MAX, pruefeHologrammnummer, type Ausgabe } from '@/entities/ausgabe'
 import type { Coin } from '@/entities/coin'
 import type { KennzahlenDaten } from '@/entities/exemplar'
 import type { KeinZugriffGrund } from '@/shared/api'
-import { heuteInBerlin } from '@/shared/lib/format'
+import { useFormular, useSendeSperre, type Formularfehler } from '@/shared/lib/formular'
+import { formatiereZahl, heuteInBerlin } from '@/shared/lib/format'
+import { Aktionsleiste } from '@/shared/ui/aktionsleiste'
+import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
+import { Fehlerzusammenfassung } from '@/shared/ui/fehlerzusammenfassung'
+import { FormularAbschnitt } from '@/shared/ui/formular-abschnitt'
+import { Formularfeld } from '@/shared/ui/formularfeld'
 import { Input } from '@/shared/ui/input'
-import { Label } from '@/shared/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
 import { Textarea } from '@/shared/ui/textarea'
 import { erfasseAusgabe } from '../api/erfasseAusgabe'
@@ -14,7 +19,6 @@ import {
   FELD_REIHENFOLGE,
   validiereAusgabe,
   type AusgabeEingaben,
-  type AusgabeFehler,
   type AusgabeFeld,
   type ExemplarWahl,
 } from '../model/validiereAusgabe'
@@ -30,9 +34,26 @@ const TEXT_NICHT_GEFUNDEN = 'Der Coin wurde nicht gefunden.'
 const TEXT_SERVER_VALIDIERUNG = 'Die Eingaben wurden vom Server abgelehnt. Bitte prüfen.'
 const TEXT_ALLGEMEINER_FEHLER = 'Die Ausgabe konnte nicht gespeichert werden. Bitte später erneut versuchen.'
 const TEXT_HOLOGRAMM_VERGEBEN = 'Diese Hologrammnummer ist bereits vergeben.'
-const HINWEIS_HOLOGRAMM = 'Nummer des Hologramm-Stickers auf dem Zertifikat. Leerzeichen und Bindestriche sind erlaubt.'
+const HINWEIS_HOLOGRAMM =
+  'Nummer des Hologramm-Stickers auf dem Zertifikat. Leerzeichen und Bindestriche sind erlaubt. Kleinbuchstaben werden zu Großbuchstaben. Erlaubt sind A–Z und 0–9, höchstens 40 Zeichen. Die Nummer darf nur einmal vergeben sein.'
+const HINWEIS_GELEGENHEIT = 'z. B. Truppenbesuch, Verabschiedung'
 
 const SERVER_FELDER = new Set<string>(FELD_REIHENFOLGE)
+
+const LABEL: Readonly<Record<AusgabeFeld, string>> = {
+  exemplarNummer: 'Exemplar-Nummer',
+  empfaengerName: 'Name des Empfängers',
+  empfaengerDienstgrad: 'Dienstgrad (optional)',
+  empfaengerDienststelle: 'Dienststelle (optional)',
+  datum: 'Datum',
+  gelegenheit: 'Gelegenheit',
+  begruendung: 'Begründung',
+  ausgebendeStelle: 'Ausgebende Stelle oder Person',
+  hologrammnummer: 'Hologrammnummer (optional)',
+}
+
+/** Auswahl mit Beschriftung als Klickfläche von mindestens 40 px Höhe (AK-38). */
+const WAHL_KLASSEN = 'flex min-h-10 w-fit cursor-pointer items-center gap-3 rounded-md pr-2 text-sm'
 
 function keinZugriffText(grund: KeinZugriffGrund): string {
   return grund === 'deaktiviert' ? TEXT_DEAKTIVIERT : TEXT_KEIN_ZUGRIFF
@@ -43,30 +64,25 @@ function textOderNull(wert: string): string | null {
   return text === '' ? null : text
 }
 
-/** Kennzeichnung eines Pflichtfelds im Label: sichtbar „*“, für Screenreader „(Pflichtfeld)“ (AK-27). */
-function Pflicht() {
-  return (
-    <>
-      <span aria-hidden="true" className="text-destructive">
-        *
-      </span>
-      <span className="sr-only">(Pflichtfeld)</span>
-    </>
-  )
-}
-
 export interface AusgabeFormularProps {
   coin: Coin
   kennzahlen: KennzahlenDaten
   /** Nach 201 mit der gespeicherten Ausgabe; die Seite navigiert danach (AK-28). */
   onErfasst: (ausgabe: Ausgabe) => void
+  /** „Abbrechen“ (Link der Seite) links in der Aktionsleiste. */
+  abbrechen?: ReactNode
+  /** Meldet, ob Eingaben vom Ausgangszustand abweichen (Verlassen-Warnung der Seite, ADR-0040). */
+  onGeaendert?: (geaendert: boolean) => void
 }
 
-/** Formular „Ausgabe erfassen“ (coin-ausgaben AK-27 bis AK-29), mit optionaler Hologrammnummer (hologrammnummer AK-26). */
-export function AusgabeFormular({ coin, kennzahlen, onErfasst }: AusgabeFormularProps) {
+/**
+ * Formular „Ausgabe erfassen“ (coin-ausgaben AK-27 bis AK-29), mit optionaler Hologrammnummer (hologrammnummer AK-26),
+ * nach dem Formularmuster (ADR-0039): Abschnitte „Exemplar“, „Empfänger“, „Ausgabe“ und „Zertifikat“.
+ */
+export function AusgabeFormular({ coin, kennzahlen, onErfasst, abbrechen, onGeaendert }: AusgabeFormularProps) {
   const auflage = kennzahlen.auflage ?? coin.auflage ?? 0
   const [heute] = useState(() => heuteInBerlin())
-  const [werte, setWerte] = useState<AusgabeEingaben>(() => ({
+  const [ausgang] = useState<AusgabeEingaben>(() => ({
     wahl: 'naechste',
     exemplarNummer: '',
     empfaengerName: '',
@@ -78,89 +94,58 @@ export function AusgabeFormular({ coin, kennzahlen, onErfasst }: AusgabeFormular
     ausgebendeStelle: '',
     hologrammnummer: '',
   }))
-  const [fehler, setFehler] = useState<AusgabeFehler>({})
   const [alarm, setAlarm] = useState<string | null>(null)
-  const [sendet, setSendet] = useState(false)
-  const sendetRef = useRef(false)
-  const basis = useId()
-
-  const id = (feld: AusgabeFeld) => `${basis}-${feld}`
-  const fehlerId = (feld: AusgabeFeld) => `${basis}-${feld}-fehler`
-  const legendeId = `${basis}-exemplar`
-  const gelegenheitHinweisId = `${basis}-gelegenheit-hinweis`
-  const hologrammHinweisId = `${basis}-hologrammnummer-hinweis`
-
-  function aendere(feld: AusgabeFeld) {
-    return (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      const wert = e.target.value
-      setWerte((alt) => ({ ...alt, [feld]: wert }))
-    }
-  }
+  const { sendet, mitSperre } = useSendeSperre()
+  const formular = useFormular<AusgabeEingaben>({
+    ausgangswerte: ausgang,
+    pruefe: (werte) => validiereAusgabe(werte, { auflage, heute }),
+    reihenfolge: FELD_REIHENFOLGE,
+    onGeaendert,
+  })
+  const { werte } = formular
 
   function aendereWahl(wahl: unknown) {
-    if (wahl === 'naechste' || wahl === 'nummer') setWerte((alt) => ({ ...alt, wahl: wahl as ExemplarWahl }))
+    if (wahl === 'naechste' || wahl === 'nummer') formular.setzeWert('wahl', wahl as ExemplarWahl)
   }
 
-  function fokussiereErstenFehler(neu: AusgabeFehler) {
-    const erstes = FELD_REIHENFOLGE.find((feld) => neu[feld])
-    if (erstes) document.getElementById(id(erstes))?.focus()
-  }
-
-  function zeigeFehler(neu: AusgabeFehler) {
-    setFehler(neu)
-    fokussiereErstenFehler(neu)
-  }
-
-  async function absenden(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (sendetRef.current) return
-
-    const pruefung = validiereAusgabe(werte, { auflage, heute })
-    if (Object.keys(pruefung).length > 0) {
+  const absenden = formular.absenden((eingaben) =>
+    mitSperre(async () => {
       setAlarm(null)
-      zeigeFehler(pruefung)
-      return
-    }
-
-    sendetRef.current = true
-    setSendet(true)
-    setAlarm(null)
-    setFehler({})
-    const nummer = werte.wahl === 'nummer' ? Number(werte.exemplarNummer.trim()) : null
-    const hologramm = pruefeHologrammnummer(werte.hologrammnummer)
-    try {
+      const nummer = eingaben.wahl === 'nummer' ? Number(eingaben.exemplarNummer.trim()) : null
+      const hologramm = pruefeHologrammnummer(eingaben.hologrammnummer ?? '')
       const ergebnis = await erfasseAusgabe(coin.id, {
         exemplarNummer: nummer,
-        empfaengerName: werte.empfaengerName.trim(),
-        empfaengerDienstgrad: textOderNull(werte.empfaengerDienstgrad),
-        empfaengerDienststelle: textOderNull(werte.empfaengerDienststelle),
-        datum: werte.datum,
-        gelegenheit: werte.gelegenheit.trim(),
-        begruendung: werte.begruendung.trim(),
-        ausgebendeStelle: werte.ausgebendeStelle.trim(),
+        empfaengerName: eingaben.empfaengerName.trim(),
+        empfaengerDienstgrad: textOderNull(eingaben.empfaengerDienstgrad),
+        empfaengerDienststelle: textOderNull(eingaben.empfaengerDienststelle),
+        datum: eingaben.datum,
+        gelegenheit: eingaben.gelegenheit.trim(),
+        begruendung: eingaben.begruendung.trim(),
+        ausgebendeStelle: eingaben.ausgebendeStelle.trim(),
         // Ohne Nummer fehlt das Feld (Server: null); der bisherige Request bleibt unverändert.
         ...(hologramm.art === 'ok' ? { hologrammnummer: hologramm.anzeige } : {}),
       })
 
       switch (ergebnis.art) {
         case 'ok':
+          formular.zuruecksetzen()
           onErfasst(ergebnis.daten)
           return
         case 'validierung': {
-          const feldFehler: AusgabeFehler = {}
+          const feldFehler: Formularfehler<AusgabeEingaben> = {}
           for (const [schluessel, meldungen] of Object.entries(ergebnis.fehler)) {
             if (SERVER_FELDER.has(schluessel) && meldungen.length > 0)
               feldFehler[schluessel as AusgabeFeld] = meldungen.join(' ')
           }
           if (Object.keys(feldFehler).length === 0) setAlarm(TEXT_SERVER_VALIDIERUNG)
-          zeigeFehler(feldFehler)
+          else formular.setzeServerFehler(feldFehler)
           return
         }
         case 'konflikt':
           if (ergebnis.code === 'hologrammnummer_vergeben') {
-            zeigeFehler({ hologrammnummer: TEXT_HOLOGRAMM_VERGEBEN })
+            formular.setzeServerFehler({ hologrammnummer: TEXT_HOLOGRAMM_VERGEBEN })
           } else if (ergebnis.code === 'exemplar_ausgegeben' && nummer !== null) {
-            zeigeFehler({ exemplarNummer: `Exemplar Nr. ${nummer} ist bereits ausgegeben.` })
+            formular.setzeServerFehler({ exemplarNummer: `Exemplar Nr. ${nummer} ist bereits ausgegeben.` })
           } else if (ergebnis.code === 'exemplar_ausgegeben') {
             setAlarm(TEXT_AUSGEGEBEN_OHNE_NUMMER)
           } else if (ergebnis.code === 'auflage_unbekannt') {
@@ -181,176 +166,176 @@ export function AusgabeFormular({ coin, kennzahlen, onErfasst }: AusgabeFormular
         default:
           setAlarm(TEXT_ALLGEMEINER_FEHLER)
       }
-    } finally {
-      sendetRef.current = false
-      setSendet(false)
-    }
-  }
+    }),
+  )
 
-  function feldAttribute(feld: AusgabeFeld, hinweisId?: string) {
-    const beschreibung = [hinweisId, fehler[feld] ? fehlerId(feld) : undefined].filter(Boolean).join(' ')
-    return {
-      id: id(feld),
-      value: werte[feld] ?? '',
-      onChange: aendere(feld),
-      'aria-invalid': fehler[feld] ? true : undefined,
-      'aria-describedby': beschreibung || undefined,
-    }
-  }
-
-  function feldFehler(feld: AusgabeFeld) {
-    return fehler[feld] ? (
-      <p id={fehlerId(feld)} className="text-sm text-destructive">
-        {fehler[feld]}
-      </p>
-    ) : null
-  }
-
-  function Feld({ feld, label, children }: { feld: AusgabeFeld; label: ReactNode; children: ReactNode }) {
-    return (
-      <div className="grid gap-1.5">
-        <Label htmlFor={id(feld)}>{label}</Label>
-        {children}
-        {feldFehler(feld)}
-      </div>
-    )
-  }
+  const nummer = formular.feld('exemplarNummer')
+  const name = formular.feld('empfaengerName')
+  const dienstgrad = formular.feld('empfaengerDienstgrad')
+  const dienststelle = formular.feld('empfaengerDienststelle')
+  const datum = formular.feld('datum')
+  const gelegenheit = formular.feld('gelegenheit')
+  const begruendung = formular.feld('begruendung')
+  const stelle = formular.feld('ausgebendeStelle')
+  const hologramm = formular.feld('hologrammnummer')
+  const nummerPflicht = werte.wahl === 'nummer'
 
   return (
-    <form className="grid max-w-xl gap-4" onSubmit={absenden} noValidate>
-      <fieldset className="grid gap-2">
-        <legend id={legendeId} className="mb-2 text-sm font-medium">
-          Exemplar
-        </legend>
-        <RadioGroup aria-labelledby={legendeId} value={werte.wahl} onValueChange={aendereWahl}>
-          <div className="flex items-center gap-2">
-            <RadioGroupItem id={`${basis}-wahl-naechste`} value="naechste" />
-            <Label htmlFor={`${basis}-wahl-naechste`} className="font-normal">
-              Nächstes freies Exemplar
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <RadioGroupItem id={`${basis}-wahl-nummer`} value="nummer" />
-            <Label htmlFor={`${basis}-wahl-nummer`} className="font-normal">
-              Bestimmte Nummer
-            </Label>
-          </div>
-        </RadioGroup>
-        <div className="grid gap-1.5 pl-6">
-          <Label htmlFor={id('exemplarNummer')}>
-            Exemplar-Nummer
-            {werte.wahl === 'nummer' && (
-              <>
-                {' '}
-                <Pflicht />
-              </>
-            )}
-          </Label>
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={auflage}
-            className="w-40"
-            disabled={werte.wahl !== 'nummer'}
-            {...feldAttribute('exemplarNummer')}
-          />
-          {feldFehler('exemplarNummer')}
-        </div>
-      </fieldset>
+    <form className="grid max-w-reading gap-6" onSubmit={absenden} noValidate>
+      {formular.versucht && formular.fehlerListe.length >= 2 && (
+        <Fehlerzusammenfassung
+          fehler={formular.fehlerListe.map((f) => ({
+            feldId: f.feldId,
+            label: LABEL[f.feld as AusgabeFeld],
+            text: f.text,
+          }))}
+        />
+      )}
+      {alarm && (
+        <Alert variant="destructive">
+          <AlertDescription>{alarm}</AlertDescription>
+        </Alert>
+      )}
 
-      {Feld({
-        feld: 'empfaengerName',
-        label: (
-          <>
-            Name des Empfängers <Pflicht />
-          </>
-        ),
-        children: <Input type="text" maxLength={200} {...feldAttribute('empfaengerName')} />,
-      })}
-      {Feld({
-        feld: 'empfaengerDienstgrad',
-        label: 'Dienstgrad (optional)',
-        children: <Input type="text" maxLength={100} {...feldAttribute('empfaengerDienstgrad')} />,
-      })}
-      {Feld({
-        feld: 'empfaengerDienststelle',
-        label: 'Dienststelle (optional)',
-        children: <Input type="text" maxLength={200} {...feldAttribute('empfaengerDienststelle')} />,
-      })}
-      {Feld({
-        feld: 'datum',
-        label: (
-          <>
-            Datum <Pflicht />
-          </>
-        ),
-        children: <Input type="date" max={heute} className="w-48" {...feldAttribute('datum')} />,
-      })}
-      {Feld({
-        feld: 'gelegenheit',
-        label: (
-          <>
-            Gelegenheit <Pflicht />
-          </>
-        ),
-        children: (
-          <>
-            <Input type="text" maxLength={200} {...feldAttribute('gelegenheit', gelegenheitHinweisId)} />
-            <p id={gelegenheitHinweisId} className="text-sm text-muted-foreground">
-              z. B. Truppenbesuch, Verabschiedung
-            </p>
-          </>
-        ),
-      })}
-      {Feld({
-        feld: 'begruendung',
-        label: (
-          <>
-            Begründung <Pflicht />
-          </>
-        ),
-        children: <Textarea rows={4} maxLength={2000} {...feldAttribute('begruendung')} />,
-      })}
-      {Feld({
-        feld: 'ausgebendeStelle',
-        label: (
-          <>
-            Ausgebende Stelle oder Person <Pflicht />
-          </>
-        ),
-        children: <Input type="text" maxLength={200} {...feldAttribute('ausgebendeStelle')} />,
-      })}
-      {Feld({
-        feld: 'hologrammnummer',
-        label: 'Hologrammnummer (optional)',
-        children: (
-          <>
+      <FormularAbschnitt titel="Exemplar">
+        <RadioGroup aria-label="Exemplar" value={werte.wahl} onValueChange={aendereWahl} className="gap-0">
+          <label className={WAHL_KLASSEN}>
+            <RadioGroupItem value="naechste" />
+            Nächstes freies Exemplar
+          </label>
+          <label className={WAHL_KLASSEN}>
+            <RadioGroupItem value="nummer" />
+            Bestimmte Nummer
+          </label>
+        </RadioGroup>
+        <Formularfeld
+          label={LABEL.exemplarNummer}
+          pflicht={nummerPflicht}
+          hilfetext={`Zwischen 1 und ${formatiereZahl(auflage)}.`}
+          id={nummer.id}
+          fehler={nummer.fehler}
+          onBlur={nummer.onBlur}
+          className="pl-7"
+        >
+          {(feld) => (
             <Input
+              {...feld}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={auflage}
+              className="w-40"
+              disabled={!nummerPflicht}
+              value={nummer.value}
+              onChange={nummer.onChange}
+            />
+          )}
+        </Formularfeld>
+      </FormularAbschnitt>
+
+      <FormularAbschnitt titel="Empfänger" spalten={2}>
+        <Formularfeld
+          label={LABEL.empfaengerName}
+          pflicht
+          id={name.id}
+          fehler={name.fehler}
+          onBlur={name.onBlur}
+          className="md:col-span-2"
+        >
+          {(feld) => <Input {...feld} type="text" maxLength={200} value={name.value} onChange={name.onChange} />}
+        </Formularfeld>
+        <Formularfeld
+          label={LABEL.empfaengerDienstgrad}
+          id={dienstgrad.id}
+          fehler={dienstgrad.fehler}
+          onBlur={dienstgrad.onBlur}
+        >
+          {(feld) => (
+            <Input {...feld} type="text" maxLength={100} value={dienstgrad.value} onChange={dienstgrad.onChange} />
+          )}
+        </Formularfeld>
+        <Formularfeld
+          label={LABEL.empfaengerDienststelle}
+          id={dienststelle.id}
+          fehler={dienststelle.fehler}
+          onBlur={dienststelle.onBlur}
+        >
+          {(feld) => (
+            <Input {...feld} type="text" maxLength={200} value={dienststelle.value} onChange={dienststelle.onChange} />
+          )}
+        </Formularfeld>
+      </FormularAbschnitt>
+
+      <FormularAbschnitt titel="Ausgabe" spalten={2}>
+        <Formularfeld label={LABEL.datum} pflicht id={datum.id} fehler={datum.fehler} onBlur={datum.onBlur}>
+          {(feld) => (
+            <Input {...feld} type="date" max={heute} className="w-48" value={datum.value} onChange={datum.onChange} />
+          )}
+        </Formularfeld>
+        <Formularfeld
+          label={LABEL.gelegenheit}
+          pflicht
+          hilfetext={HINWEIS_GELEGENHEIT}
+          id={gelegenheit.id}
+          fehler={gelegenheit.fehler}
+          onBlur={gelegenheit.onBlur}
+        >
+          {(feld) => (
+            <Input {...feld} type="text" maxLength={200} value={gelegenheit.value} onChange={gelegenheit.onChange} />
+          )}
+        </Formularfeld>
+        <Formularfeld
+          label={LABEL.begruendung}
+          pflicht
+          id={begruendung.id}
+          fehler={begruendung.fehler}
+          onBlur={begruendung.onBlur}
+          className="md:col-span-2"
+        >
+          {(feld) => (
+            <Textarea {...feld} rows={4} maxLength={2000} value={begruendung.value} onChange={begruendung.onChange} />
+          )}
+        </Formularfeld>
+        <Formularfeld
+          label={LABEL.ausgebendeStelle}
+          pflicht
+          id={stelle.id}
+          fehler={stelle.fehler}
+          onBlur={stelle.onBlur}
+          className="md:col-span-2"
+        >
+          {(feld) => <Input {...feld} type="text" maxLength={200} value={stelle.value} onChange={stelle.onChange} />}
+        </Formularfeld>
+      </FormularAbschnitt>
+
+      <FormularAbschnitt titel="Zertifikat">
+        <Formularfeld
+          label={LABEL.hologrammnummer}
+          hilfetext={HINWEIS_HOLOGRAMM}
+          id={hologramm.id}
+          fehler={hologramm.fehler}
+          onBlur={hologramm.onBlur}
+        >
+          {(feld) => (
+            <Input
+              {...feld}
               type="text"
               maxLength={HOLOGRAMMNUMMER_MAX}
               autoComplete="off"
               spellCheck={false}
-              {...feldAttribute('hologrammnummer', hologrammHinweisId)}
+              value={hologramm.value ?? ''}
+              onChange={hologramm.onChange}
             />
-            <p id={hologrammHinweisId} className="text-sm text-muted-foreground">
-              {HINWEIS_HOLOGRAMM}
-            </p>
-          </>
-        ),
-      })}
+          )}
+        </Formularfeld>
+      </FormularAbschnitt>
 
-      {alarm && (
-        <p role="alert" className="text-destructive">
-          {alarm}
-        </p>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" disabled={sendet}>
+      <Aktionsleiste>
+        {abbrechen}
+        <Button type="submit" laedt={sendet}>
           Ausgabe speichern
         </Button>
-      </div>
+      </Aktionsleiste>
     </form>
   )
 }

@@ -27,6 +27,8 @@ const AUSGABE_ID = '0199a1b2-0000-7000-8000-0000000000e7'
 const AUSGABEN: Ausgabe[] = [testAusgabe({ id: AUSGABE_ID, exemplarNummer: 12 })]
 const SEITE = `/coins/${ALPHA.id}/ausgaben/${AUSGABE_ID}`
 const DETAIL = `/coins/${ALPHA.id}`
+// formulare-detailseiten K2: Die Historie steht im Reiter „Ausgaben“; Tests mit Historie rufen ihn direkt auf.
+const DETAIL_AUSGABEN = `${DETAIL}?reiter=ausgaben`
 const ZERTIFIKAT = /\/zertifikat$/
 
 let api: FakeApi
@@ -157,7 +159,7 @@ describe('/coins/{id}/ausgaben/{ausgabeId} – Zugriff', () => {
 
 describe('Detailseite – Spalte „Zertifikat“', () => {
   it.each(['admin', 'sachbearbeiter'] as const)('zeigt %s Link und Button je Ausgabe', async (als) => {
-    zeigeApp(DETAIL, als)
+    zeigeApp(DETAIL_AUSGABEN, als)
 
     const tabelle = await screen.findByRole('table', { name: 'Ausgabehistorie' })
     expect(within(tabelle).getByRole('link', { name: 'Ausgabe C0042-0012 anzeigen' })).toBeInTheDocument()
@@ -165,7 +167,7 @@ describe('Detailseite – Spalte „Zertifikat“', () => {
   })
 
   it('führt über den Link zur Ausgabe-Seite', async () => {
-    const { user, router } = zeigeApp(DETAIL)
+    const { user, router } = zeigeApp(DETAIL_AUSGABEN)
     const tabelle = await screen.findByRole('table', { name: 'Ausgabehistorie' })
 
     await user.click(within(tabelle).getByRole('link', { name: 'Ausgabe C0042-0012 anzeigen' }))
@@ -183,14 +185,14 @@ describe('Detailseite – Spalte „Zertifikat“', () => {
   })
 
   it('sendet beim Anzeigen der Detailseite keinen Request auf …/zertifikat', async () => {
-    zeigeApp(DETAIL)
+    zeigeApp(DETAIL_AUSGABEN)
     await screen.findByRole('table', { name: 'Ausgabehistorie' })
 
     expect(api.anfragen.filter((a) => ZERTIFIKAT.test(a.pfad))).toEqual([])
   })
 
   it('zeigt auf der Detailseite keine englischen Texte, auch nicht in Attributen', async () => {
-    zeigeApp(DETAIL)
+    zeigeApp(DETAIL_AUSGABEN)
     await screen.findByRole('table', { name: 'Ausgabehistorie' })
 
     expect(alleTexte()).not.toMatch(ENGLISCH)

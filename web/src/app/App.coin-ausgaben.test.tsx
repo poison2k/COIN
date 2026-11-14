@@ -173,10 +173,12 @@ describe('Detailseite je Berechtigung', () => {
     expect(api.anfragen.filter((a) => /\/(exemplare|ausgaben)$/.test(a.pfad))).toEqual([])
   })
 
+  // formulare-detailseiten K2: Die Historie steht im Reiter „Ausgaben“; der Test öffnet ihn per Klick.
   it('zeigt dem Sachbearbeiter Exemplare, Historie, „Ausgabe erfassen“ und „Auflage ändern“', async () => {
-    zeigeApp(`/coins/${ALPHA.id}`)
+    const { user } = zeigeApp(`/coins/${ALPHA.id}`)
 
     expect(await screen.findByRole('table', { name: 'Exemplare' })).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Ausgaben' }))
     expect(await screen.findByText(TEXTE.leereHistorie)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Ausgabe erfassen' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Auflage ändern' })).toBeInTheDocument()
@@ -189,9 +191,11 @@ describe('Detailseite je Berechtigung', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 
+  // formulare-detailseiten K2: Reiter „Ausgaben“ per Klick öffnen.
   it('enthält keine englischen Texte', async () => {
-    zeigeApp(`/coins/${ALPHA.id}`, { ausgaben: [testAusgabe()] })
+    const { user } = zeigeApp(`/coins/${ALPHA.id}`, { ausgaben: [testAusgabe()] })
     await screen.findByRole('table', { name: 'Exemplare' })
+    await user.click(screen.getByRole('tab', { name: 'Ausgaben' }))
     await screen.findByRole('table', { name: 'Ausgabehistorie' })
 
     expect(alleTexte()).not.toMatch(ENGLISCH)
@@ -310,7 +314,9 @@ describe('Erfassen → Detailseite', () => {
 
     await erfasse(user)
 
-    await screen.findByRole('table', { name: 'Exemplare' })
+    // formulare-detailseiten K2: Nach dem Erfassen ist „Ausgaben“ offen; die Kennzahlen stehen in der Region
+    // „Kennzahlen“ im Kopf. Gewartet wird auf diese Region statt auf die Exemplar-Tabelle.
+    await screen.findByRole('region', { name: 'Kennzahlen' })
     await waitFor(() =>
       expect([...document.querySelectorAll('dl dd')].map((dd) => dd.textContent?.trim()).slice(-3)).toEqual([
         '150',

@@ -259,7 +259,8 @@ function historie(page: Page): Locator {
 
 test('Sachbearbeiter lädt das Zertifikat der aktiven Zeile per Tastatur herunter', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(`/coins/${COIN.id}`)
+  // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+  await page.goto(`/coins/${COIN.id}?reiter=ausgaben`)
   await expect(historie(page)).toBeVisible()
 
   const button = historie(page).getByRole('button', { name: `Zertifikat herunterladen: ${NUMMER}`, exact: true })
@@ -276,7 +277,8 @@ test('Sachbearbeiter lädt das Zertifikat der aktiven Zeile per Tastatur herunte
 
 test('Der Button der stornierten Zeile ist gesperrt und nennt den Grund', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(`/coins/${COIN.id}`)
+  // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+  await page.goto(`/coins/${COIN.id}?reiter=ausgaben`)
 
   const gesperrt = historie(page).getByRole('button', {
     name: `Zertifikat herunterladen: ${NUMMER} (nicht möglich, Ausgabe storniert)`,
@@ -291,7 +293,8 @@ test('Der Button der stornierten Zeile ist gesperrt und nennt den Grund', async 
 
 test('Nach 409 ausgabe_storniert erscheint der Alarm, der Fokus bleibt und die Historie lädt neu', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(`/coins/${COIN.id}`)
+  // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+  await page.goto(`/coins/${COIN.id}?reiter=ausgaben`)
   await expect(historie(page)).toBeVisible()
   naechsterDownload = 'storniert'
   const vorher = ausgabenAnfragen.filter((p) => p.endsWith('/ausgaben')).length
@@ -340,7 +343,8 @@ test('Ausgabe-Seite: nach 409 ausgabe_storniert erscheint der Alarm und der Foku
 
 test('Link zur Ausgabe-Seite und Download dort', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(`/coins/${COIN.id}`)
+  // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+  await page.goto(`/coins/${COIN.id}?reiter=ausgaben`)
 
   const link = historie(page).getByRole('link', { name: `Ausgabe ${NUMMER} anzeigen`, exact: true })
   await expect(link).toBeVisible()
@@ -366,7 +370,8 @@ test('Ausgabe-Seite einer stornierten Ausgabe: Button gesperrt mit Hinweis darun
 
 test('Link und Button der Historie haben einen sichtbaren Fokus', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(`/coins/${COIN.id}`)
+  // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+  await page.goto(`/coins/${COIN.id}?reiter=ausgaben`)
   await expect(historie(page)).toBeVisible()
 
   const link = historie(page).getByRole('link', { name: `Ausgabe ${NUMMER} anzeigen`, exact: true })
@@ -381,7 +386,8 @@ test('Link und Button der Historie haben einen sichtbaren Fokus', async ({ page 
 
 test('Ausgabe-Seite und Detailseite enthalten keine englischen Texte', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(`/coins/${COIN.id}`)
+  // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+  await page.goto(`/coins/${COIN.id}?reiter=ausgaben`)
   await expect(historie(page)).toBeVisible()
   expect(await alleTexte(page)).not.toMatch(ENGLISCH)
 

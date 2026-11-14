@@ -7,12 +7,14 @@ import type { ApiErgebnis } from '@/shared/api'
 import { useFokusBeiLadefehler } from '@/shared/lib/hooks'
 import { Blaettern, seitenAnzahl } from '@/shared/ui/blaettern'
 import { Button } from '@/shared/ui/button'
+import { DatenTabelle, type DatenSpalte } from '@/shared/ui/daten-tabelle'
+import { Filterleiste } from '@/shared/ui/filterleiste'
+import { Formularfeld } from '@/shared/ui/formularfeld'
 import { Input } from '@/shared/ui/input'
-import { Label } from '@/shared/ui/label'
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
 
 const GROESSE = 25
 const HINWEIS_EIGENES_KONTO = 'Das eigene Konto kann nicht geändert werden.'
+const HINWEIS_SUCHE = 'Sucht in Name und E-Mail.'
 
 interface Anfrage {
   suche: string
@@ -32,7 +34,8 @@ export interface BenutzerTabelleProps {
 }
 
 /**
- * Tab „Benutzer“ der Benutzerverwaltung (AK-26 bis AK-30): Suche, Tabelle, Blättern und Meldungen. Rolle und Status
+ * Tab „Benutzer“ der Benutzerverwaltung (AK-26 bis AK-30): Suche (mit Chip „Suche: {Wert}“, formulare-detailseiten
+ * AK-33), Tabelle bzw. Karten unter 768 px mit fester Sortierung „Name“ aufsteigend, Blättern und Meldungen. Rolle und Status
  * ändern die Features; Fehler daraus erscheinen als Alarm an der Tabelle, die Zeile zeigt danach den Serverstand.
  */
 export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
@@ -40,7 +43,6 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
   const [anfrage, setAnfrage] = useState<Anfrage>({ suche: '', seite: 1 })
   const [geladen, setGeladen] = useState<Geladen | null>(null)
   const [meldung, setMeldung] = useState<Meldung | null>(null)
-  const sucheId = useId()
   const hinweisId = useId()
 
   useEffect(() => {
@@ -65,6 +67,12 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
     e.preventDefault()
     setMeldung(null)
     setAnfrage({ suche: eingabe, seite: 1 })
+  }
+
+  function sucheEntfernen() {
+    setMeldung(null)
+    setEingabe('')
+    setAnfrage({ suche: '', seite: 1 })
   }
 
   function blaettern(seite: number) {
@@ -98,24 +106,95 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
     setMeldung({ art: 'fehler', text })
   }
 
+  const spalten: ReadonlyArray<DatenSpalte<BenutzerEintrag>> = [
+    {
+      id: 'name',
+      titel: 'Name',
+      breite: 'breit',
+      karte: 'titel',
+      zelle: (benutzer) => (
+        <span className="font-medium">
+          {benutzer.name}
+          {benutzer.id === aktuellerBenutzerId && <span className="font-normal text-muted-foreground"> (Sie)</span>}
+        </span>
+      ),
+      kartenZelle: (benutzer) => benutzer.name,
+    },
+    { id: 'email', titel: 'E-Mail', breite: 'breit', karte: 'feld', zelle: (benutzer) => benutzer.email ?? '–' },
+    {
+      id: 'rolle',
+      titel: 'Rolle',
+      breite: 'mittel',
+      karte: 'feld',
+      zelle: (benutzer) => {
+        const eigen = benutzer.id === aktuellerBenutzerId
+        return (
+          <RolleZuweisen
+            benutzer={benutzer}
+            deaktiviert={eigen}
+            beschreibungId={eigen ? hinweisId : undefined}
+            onGeaendert={rolleGeaendert}
+            onFehler={fehler}
+          />
+        )
+      },
+    },
+    {
+      id: 'status',
+      titel: 'Status',
+      breite: 'schmal',
+      karte: 'feld',
+      zelle: (benutzer) => <StatusBadge aktiv={benutzer.aktiv} />,
+    },
+    {
+      id: 'aktion',
+      titel: 'Aktion',
+      breite: 'schmal',
+      karte: 'aktion',
+      zelle: (benutzer) => {
+        const eigen = benutzer.id === aktuellerBenutzerId
+        return (
+          <StatusAendern
+            benutzer={benutzer}
+            deaktiviert={eigen}
+            beschreibungId={eigen ? hinweisId : undefined}
+            onGeaendert={statusGeaendert}
+            onFehler={fehler}
+          />
+        )
+      },
+    },
+  ]
+
   return (
     <div className="grid min-w-0 gap-4">
-      <form onSubmit={suchen} className="flex flex-wrap items-end gap-2">
-        <div className="grid gap-1.5">
-          <Label htmlFor={sucheId}>Benutzer suchen</Label>
-          <Input
-            id={sucheId}
-            type="search"
-            className="w-64 max-w-full"
-            value={eingabe}
-            onChange={(e) => setEingabe(e.target.value)}
-          />
-        </div>
-        <Button type="submit" variant="outline">
-          <SearchIcon aria-hidden="true" />
-          Suchen
-        </Button>
-      </form>
+      <Filterleiste
+        chips={
+          anfrage.suche.trim() === ''
+            ? []
+            : [{ id: 'suche', text: `Suche: ${anfrage.suche.trim()}`, onEntfernen: sucheEntfernen }]
+        }
+      >
+        <form onSubmit={suchen} className="w-full max-w-reading">
+          <Formularfeld label="Benutzer suchen" hilfetext={HINWEIS_SUCHE}>
+            {(feld) => (
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  {...feld}
+                  type="search"
+                  className="w-64 max-w-full"
+                  value={eingabe}
+                  onChange={(e) => setEingabe(e.target.value)}
+                />
+                <Button type="submit" variant="outline">
+                  <SearchIcon aria-hidden="true" />
+                  Suchen
+                </Button>
+              </div>
+            )}
+          </Formularfeld>
+        </form>
+      </Filterleiste>
 
       <p role="status" className="text-sm text-muted-foreground">
         {laedt && 'Benutzer werden geladen …'}
@@ -148,53 +227,14 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
           <span id={hinweisId} className="sr-only">
             {HINWEIS_EIGENES_KONTO}
           </span>
-          <Table>
-            <TableCaption className="sr-only">Benutzer</TableCaption>
-            <TableHeader>
-              <TableRow>
-                <TableHead scope="col">Name</TableHead>
-                <TableHead scope="col">E-Mail</TableHead>
-                <TableHead scope="col">Rolle</TableHead>
-                <TableHead scope="col">Status</TableHead>
-                <TableHead scope="col">Aktion</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {anzeige.daten.eintraege.map((benutzer) => {
-                const eigen = benutzer.id === aktuellerBenutzerId
-                return (
-                  <TableRow key={benutzer.id}>
-                    <TableCell className="font-medium">
-                      {benutzer.name}
-                      {eigen && <span className="text-muted-foreground"> (Sie)</span>}
-                    </TableCell>
-                    <TableCell>{benutzer.email ?? '–'}</TableCell>
-                    <TableCell>
-                      <RolleZuweisen
-                        benutzer={benutzer}
-                        deaktiviert={eigen}
-                        beschreibungId={eigen ? hinweisId : undefined}
-                        onGeaendert={rolleGeaendert}
-                        onFehler={fehler}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge aktiv={benutzer.aktiv} />
-                    </TableCell>
-                    <TableCell>
-                      <StatusAendern
-                        benutzer={benutzer}
-                        deaktiviert={eigen}
-                        beschreibungId={eigen ? hinweisId : undefined}
-                        onGeaendert={statusGeaendert}
-                        onFehler={fehler}
-                      />
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+          <DatenTabelle
+            beschriftung="Benutzer"
+            zeilen={anzeige.daten.eintraege}
+            schluessel={(benutzer) => benutzer.id}
+            spalten={spalten}
+            sortierung={{ spalte: 'name', richtung: 'aufsteigend' }}
+            kartenUnter="md"
+          />
           <div ref={blaetternRef}>
             <Blaettern
               seite={anzeige.daten.seite}
