@@ -54,11 +54,18 @@ Webanwendung zur Verwaltung von Gedenk-Coins. Umgesetzt sind bisher:
   App-Layout mit gruppierter Seitenleiste, Kopfzeile mit Name und Rolle, Skip-Link „Zum Inhalt
   springen“ und Mobilmenü unter 768 px; automatische Prüfung mit axe (ADR-0035 bis ADR-0038,
   [docs/features/design-fundament.md](docs/features/design-fundament.md)).
+- **Formulare und Detailseiten**: Formulare mit Abschnitten, Pflichtkennzeichnung, Hilfetexten,
+  Prüfung beim Verlassen eines Felds, Fehlerzusammenfassung, Aktionsleiste mit Ladezustand und
+  Warnung bei ungespeicherten Änderungen; Coin-Detailseite mit Status-Chips, Aktionen im Kopf,
+  Kennzahlenkarten und Reitern (`?reiter=`), Ausgabe-Seite mit Verlauf und „Stornieren“;
+  Bestätigungsdialoge; Tabellen mit Filter-Chips und Kartenansicht auf kleinen Bildschirmen
+  (ADR-0039 bis ADR-0042, [docs/features/formulare-detailseiten.md](docs/features/formulare-detailseiten.md)).
 
 Noch offen sind Signatur, PDF, QR-Code und öffentliche Prüfseite der Zertifikate.
 
 - API: [docs/api.md](docs/api.md), Berechtigungen: [docs/berechtigungen.md](docs/berechtigungen.md)
-- Anleitung für Anwender: [docs/benutzer/anmeldung.md](docs/benutzer/anmeldung.md),
+- Anleitung für Anwender: [docs/benutzer/bedienung.md](docs/benutzer/bedienung.md),
+  [docs/benutzer/anmeldung.md](docs/benutzer/anmeldung.md),
   [docs/benutzer/coin-katalog.md](docs/benutzer/coin-katalog.md),
   [docs/benutzer/ausgaben.md](docs/benutzer/ausgaben.md),
   [docs/benutzer/zertifikat-pruefen.md](docs/benutzer/zertifikat-pruefen.md),
@@ -331,13 +338,13 @@ Routen:
 | `/` | öffentlich | Startseite: mit `coins.read` alle aktiven Blöcke (`GET /api/startseite`), sonst nur der öffentliche Kopfbereich (`GET /api/startseite/kopf`) bzw. die statische Begrüßung „Willkommen bei C.O.I.N.“; „Zum Katalog“ immer |
 | `/coins` | öffentlich | Katalog mit Suche und Blättern; Suchparameter `suche` (≤ 100 Zeichen) und `seite` in der URL; Link „Coin hinzufügen“ nur mit `coins.write` |
 | `/coins/neu` | `coins.write` | Seite „Coin hinzufügen“ (Formular inkl. Motivbild, darunter „Standardvorlage herunterladen“); danach `replace` auf die Detailseite |
-| `/coins/$coinId` | öffentlich | Detailseite; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf. Link „Bearbeiten“ und „Auflage ändern“ mit `coins.write`, Abschnitt „Exemplare“ nur mit `coins.read` (Suchparameter `status` = `verfuegbar`/`ausgegeben` und `seite`), „Ausgabehistorie“ (mit Spalte „Zertifikat“: Nummer als Link zur Ausgabe-Seite) nur mit `issues.read`, „Ausgabe erfassen“/„Stornieren“/„Zertifikat herunterladen“ mit `issues.write` |
-| `/coins/$coinId/bearbeiten` | `coins.write` | Seite „Coin bearbeiten“: Stammdaten, Motivbild, Zertifikatsvorlage; nach dem Speichern der Stammdaten `replace` auf die Detailseite |
+| `/coins/$coinId` | öffentlich | Detailseite; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf. Kopf mit Status-Chips und Aktionen („Auflage ändern“, „Bearbeiten“ mit `coins.write`, „Ausgabe erfassen“ mit `issues.write` bei freiem Exemplar), Kennzahlen mit `coins.read`. Reiter im Suchparameter `reiter` (`stammdaten`, `exemplare` mit `coins.read`, `ausgaben` mit `issues.read`, `vorlage` mit `coins.write`; Wechsel per `replace`, unbekannt/nicht erlaubt = Standard „Exemplare“ bzw. ohne `coins.read` Stammdaten ohne Reiterleiste). Exemplare mit Suchparametern `status` (`verfuegbar`/`ausgegeben`) und `seite`; Ausgabehistorie mit Statusfilter (nicht in der URL), Zeilenklick zur Ausgabe-Seite, „Stornieren“/„Zertifikat herunterladen“ mit `issues.write` |
+| `/coins/$coinId/bearbeiten` | `coins.write` | Seite „Coin bearbeiten“: Stammdaten und Motivbild (die Zertifikatsvorlage steht im Reiter „Zertifikatsvorlage“ der Detailseite); nach dem Speichern der Stammdaten `replace` auf die Detailseite |
 | `/coins/$coinId/ausgaben/neu` | `issues.write` | Seite „Ausgabe erfassen“; danach `replace` auf die Detailseite |
-| `/coins/$coinId/ausgaben/$ausgabeId` | `issues.read` | Seite „Ausgabe“ (`ROUTEN.ausgabeDetail`): Angaben einer Ausgabe samt Hologrammnummer, „Hologrammnummer ergänzen/korrigieren“ (nur aktive Ausgaben) und „Zertifikat herunterladen“ mit `issues.write`; `coinId` oder `ausgabeId` keine GUID → „Ausgabe nicht gefunden“ ohne API-Aufruf |
+| `/coins/$coinId/ausgaben/$ausgabeId` | `issues.read` | Seite „Ausgabe“ (`ROUTEN.ausgabeDetail`): Status-Chip, Abschnitte „Zertifikat“, „Empfängerdaten“, „Ausgabedaten“ und „Verlauf“; „Hologrammnummer ergänzen/korrigieren“, „Zertifikat herunterladen“ und „Stornieren“ (nur aktive Ausgaben) mit `issues.write`; `coinId` oder `ausgabeId` keine GUID → „Ausgabe nicht gefunden“ ohne API-Aufruf |
 | `/pruefung` | `coins.read` | Seite „Zertifikat prüfen“ (`ROUTEN.pruefung`): Coin-Auswahl (optional), Hologrammnummer, Ergebnis; mit `issues.read` über `POST /api/pruefung/mit-empfaenger` samt Empfängerdaten. Die Nummer steht nie in der URL |
 | `/benutzerverwaltung` | `users.manage` | Tabs „Benutzer“ und „Audit-Log“ |
-| `/verwaltung/startseite` | `startpage.manage` | Seite „Startseite verwalten“ (`ROUTEN.startseiteVerwaltung`): Tabs „Bearbeiten“ und „Vorschau“; Verlassen mit ungespeicherten Änderungen fragt per Dialog nach (`useBlocker`), Neuladen/Schließen per `beforeunload` |
+| `/verwaltung/startseite` | `startpage.manage` | Seite „Startseite verwalten“ (`ROUTEN.startseiteVerwaltung`): Tabs „Bearbeiten“ und „Vorschau“; Verlassen mit ungespeicherten Änderungen fragt per Dialog nach (`VerlassenWarnung`), Neuladen/Schließen per `beforeunload` |
 | `/anmeldung/rueckruf` | öffentlich | Rückkehr vom Keycloak (ohne App-Shell) |
 | `/abgemeldet` | öffentlich | Bestätigung nach dem Abmelden |
 | `/kein-zugriff` | nur angemeldet | Hinweis für Benutzer ohne Rolle, mit deaktiviertem Konto oder (mit `?grund=berechtigung`) mit Rolle ohne die nötige Berechtigung; alle anderen werden nach `/` geleitet |
@@ -393,12 +400,18 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
 - `shared/ui` enthält die Bausteine (ADR-0036): shadcn-Komponenten und eigene Zusammensetzungen
   `formularfeld.tsx` (`Formularfeld`), `seitenkopf.tsx` (`Seitenkopf`), `zustaende.tsx`
   (`Ladeanzeige`, `Leerzustand`, `Fehlerzustand`) und `toast.tsx` (Base UI Toast, `useToast().zeige`,
-  ADR-0038). Neue Seiten nutzen `Seitenkopf` und `Card` ohne eigenen Seitenrand und ohne eigene
+  ADR-0038), dazu für Formulare und Detailseiten `formular-abschnitt.tsx`, `fehlerzusammenfassung.tsx`,
+  `aktionsleiste.tsx` (ADR-0039), `verlassen-warnung.tsx` (ADR-0040), `bestaetigungsdialog.tsx`,
+  `daten-tabelle.tsx` und `filterleiste.tsx` (ADR-0041), `kennzahl-karte.tsx`, `progress.tsx` (shadcn,
+  nachbearbeitet) und `zeitleiste.tsx` (ADR-0042). Neue Seiten nutzen `Seitenkopf` und `Card` ohne eigenen Seitenrand und ohne eigene
   Maximalbreite; den Container stellt `widgets/app-shell` (Skip-Link, Seitenleiste mit Gruppen,
   Kopfzeile als einziges `<header>`, `main#inhalt`). `pages/entwicklung-bausteine` ist die
   Bausteinübersicht. `shared/lib` enthält u. a. `cn()`, das Farbschema, `istGuid`
   (`shared/lib/guid`), Zahl- und Datumsformate (`shared/lib/format.ts`: `de-DE`, Europe/Berlin,
-  `heuteInBerlin`), Hooks (`shared/lib/hooks`: `useIsMobile`, `useFokusBeiLadefehler`) und die
+  `heuteInBerlin`), Hooks (`shared/lib/hooks`: `useIsMobile`, `useFokusBeiLadefehler`,
+  `useMedienabfrage`, `useZeilenklick`, `useVerlassenWarnung`), den Formular-Hook (`shared/lib/formular`:
+  `useFormular`, `useSendeSperre`, `pruefeNachZeigerklick`; `zeiger.ts` registriert beim Import globale
+  Listener, ADR-0039) und die
   Anmeldung (`shared/lib/anmeldung`: UserManager, Provider, `useAnmeldung`, `sicheresZiel`),
   `shared/api` den generischen HTTP-Teil (inkl. Bearer-Header; Option `konfliktDetail` übernimmt bei
   `409` auch `detail`; Datei-Downloads mit Token als Blob samt Dateiname aus `Content-Disposition`),
@@ -418,18 +431,21 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
 - Zertifikatsvorlagen: `entities/zertifikatsvorlage` (Status, Downloads, `VersionenTabelle`,
   Dateiname aus der Antwort), `features/standardvorlage-herunterladen`, `features/vorlage-hochladen`
   (Dateifeld mit Vorprüfung auf `.docx` und Größe), `features/vorlage-zuruecksetzen` (Button mit
-  Bestätigungsdialog), `widgets/zertifikatsvorlage` (Abschnitt auf „Coin bearbeiten“).
-- Exemplare und Ausgaben: `entities/exemplar` (`ladeExemplare`, `Kennzahlen`, `ExemplarTabelle`,
-  Status-Badge), `entities/ausgabe` (`ladeAusgaben`, `ladeAusgabe`, `AusgabenTabelle` mit optionaler
-  Render-Prop `zertifikat` für die Spalte „Zertifikat“, `AusgabeDetails`), `features/ausgabe-erfassen`
+  Bestätigungsdialog), `widgets/zertifikatsvorlage` (Reiter „Zertifikatsvorlage“ der Detailseite).
+- Exemplare und Ausgaben: `entities/exemplar` (`ladeExemplare`, `Kennzahlen` als Karten,
+  `BestandChips`, `ExemplarTabelle`, Status-Badge), `entities/ausgabe` (`ladeAusgaben`, `ladeAusgabe`,
+  `AusgabenTabelle` mit optionaler Render-Prop `zertifikat` für die Spalte „Zertifikat“,
+  `AusgabeDetails` in Abschnitten, `AusgabeVerlauf`, `AusgabeStatusChip`), `features/ausgabe-erfassen`
   (`AusgabeFormular`), `features/ausgabe-stornieren` (Button mit Bestätigungsdialog),
   `features/zertifikat-herunterladen` (`ZertifikatHerunterladen`: Download per `ladeDatei`, Dateiname
   nur nach Muster `Zertifikat_C….docx`, gesperrt per `aria-disabled` und dadurch fokussierbar, Alarm bei
   Fehlern), `features/auflage-aendern` (Button mit Dialog), `widgets/coin-exemplare` (Kennzahlen,
-  Filter, Tabelle, Blättern, „Ausgabe erfassen“, „Auflage ändern“), `widgets/ausgaben-historie`
-  (Historie mit Storno, Link zur Ausgabe-Seite und Zertifikat-Download), `pages/ausgabe-erfassen`,
-  `pages/ausgabe-detail` (Props `darfZertifikat`, `darfHologramm`). `pages/coin-detail` setzt die
-  Widgets nach Berechtigung zusammen.
+  Filter mit Chip, Tabelle, Blättern, „Ausgabe erfassen“, „Auflage ändern“; auf der Detailseite
+  kontrolliert über `daten` und ohne Kennzahlen und Aktionen), `widgets/ausgaben-historie`
+  (Historie mit Statusfilter, Storno, Zeilenklick zur Ausgabe-Seite und Zertifikat-Download),
+  `pages/ausgabe-erfassen`, `pages/ausgabe-detail` (Props `darfZertifikat`, `darfHologramm`,
+  `darfStornieren`). `pages/coin-detail` setzt Kopf, Kennzahlen und Reiter nach Berechtigung zusammen
+  und lädt `…/exemplare` einmal für Kennzahlen und Reiter.
 - Hologrammnummer und Prüfung: `entities/ausgabe` enthält die Normalisierung `pruefeHologrammnummer`
   (gleiche Regeln und Testvektoren wie die Domain) und `HOLOGRAMMNUMMER_MAX`, weil beide Features sie
   brauchen; `features/hologrammnummer-aendern` (`HologrammnummerAendern`: Button mit Dialog, `PUT` mit
@@ -495,7 +511,7 @@ nur, wenn Index und Arbeitsstand übereinstimmen.
 
 | | `web/ui-tests` (`npm run test:ui`) | `e2e/` (`npx playwright test`) |
 |---|---|---|
-| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen, Zertifikat-Download, Startseite (inkl. XSS-Nutzlasten im echten Chromium), Hologrammnummer und Prüfseite: Routing, Seitenleiste, Tastaturbedienung, Darstellung; dazu Barrierefreiheit mit axe (`barrierefreiheit.spec.ts`), 360/768/1280 px (`responsiv.spec.ts`), Tastatur (`tastatur.spec.ts`), Bausteinseite (`bausteine.spec.ts`), reduzierte Bewegung (`bewegung.spec.ts`) und Screenshots (`screenshots.spec.ts`) | fachliche Abläufe über alle Schichten; `design-fundament.spec.ts` prüft die Hauptseiten mit echten Daten per axe und auf horizontales Scrollen bei 360 px |
+| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen, Zertifikat-Download, Startseite (inkl. XSS-Nutzlasten im echten Chromium), Hologrammnummer und Prüfseite: Routing, Seitenleiste, Tastaturbedienung, Darstellung; dazu Barrierefreiheit mit axe (`barrierefreiheit.spec.ts`), 360/768/1280 px (`responsiv.spec.ts`), Tastatur (`tastatur.spec.ts`), Bausteinseite (`bausteine.spec.ts`), reduzierte Bewegung (`bewegung.spec.ts`), Formulare (`formulare.spec.ts`), Verlassen-Warnung (`verlassen-warnung.spec.ts`), Bestätigungsdialoge (`bestaetigungen.spec.ts`), Detailseite je Rolle (`coin-detail-rollen.spec.ts`), Tabellen (`tabellen.spec.ts`) und Screenshots (`screenshots.spec.ts`, `screenshots-formulare.spec.ts`) | fachliche Abläufe über alle Schichten; `design-fundament.spec.ts` prüft die Hauptseiten mit echten Daten per axe und auf horizontales Scrollen bei 360 px, `formulare-detailseiten.spec.ts` Tastaturbedienung, Reiter und Storno auf der Ausgabe-Seite |
 | API | gemockt per `page.route`; Proxy-Ziel absichtlich unerreichbar; jeder nicht gemockte `/api`-Aufruf lässt den Test scheitern | echte API (Release-Build) mit Wegwerf-PostgreSQL |
 | Anmeldung | Identitätsanbieter gemockt (`VITE_OIDC_AUTHORITY=http://127.0.0.1:9/realms/coin`) | echter Wegwerf-Keycloak |
 | Voraussetzungen | nur Node.js und Chromium | Docker, .NET 10 SDK, Node.js ≥ 22.18 |
@@ -514,10 +530,21 @@ synthetische Daten) liegen eingecheckt in `docs/design/ablage/<seite>_<breite>_<
 Neu erzeugen nur bei Bedarf (in `web/`):
 
 ```powershell
-$env:COIN_SCREENSHOTS = "1"; npx playwright test screenshots; Remove-Item Env:COIN_SCREENSHOTS
+$env:COIN_SCREENSHOTS = "1"; npx playwright test screenshots.spec.ts; Remove-Item Env:COIN_SCREENSHOTS
 ```
 
 Ohne die Variable prüft `screenshots.spec.ts` nur, dass genau die 36 Dateien vorhanden sind.
+
+Screenshots der Formulare, Detailseiten und Dialoge (je 360/768/1280 px, hell/dunkel) entstehen nur
+lokal und werden nicht eingecheckt:
+
+```powershell
+$env:COIN_SCREENSHOTS = "1"; npx playwright test screenshots-formulare.spec.ts; Remove-Item Env:COIN_SCREENSHOTS
+```
+
+Die Bilder liegen unter `web/test-results/screenshots-formulare/<ansicht>_<breite>_<hell|dunkel>.png`
+(per `.gitignore` ausgeschlossen). Playwright leert `test-results` zu Beginn jedes Laufs, also direkt
+danach ansehen. Ohne die Variable wird die Spec übersprungen.
 
 ### shadcn-Komponenten
 

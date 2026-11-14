@@ -328,7 +328,7 @@ Umgesetzt auf `feature/design-fundament`. Neue Tests wie in Abschnitt 11.1, dazu
 1. **„Kein Zugriff“ ohne Seitenkopf (Abschnitt 8, AK-36):** Das h1 steht direkt in der `Card`, gestaltet wie der Seitenkopf. Grund: `web/src/app/App.anmeldung.test.tsx:425` verlangt den Button „Abmelden“ im Elternelement des h1. Die Umstellung auf `Seitenkopf` folgt in einem Folgelauf mit freigegebener Testanpassung.
 2. **Startseite zwischen 768 und 1023 px einspaltig:** Die Blöcke stehen erst ab `lg` (1024 px) dreispaltig (`StartseiteBloecke`, `lg:grid-cols-3`), vorher untereinander. Bei 768 px mit sichtbarer Seitenleiste führte die dreispaltige Anordnung zu horizontalem Scrollen (AK-33).
 3. **Prüfseite mit einer gemeinsamen Karte:** Formular und Ergebnis stehen in einer `Card` statt in zwei (Abschnitt 8). Das Ergebnis gehört zum Formular `PruefFormular` und wird dort gerendert.
-4. **Formularfeld – „(Pflicht)“ im zugänglichen Namen (AK-13):** Der Zusatz steht im `<label>` und ist damit Teil des zugänglichen Namens (z. B. „Name (Pflicht)“). Der Name ist also nicht nur das Label.
+4. **Formularfeld – Pflichtkennzeichnung (AK-13):** Ersetzt durch [ADR-0039](../adr/0039-formularmuster-und-validierung.md) Punkt 3 (formulare-detailseiten): sichtbar „(Pflicht)“ (`aria-hidden`), im zugänglichen Namen „(Pflichtfeld)“ (sr-only), z. B. „Name (Pflichtfeld)“.
 5. **Zugänglicher Name des Zertifikat-Buttons (WCAG 2.5.3):** axe meldete `label-content-name-mismatch`, weil „Zertifikat C0042-0012 herunterladen“ den sichtbaren Text „Zertifikat herunterladen“ nicht zusammenhängend enthält. Auf Entscheidung des Auftraggebers vom 2026-11-13 heißt der Button jetzt „Zertifikat herunterladen: <Nummer>“, bei Storno „Zertifikat herunterladen: <Nummer> (nicht möglich, Ausgabe storniert)“. Der sichtbare Text bleibt gleich. Die betroffenen bestehenden Tests (u. a. `ZertifikatHerunterladen.test.tsx`, `App.zertifikat-erzeugen.test.tsx`, `e2e/tests/zertifikat-erzeugen.spec.ts`) wurden mit Freigabe angepasst. Nachgezogen in [zertifikat-erzeugen](zertifikat-erzeugen.md) AK-24 und Abschnitt 12.
 6. **Toast-Ansage ohne `priority: 'high'`:** siehe Nachtrag in [ADR-0038](../adr/0038-toast-mit-base-ui.md).
 7. **Schatten, dunkle `bg-muted`-Flächen, Skeleton:** siehe Nachtrag in [ADR-0035](../adr/0035-gestaltungsregeln-tokens-palette-schrift.md).
@@ -336,6 +336,6 @@ Umgesetzt auf `feature/design-fundament`. Neue Tests wie in Abschnitt 11.1, dazu
 ### Vormerkungen für Folgeläufe
 - Brotkrumen auf bestehenden Seiten (D1), mit freigegebener Testanpassung.
 - Zustände in Widgets (Katalog, Exemplare, Historie, Benutzer, Audit, Startseiten-Blöcke, Prüfergebnis) auf `Ladeanzeige`/`Leerzustand`/`Fehlerzustand` (D2).
-- Tabellen-Umbau: Die Ausgabehistorie ist bei 1280 px nur per Scrollen im Tabellencontainer vollständig sichtbar; Textlinks in Tabellen sind noch kleiner als 40 px (D9).
+- Tabellen-Umbau: erledigt für Exemplare, Ausgabehistorie, Benutzer, Audit-Log und Vorlagenversionen (`DatenTabelle`, Textlinks ≥ 40 px, ADR-0041). Offen für den Katalog `/coins` (Listen der Übersicht, formulare-detailseiten F6).
 - Seitenkopf auf „Kein Zugriff“ (Abweichung 1).
 - Entfernen von `framer-motion` und `react-day-picker` in einem `chore/*`-Branch (D13).

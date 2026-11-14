@@ -2,11 +2,12 @@
 
 Jeder Coin mit bekannter Auflage hat nummerierte **Exemplare** (Nr. 1 bis zur Auflage). Eine
 **Ausgabe** hält fest, welches Exemplar an wen, wann, bei welcher Gelegenheit und wofür übergeben
-wurde. Beides finden Sie auf der Detailseite eines Coins (siehe [Coin-Katalog](coin-katalog.md#detailseite-eines-coins)).
+wurde. Beides finden Sie auf der Detailseite eines Coins in den Reitern **Exemplare** und
+**Ausgaben** (siehe [Coin-Katalog](coin-katalog.md#detailseite-eines-coins)).
 
 ## Wer sieht was
 
-| | Stammdaten und Bild | Exemplare und Kennzahlen | Ausgabehistorie, Seite „Ausgabe“ | Ausgabe erfassen, stornieren, Hologrammnummer ändern | Zertifikat herunterladen | Auflage ändern |
+| | Stammdaten und Bild | Kennzahlen, Reiter „Exemplare“ | Reiter „Ausgaben“, Seite „Ausgabe“ | Ausgabe erfassen, stornieren, Hologrammnummer ändern | Zertifikat herunterladen | Auflage ändern |
 |---|---|---|---|---|---|---|
 | ohne Anmeldung, ohne Rolle oder deaktiviert | ja | – | – | – | – | – |
 | Betrachter | ja | ja | – | – | – | – |
@@ -15,30 +16,35 @@ wurde. Beides finden Sie auf der Detailseite eines Coins (siehe [Coin-Katalog](c
 Betrachter sehen nur Zahlen und den Status der Exemplare, nie Namen von Empfängern, Zertifikate oder
 andere Angaben zu einer Ausgabe. Über [Zertifikat prüfen](zertifikat-pruefen.md) erfahren sie zu
 einer bekannten Hologrammnummer nur Coin, Exemplar, Zertifikatsnummer, Ausgabedatum und Status.
-Abschnitte und Buttons ohne Berechtigung erscheinen gar nicht.
+Reiter und Buttons ohne Berechtigung erscheinen gar nicht.
 
-## Abschnitt „Exemplare“
+## Kennzahlen
 
-Oben stehen die Kennzahlen:
+Über den Reitern stehen drei Karten:
 
 - **Auflage**: Anzahl der Exemplare,
 - **Ausgegeben**: Exemplare mit einer aktiven (nicht stornierten) Ausgabe,
-- **Verfügbar**: alle übrigen Exemplare.
+- **Verfügbar**: alle übrigen Exemplare, mit einem Balken für den Anteil an der Auflage.
 
-Darunter steht die Tabelle mit **Nr.** und **Status** („verfügbar“ oder „ausgegeben“), 25
-Exemplare pro Seite. Mit **Vorherige Seite** und **Nächste Seite** blättern Sie. Über die Auswahl
-**Status** zeigen Sie **Alle**, nur **Verfügbar** oder nur **Ausgegeben**; die Liste beginnt dann
-wieder auf Seite 1. Filter und Seite stehen in der Adresse (z. B. `/coins/…?status=ausgegeben&seite=2`)
-und bleiben beim Neuladen erhalten.
+## Reiter „Exemplare“
+
+Die Tabelle zeigt **Nr.** und **Status** („verfügbar“ oder „ausgegeben“), 25 Exemplare pro Seite,
+aufsteigend nach Nummer. Mit **Vorherige Seite** und **Nächste Seite** blättern Sie. Über die
+Auswahl **Status** zeigen Sie **Alle**, nur **Verfügbar** oder nur **Ausgegeben**; die Liste beginnt
+dann wieder auf Seite 1. Der gewählte Filter erscheint als Chip, z. B. „Status: Ausgegeben“, und
+lässt sich dort mit dem Kreuz entfernen (siehe [Bedienung](bedienung.md#filter-chips)). Filter und
+Seite stehen in der Adresse (z. B. `/coins/…?status=ausgegeben&seite=2`) und bleiben beim Neuladen
+erhalten.
 
 Ist für den Coin keine Auflage erfasst, steht dort „Für diesen Coin ist keine Auflage erfasst. Es
 gibt daher keine Exemplare.“ Passt kein Exemplar zum Filter, erscheint „Keine Exemplare mit diesem
 Status.“
 
-## Abschnitt „Ausgabehistorie“
+## Reiter „Ausgaben“
 
-Nur für Sachbearbeiter und Administratoren. Die Tabelle zeigt alle Ausgaben des Coins, die neueste
-zuerst, auch stornierte:
+Nur für Sachbearbeiter und Administratoren. Die **Ausgabehistorie** zeigt alle Ausgaben des Coins,
+die neueste zuerst, auch stornierte. Über die Auswahl **Status** zeigen Sie **Alle**, nur **Aktiv**
+oder nur **Storniert** (mit Chip wie bei den Exemplaren). Dieser Filter steht nicht in der Adresse.
 
 | Spalte | Inhalt |
 |---|---|
@@ -50,7 +56,12 @@ zuerst, auch stornierte:
 | Zertifikat | die Zertifikatsnummer (z. B. `C0042-0012`) als Link zur Seite [„Ausgabe“](#seite-ausgabe), darunter der Button **Zertifikat herunterladen** (siehe [Zertifikat herunterladen](#zertifikat-herunterladen)) |
 | Status | „aktiv“ oder „storniert am {Datum} von {Name}: {Grund}“ |
 
-Gibt es noch keine Ausgaben, steht dort „Für diesen Coin wurden noch keine Ausgaben erfasst.“
+Ein Klick irgendwo in eine Zeile öffnet die [Seite „Ausgabe“](#seite-ausgabe), mit der Tastatur
+geht das über die Zertifikatsnummer. Auf Bildschirmen unter 1024 Pixel Breite erscheinen die
+Ausgaben als Karten (siehe [Bedienung](bedienung.md#kleine-bildschirme)).
+
+Gibt es noch keine Ausgaben, steht dort „Für diesen Coin wurden noch keine Ausgaben erfasst.“ Passt
+keine Ausgabe zum Filter, erscheint „Keine Ausgaben mit diesem Status.“
 
 ## Zertifikatsnummer
 
@@ -87,36 +98,42 @@ aktualisiert.
 
 ## Seite „Ausgabe“
 
-Ein Klick auf die Zertifikatsnummer in der Ausgabehistorie öffnet die Seite einer einzelnen Ausgabe
+Ein Klick auf eine Zeile der Ausgabehistorie öffnet die Seite einer einzelnen Ausgabe
 (`/coins/…/ausgaben/…`), für Sachbearbeiter und Administratoren. Sie zeigt:
 
-- als Überschrift „Ausgabe von Exemplar Nr. …“, darunter den Namen des Coins als Link zur Detailseite,
-- **Zertifikatsnummer**, **Hologrammnummer** (oder „Keine erfasst“), **Empfänger**, **Dienstgrad**
-  und **Dienststelle** (nur wenn angegeben), **Datum**, **Gelegenheit**, **Begründung** (mit
-  Zeilenumbrüchen), **Ausgebende Stelle**, **Erfasst** (wer und wann) und **Status** wie in der Historie,
-- den Button **Hologrammnummer ergänzen** bzw. **Hologrammnummer korrigieren** (siehe
-  [Hologrammnummer](#hologrammnummer)); bei einer stornierten Ausgabe fehlt er,
-- den Button **Zertifikat herunterladen**; bei einer stornierten Ausgabe gesperrt mit dem Hinweis
-  „Für stornierte Ausgaben kann kein Zertifikat heruntergeladen werden.“,
+- **Kopf**: als Überschrift „Ausgabe von Exemplar Nr. …“, darunter den Namen des Coins als Link zur
+  Detailseite und den Status „aktiv“ oder „storniert“. Rechts stehen die Buttons
+  **Zertifikat herunterladen** (bei einer stornierten Ausgabe gesperrt mit dem Hinweis „Für
+  stornierte Ausgaben kann kein Zertifikat heruntergeladen werden.“) und bei aktiven Ausgaben
+  **Stornieren** (siehe [Ausgabe stornieren](#ausgabe-stornieren)).
+- **Zertifikat**: **Zertifikatsnummer** und **Hologrammnummer** (oder „Keine erfasst“), daneben der
+  Button **Hologrammnummer ergänzen** bzw. **Hologrammnummer korrigieren** (siehe
+  [Hologrammnummer](#hologrammnummer)); bei einer stornierten Ausgabe fehlt er.
+- **Empfängerdaten**: **Empfänger**, **Dienstgrad** und **Dienststelle** (nur wenn angegeben).
+- **Ausgabedaten**: **Datum**, **Gelegenheit**, **Begründung** (mit Zeilenumbrüchen),
+  **Ausgebende Stelle**, **Erfasst** (wer und wann) und **Status** wie in der Historie.
+- **Verlauf**: eine Zeitleiste, älteste Einträge zuerst. „Ausgabe erfasst“ mit Tag, Uhrzeit und
+  Namen der erfassenden Person, nach einem Storno zusätzlich „Ausgabe storniert“ mit Zeitpunkt, Namen
+  und Grund. Änderungen der Hologrammnummer erscheinen im Verlauf nicht.
 - **Zurück zum Coin**.
 
 Solange die Seite lädt, steht dort „Ausgabe wird geladen …“. Gibt es die Ausgabe nicht (z. B. bei
 einer falsch abgetippten Adresse), erscheint „Ausgabe nicht gefunden“ mit **Zurück zum Coin** bzw.
 **Zum Katalog**. Ohne Anmeldung werden Sie zur Anmeldung geschickt und kommen danach zurück; als
 Betrachter oder ohne Rolle führt die Adresse zur Seite **Kein Zugriff** (siehe
-[Anmeldung](anmeldung.md#seite-kein-zugriff)). Stornieren lässt sich eine Ausgabe nur in der
-Ausgabehistorie.
+[Anmeldung](anmeldung.md#seite-kein-zugriff)).
 
 ## Ausgabe erfassen
 
-1. Klicken Sie im Abschnitt **Exemplare** auf **Ausgabe erfassen**. Der Button erscheint nur, wenn
-   eine Auflage erfasst ist.
+1. Klicken Sie im Kopf der Detailseite auf **Ausgabe erfassen**. Der Button erscheint nur, wenn
+   eine Auflage erfasst und mindestens ein Exemplar frei ist.
 2. Die Seite **Ausgabe erfassen** zeigt den Namen des Coins und z. B. „Verfügbar: 147 von 150“.
 3. Wählen Sie unter **Exemplar**:
    - **Nächstes freies Exemplar** (Voreinstellung): Die kleinste freie Nummer wird vergeben. Das
      kann auch eine Nummer sein, deren Ausgabe storniert wurde.
    - **Bestimmte Nummer**: Tragen Sie die **Exemplar-Nummer** ein (1 bis zur Auflage).
-4. Füllen Sie die Felder aus. Pflichtfelder sind mit * markiert.
+4. Füllen Sie die Felder in den Abschnitten **Empfänger**, **Ausgabe** und **Zertifikat** aus.
+   Pflichtfelder sind mit „(Pflicht)“ markiert (siehe [Bedienung](bedienung.md#formulare-ausfüllen)).
 
 | Feld | Pflicht | Regel |
 |---|---|---|
@@ -132,9 +149,11 @@ Ausgabehistorie.
 5. Klicken Sie auf **Ausgabe speichern** oder drücken Sie die Eingabetaste. Wer die Ausgabe
    erfasst und wann, speichert C.O.I.N. automatisch.
 
-Danach öffnet sich die Detailseite mit der Meldung „Exemplar Nr. … wurde ausgegeben.“ Die neue
-Ausgabe steht oben in der Historie, die Kennzahlen sind aktualisiert. **Zurück** im Browser führt
-nicht wieder zum ausgefüllten Formular. Mit **Abbrechen** kehren Sie ohne Speichern zum Coin zurück.
+Danach öffnet sich die Detailseite im Reiter **Ausgaben** mit der Meldung „Exemplar Nr. … wurde
+ausgegeben.“ Die neue Ausgabe steht oben in der Historie, die Kennzahlen sind aktualisiert.
+**Zurück** im Browser führt nicht wieder zum ausgefüllten Formular. Mit **Abbrechen** kehren Sie
+ohne Speichern zum Coin zurück; nach Eingaben fragt C.O.I.N. vorher nach (siehe
+[Bedienung](bedienung.md#warnung-bei-ungespeicherten-änderungen)).
 
 Eine Ausgabe kann nicht bearbeitet werden. Ist etwas falsch, stornieren Sie sie und erfassen sie neu.
 Einzige Ausnahme ist die Hologrammnummer (siehe unten).
@@ -188,13 +207,21 @@ Gut zu wissen:
 
 ## Ausgabe stornieren
 
-1. Klicken Sie in der Ausgabehistorie in der Zeile einer aktiven Ausgabe auf **Stornieren**.
-2. Geben Sie im Dialog **Ausgabe stornieren?** einen **Grund** ein (Pflicht, höchstens 500 Zeichen).
-   **Bitte keine Personendaten in den Grund schreiben**, z. B. „Falsches Exemplar erfasst“ statt
-   eines Namens. Der Grund wird dauerhaft gespeichert.
-3. Klicken Sie auf **Stornieren**. Mit **Abbrechen** oder Escape schließen Sie den Dialog ohne Änderung.
+Stornieren geht an zwei Stellen: in der Ausgabehistorie in der Zeile einer aktiven Ausgabe und im
+Kopf der [Seite „Ausgabe“](#seite-ausgabe).
 
-Danach erscheint „Ausgabe von Exemplar Nr. … wurde storniert.“ Die Ausgabe bleibt mit ihrem
+1. Klicken Sie auf **Stornieren**.
+2. Der Dialog **Ausgabe stornieren?** nennt die Folge: „Die Ausgabe von Exemplar Nr. … bleibt in
+   der Historie sichtbar. Das Exemplar ist danach wieder verfügbar.“ Geben Sie einen **Grund** ein
+   (Pflicht, höchstens 500 Zeichen). **Bitte keine Personendaten in den Grund schreiben**, z. B.
+   „Falsches Exemplar erfasst“ statt eines Namens. Der Grund wird dauerhaft gespeichert.
+3. Klicken Sie auf **Stornieren**. Ohne Grund erscheint „Bitte einen Grund für das Storno
+   angeben.“ und es wird nichts storniert. Mit **Abbrechen** oder Escape schließen Sie den Dialog
+   ohne Änderung (siehe [Bestätigungsdialoge](bedienung.md#bestätigungsdialoge)).
+
+In der Historie erscheint danach „Ausgabe von Exemplar Nr. … wurde storniert.“ Auf der Seite
+„Ausgabe“ erscheint „Die Ausgabe wurde storniert.“; die Seite zeigt sofort den Status „storniert“
+und den Storno im Verlauf, **Stornieren** und der Hologramm-Button entfallen. Die Ausgabe bleibt mit ihrem
 Storno-Vermerk und ihrer Zertifikatsnummer in der Historie, das Exemplar ist wieder verfügbar. Ihr
 Zertifikat lässt sich nicht mehr herunterladen, ihre Hologrammnummer bleibt vergeben. Ein Storno lässt
 sich nicht rückgängig machen;
@@ -204,7 +231,7 @@ erfassen Sie bei Bedarf eine neue Ausgabe (bei demselben Exemplar mit derselben 
 
 Nur für Sachbearbeiter und Administratoren.
 
-1. Klicken Sie im Abschnitt **Exemplare** auf **Auflage ändern**.
+1. Klicken Sie im Kopf der Detailseite auf **Auflage ändern**.
 2. Tragen Sie die neue **Auflage** ein (1 bis 1.000.000) und klicken Sie auf **Speichern**.
 
 - **Erhöhen** legt die zusätzlichen Exemplare an. So legen Sie auch für einen Coin ohne Auflage
@@ -238,7 +265,7 @@ Fehler zu einzelnen Feldern stehen direkt unter dem Feld; Ihre Eingaben bleiben 
 | „Die Hologrammnummer wurde inzwischen geändert. Die Seite wurde neu geladen.“ | Jemand hat die Nummer gerade geändert; die Seite zeigt den aktuellen Stand. Bei Bedarf erneut korrigieren. |
 | „Die Ausgabe wurde inzwischen storniert. Die Hologrammnummer kann nicht mehr geändert werden.“ | Jemand hat die Ausgabe gerade storniert; die Seite zeigt den aktuellen Stand. |
 | „Diese Ausgabe wurde inzwischen storniert. Ein Zertifikat kann nicht mehr heruntergeladen werden.“ | Jemand hat die Ausgabe gerade storniert; die Anzeige zeigt den aktuellen Stand. |
-| „Die aktive Vorlage enthält mehr als 200 Platzhalter. Bitte eine angepasste Vorlage hochladen.“ | Auf **Coin bearbeiten** eine Vorlage mit weniger Platzhaltern hochladen (siehe [Zertifikatsvorlagen](zertifikatsvorlagen.md)). |
+| „Die aktive Vorlage enthält mehr als 200 Platzhalter. Bitte eine angepasste Vorlage hochladen.“ | Im Reiter **Zertifikatsvorlage** der Detailseite eine Vorlage mit weniger Platzhaltern hochladen (siehe [Zertifikatsvorlagen](zertifikatsvorlagen.md)). |
 | „Das Zertifikat konnte nicht heruntergeladen werden. Bitte später erneut versuchen.“ | Technisches Problem; später erneut versuchen. Tritt es immer wieder auf, die Vorlage in Word neu speichern und hochladen. |
 | „Sie sind nicht berechtigt, Zertifikate herunterzuladen.“ | Ihrem Konto fehlt die nötige Rolle. Wenden Sie sich an einen Administrator. |
 | „Die Ausgabe konnte nicht geladen werden. Bitte später erneut versuchen.“ | Technisches Problem auf der Seite „Ausgabe“, z. B. keine Verbindung zum Server. **Erneut versuchen** klicken. |

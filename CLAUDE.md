@@ -79,7 +79,7 @@ Exemplare 1 bis Auflage, Kennzahlen/Status mit `coins.read`, Historie mit `issue
 und Stornieren mit `issues.write`, Auflage ändern mit `coins.write`; `ausgabe` und `ausgabe_audit`
 unveränderlich per Trigger. Zertifikatsvorlagen und „Coin bearbeiten“
 (`docs/features/zertifikatsvorlagen.md`, ADR-0022–0026): Stammdaten ändern auf
-`/coins/{id}/bearbeiten` (`PUT /api/coins/{id}`), Standardvorlage herunterladen, eigene Vorlage
+`/coins/{id}/bearbeiten` (`PUT /api/coins/{id}`), im Reiter „Zertifikatsvorlage“ der Detailseite Standardvorlage herunterladen, eigene Vorlage
 hochladen (Prüfung mit Namespace-Positivliste `docs/word-namespaces.md`, Bereinigung der
 Metadaten), Versionen und Zurücksetzen, alles mit `coins.write` (OpenXML SDK in
 `Coin.Infrastructure/Vorlagen`); `zertifikat_vorlage` und `vorlage_audit` unveränderlich per
@@ -105,7 +105,12 @@ und `pruefung_audit` unveränderlich per Trigger, ohne Lese-Endpunkt; Platzhalte
 `Zertifikat.Hologrammnummer` (14 Platzhalter). Design-Fundament (`docs/features/design-fundament.md`,
 ADR-0035–0038): Tokens, Bausteine in `shared/ui`, App-Shell mit gruppierter Seitenleiste, Kopfzeile
 mit Rolle, Skip-Link, Seitenzustände; Bausteinseite `/entwicklung/bausteine` nur im Dev-Server
-(Build-Prüfung `web/scripts/pruefe-produktionsbuild.mjs`); axe in UI- und Systemtests. Noch nicht vorhanden: Signatur, PDF, QR-Code,
+(Build-Prüfung `web/scripts/pruefe-produktionsbuild.mjs`); axe in UI- und Systemtests. Formulare und Detailseiten (`docs/features/formulare-detailseiten.md`,
+ADR-0039–0042): Formularmuster (`useFormular`, `Formularfeld`, `FormularAbschnitt`,
+`Fehlerzusammenfassung`, `Aktionsleiste`), `VerlassenWarnung`, `Bestaetigungsdialog`, `DatenTabelle`
+mit Filter-Chips und Karten; Coin-Detailseite mit Status-Chips, Aktionen im Kopf, Kennzahlenkarten und
+Reitern (`?reiter=stammdaten|exemplare|ausgaben|vorlage`); die Zertifikatsvorlage liegt im Reiter
+„Zertifikatsvorlage“ statt auf `/coins/{id}/bearbeiten`; Ausgabe-Seite mit Verlauf und Stornieren. Noch nicht vorhanden: Signatur, PDF, QR-Code,
 öffentliche Prüfseite,
 Löschkonzept für Audit, Empfängerdaten und Vorlagenversionen.
 Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup im `README.md`.
@@ -148,7 +153,8 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
   Abstände (`p-[13px]`) in Komponenten – geprüft in `web/src/app/gestaltungsregeln.test.ts`.
   Die Tailwind-Standardpalette ist abgeschaltet (`--color-*: initial`).
 - Bausteine aus `shared/ui` verwenden (Button, Formularfeld, Card, Badge, Hinweisbanner,
-  Seitenkopf, Ladeanzeige/Leerzustand/Fehlerzustand, Toast; Übersicht unter
+  Seitenkopf, Ladeanzeige/Leerzustand/Fehlerzustand, Toast, Bestätigungsdialog, Datentabelle,
+  Filterleiste, Kennzahlkarte, Zeitleiste, Fortschrittsbalken; Übersicht unter
   `/entwicklung/bausteine`, nur in Entwicklung). Neue Seiten: `Seitenkopf` + `Card`, kein
   eigener Seitenrand und keine eigene Maximalbreite (Shell, ADR-0036).
 - WCAG 2.1 AA: Text ≥ 4,5:1, Fokus sichtbar (`ring` ohne Deckkraft), Klickflächen ≥ 40 px,
@@ -156,8 +162,16 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
   horizontales Scrollen. Neue Seiten in `barrierefreiheit.spec.ts`/`responsiv.spec.ts`
   aufnehmen. Sichtbarer Text ist Teil des zugänglichen Namens (WCAG 2.5.3).
 - Genau ein `<header>` (Kopfzeile); Seitenkopf und Karten nie als `<header>`.
+- Formulare (ADR-0039): `useFormular` aus `shared/lib/formular` mit `Formularfeld`,
+  `FormularAbschnitt`, `Fehlerzusammenfassung` und `Aktionsleiste`; kein eigenes Markup für Fehler,
+  Hilfe oder Pflicht. Pflicht sichtbar „(Pflicht)“, im zugänglichen Namen „(Pflichtfeld)“.
+  Seitenformulare binden `VerlassenWarnung` ein (ADR-0040); Bestätigungen nur über `Bestaetigungsdialog`.
+- Tabellen über `DatenTabelle` mit `Filterleiste` (ADR-0041), Karten auf kleinen Bildschirmen;
+  sortiert wird nur clientseitig bei vollständig geladenen Listen. Reiter von Detailseiten stehen im
+  Suchparameter `reiter` und wechseln per `replace` (ADR-0042).
 - Screenshots zur Sichtprüfung: `COIN_SCREENSHOTS=1` mit `web/ui-tests/screenshots.spec.ts`
-  nach `docs/design/ablage/`.
+  nach `docs/design/ablage/`; `web/ui-tests/screenshots-formulare.spec.ts` schreibt nur lokal nach
+  `web/test-results/screenshots-formulare/` (nicht einchecken).
 
 ## Sicherheit und Datenschutz
 - Ausgaben enthalten Personendaten (Empfänger) und gelten als schutzbedürftig. Zugriff nur mit

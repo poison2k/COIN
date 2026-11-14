@@ -37,8 +37,11 @@ Benutzer von Hand anlegen oder löschen können Sie nicht.
 2. Klicken Sie auf **Suchen** oder drücken Sie die Eingabetaste. Ein leeres Suchfeld zeigt alle
    Benutzer.
 
-Über der Tabelle steht, wie viele Benutzer gefunden wurden, z. B. „3 Benutzer gefunden“. Die
-Tabelle zeigt Name, E-Mail, Rolle, Status und Aktion, sortiert nach Namen, 25 Benutzer pro Seite.
+Über der Tabelle steht, wie viele Benutzer gefunden wurden, z. B. „3 Benutzer gefunden“. Ein
+aktiver Suchbegriff erscheint als Chip „Suche: …“; das Kreuz im Chip zeigt wieder alle Benutzer (siehe
+[Bedienung](bedienung.md#filter-chips)). Die Tabelle zeigt Name, E-Mail, Rolle, Status und Aktion,
+sortiert nach Namen, 25 Benutzer pro Seite; unter 768 Pixel Breite erscheinen die Benutzer als
+Karten.
 Mit **Vorherige Seite** und **Nächste Seite** blättern Sie; dazwischen steht „Seite x von y“.
 Während die nächste Seite lädt, bleibt die bisherige Seite sichtbar.
 
