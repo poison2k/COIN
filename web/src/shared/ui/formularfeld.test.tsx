@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Formularfeld } from './formularfeld'
 import { Input } from './input'
 
@@ -144,5 +144,53 @@ describe('Pflichtfeld (AK-13)', () => {
 
     const label = document.querySelector('label')
     expect(label?.textContent?.replace(/\s+/g, ' ').trim()).not.toMatch(/^Name\s*\*$/)
+  })
+})
+
+// ---------- formulare-detailseiten, AK-2 (Abschnitt 4.1, ADR-0039 Punkt 3) ----------
+// Sichtbar „(Pflicht)“ (aria-hidden), für Screenreader „(Pflichtfeld)“ (sr-only); neu: `onBlur` wird über `feld` an das
+// Eingabeelement weitergegeben (Validierung beim Verlassen).
+
+describe('Pflichtkennzeichnung (formulare-detailseiten, AK-2)', () => {
+  it('nennt „(Pflichtfeld)“ im zugänglichen Namen', () => {
+    const feld = zeige({ pflicht: true })
+
+    expect(feld).toHaveAccessibleName(/^Name\b.*\(Pflichtfeld\)/)
+  })
+
+  it('nennt „(Pflicht)“ nicht als eigenes Wort im zugänglichen Namen', () => {
+    const feld = zeige({ pflicht: true })
+
+    expect(feld).not.toHaveAccessibleName(/\(Pflicht\)/)
+  })
+
+  it('blendet das sichtbare „(Pflicht)“ für Screenreader aus', () => {
+    zeige({ pflicht: true })
+
+    const sichtbar = screen.getByText('(Pflicht)')
+    expect(sichtbar.closest('[aria-hidden="true"]')).not.toBeNull()
+  })
+
+  it('nennt ohne pflicht kein „Pflicht“ im zugänglichen Namen', () => {
+    const feld = zeige()
+
+    expect(feld).not.toHaveAccessibleName(/Pflicht/)
+  })
+})
+
+describe('onBlur (formulare-detailseiten, AK-4)', () => {
+  it('gibt onBlur über feld an das Eingabeelement weiter', () => {
+    const onBlur = vi.fn()
+    render(
+      <Formularfeld label="Name" onBlur={onBlur}>
+        {(feld) => <Input {...feld} />}
+      </Formularfeld>,
+    )
+    const feld = screen.getByRole('textbox', { name: 'Name' })
+
+    feld.focus()
+    feld.blur()
+
+    expect(onBlur).toHaveBeenCalledTimes(1)
   })
 })

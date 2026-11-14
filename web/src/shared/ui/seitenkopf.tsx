@@ -27,8 +27,9 @@ export function Seitenkopf({
   return (
     <div data-slot="seitenkopf" className={cn('grid min-w-0 gap-2', className)}>
       {brotkrumen}
-      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="grid min-w-0 flex-1 gap-1">
+      {/* Ab 640 px stehen die Aktionen neben dem Titel; reicht der Platz nicht (Titel < 16rem), brechen sie um. */}
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="grid min-w-0 flex-1 gap-1 sm:basis-64">
           <h1
             ref={titelRef}
             tabIndex={titelFokussierbar ? -1 : undefined}
