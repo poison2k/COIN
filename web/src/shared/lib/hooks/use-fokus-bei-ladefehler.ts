@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 
 /**
  * Fokus beim Blättern mit Ladefehler (WCAG 2.4.3): Ein Ladefehler hängt die Seitennavigation aus. Lag der Fokus beim
- * Blättern darin, wandert er auf den Alarm (`tabIndex={-1}`) statt auf `body`.
+ * Blättern darin, wandert er auf den Alarm (`Fehlerzustand fokussierbar`, `tabIndex={-1}`) statt auf `body`.
  *
  * @param ergebnisDa Die Antwort zur aktuellen Anfrage liegt vor (Erfolg oder Fehler).
  * @param fehlgeschlagen Die aktuelle Antwort ist ein Fehler; der Alarm ist eingehängt.
@@ -11,7 +11,7 @@ import { useEffect, useRef } from 'react'
  */
 export function useFokusBeiLadefehler(ergebnisDa: boolean, fehlgeschlagen: boolean) {
   const bereichRef = useRef<HTMLDivElement>(null)
-  const alarmRef = useRef<HTMLParagraphElement>(null)
+  const alarmRef = useRef<HTMLDivElement>(null)
   const fokusBeimBlaettern = useRef(false)
 
   useEffect(() => {
