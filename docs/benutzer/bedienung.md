@@ -95,8 +95,9 @@ neueste zuerst, Benutzer nach Name.
 
 ### Filter-Chips
 
-Ist ein Filter aktiv (Status bei Exemplaren und Ausgaben, Suche in der Benutzerverwaltung), steht
-er unter der Filterauswahl als Chip, z. B. „Status: Ausgegeben“ oder „Suche: Muster“. Das Kreuz im
+Ist ein Filter aktiv (Status bei Exemplaren und Ausgaben, Suche im Katalog und in der
+Benutzerverwaltung, Benutzer im Audit-Log), steht er unter der Filterauswahl als Chip, z. B.
+„Status: Ausgegeben“, „Suche: Muster“ oder „Benutzer: Testperson A“. Das Kreuz im
 Chip entfernt den Filter. Die Liste beginnt dann wieder auf Seite 1. Bei mehreren Chips entfernt
 **Alle Filter entfernen** alle auf einmal.
 
@@ -117,4 +118,6 @@ nichts.
 Auf schmalen Bildschirmen erscheinen die Einträge als Karten statt als Tabelle: oben der Titel
 (z. B. die Nummer), darunter die übrigen Spalten als Liste und die Buttons. Das gilt unter 768 Pixel
 Breite, bei der Ausgabehistorie mit ihren vielen Spalten schon unter 1024 Pixel. Sie müssen so nie
-seitlich scrollen.
+seitlich scrollen. Ausnahme ist die Tabellenansicht des Katalogs: Sie lässt sich auf schmalen
+Bildschirmen seitlich verschieben; alternativ wählen Sie dort die Ansicht **Karten** (siehe
+[Coin-Katalog](coin-katalog.md#ansicht-wählen-tabelle-oder-karten)).

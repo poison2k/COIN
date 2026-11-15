@@ -134,7 +134,7 @@ Nach der Anmeldung zeigt `/` eine gefüllte Startseite aus bis zu fünf Blöcken
   - *Kennzahlen:* als `<dl>` mit „Coins“, „Exemplare gesamt“, „Ausgegeben“, „Verfügbar“ (Zahlen `de-DE`).
   - *Neueste:* Liste mit Motivbild (`alt=""`, 48 px), Name als Link auf `/coins/{id}`, Herausgeber darunter; leer: „Noch keine Coins im Katalog.“
   - *Meistausgegebene:* `<ol>` mit Name (Link) und „{n} ausgegeben“; leer: „Noch keine Coins ausgegeben.“
-  - Kennzahlen, Neueste und Meistausgegebene stehen ab `md` im responsiven Raster nebeneinander, sonst untereinander. Am Ende der Link „Zum Katalog“.
+  - *Raster (ersetzt durch [startseite-listen-pruefung](startseite-listen-pruefung.md) 4.1, ADR-0043):* Die Blöcke stehen in Zeilen ohne Lücken. Kopf, Infotext und Kennzahlen belegen je eine volle Zeile; Neueste und Meistausgegebene teilen sich ab 1024 px eine Zeile, wenn sie direkt aufeinander folgen, sonst je eine volle Zeile. Darunter alles untereinander. Kennzahlen erscheinen als vier Karten in einer `dl`, Meistausgegebene als Rangliste mit Rangzahl („Platz n“ für Screenreader), Leertexte als `Leerzustand` (Texte unverändert). Am Ende der Link „Zum Katalog“.
 - **AK-21** *(Rev. 2)* Überschriften (S9), für alle Besucher gleich:
   - Ist `kopf` aktiv, ist sein Titel das einzige h1; sonst h1 „Willkommen bei C.O.I.N.“.
   - Während des Ladens gibt es kein h1, nur `role="status"` „Startseite wird geladen …“. Danach erscheint das h1 nach dieser Regel.

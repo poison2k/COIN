@@ -17,26 +17,35 @@ Den Grund eines Stornos zeigt die Prüfung nie. Eine Prüfung ohne Anmeldung gib
 
 ## So prüfen Sie
 
-1. Klicken Sie in der Seitenleiste auf **Zertifikat prüfen** (Adresse `/pruefung`).
+1. Klicken Sie in der Seitenleiste auf **Zertifikat prüfen** (Adresse `/pruefung`). Die Seite steht
+   in einer schmalen, mittigen Spalte. Auf breiten Bildschirmen stehen **Coin (optional)** links und
+   **Hologrammnummer** rechts nebeneinander, auf schmalen untereinander.
 2. Optional: Wählen Sie unter **Coin (optional)** den Coin, zu dem das Zertifikat gehören soll. Tippen
    Sie dazu einen Teil des Namens oder Herausgebers; nach einem kurzen Moment erscheinen passende
    Coins als „Name – Herausgeber“. Mit den Pfeiltasten und der Eingabetaste oder per Klick wählen Sie
-   einen aus, Escape schließt die Liste. Passt kein Coin, steht dort „Keine Coins gefunden“. Mit
+   einen aus, Escape schließt die Liste. Die Liste öffnet sich auch mit **Pfeil nach unten** im Feld
+   oder per Klick auf den Pfeil rechts im Feld. Passt kein Coin, steht dort „Keine Coins gefunden“. Mit
    **Auswahl entfernen** heben Sie die Auswahl wieder auf.
-3. Tragen Sie die **Hologrammnummer** vom Sticker ein. Groß- und Kleinschreibung, Leerzeichen und
-   Bindestriche spielen keine Rolle: „ab 12-34“ findet „AB1234“.
+3. Tragen Sie die **Hologrammnummer** vom Sticker ein (Pflichtfeld). Groß- und Kleinschreibung,
+   Leerzeichen und Bindestriche spielen keine Rolle: „ab 12-34“ findet „AB1234“.
 4. Klicken Sie auf **Prüfen** oder drücken Sie im Nummernfeld die Eingabetaste.
 
 Während der Prüfung ist der Button gesperrt. Eine Prüfung dauert immer mindestens eine Viertelsekunde.
 Ändern Sie danach die Nummer oder den Coin, verschwindet das alte Ergebnis.
+
+**Mehrere Nummern nacheinander prüfen:** Nach jeder Prüfung steht der Cursor wieder im Feld
+**Hologrammnummer**, die geprüfte Nummer ist markiert. Tippen Sie einfach die nächste Nummer (sie
+ersetzt die alte) und drücken Sie die Eingabetaste. Der gewählte Coin bleibt erhalten. Mit der
+Tastatur führt **Tab** vom Coin-Feld direkt zur Hologrammnummer und weiter zu **Prüfen**.
 
 Die Nummer erscheint nie in der Adresszeile und wird im Browser nicht gespeichert. Jede Prüfung
 protokolliert C.O.I.N. mit Benutzer, Zeitpunkt, Nummer und Ergebnis.
 
 ## Ergebnisse
 
-Jedes Ergebnis hat eine eigene Überschrift, ein Symbol und eine Farbe. Darunter steht „Geprüfte
-Nummer: …“ mit Ihrer bereinigten Eingabe.
+Das Ergebnis erscheint als Karte unter dem Formular. Jedes Ergebnis hat eine eigene große Überschrift,
+ein Symbol und eine Farbe (Rahmen und Kopf der Karte). Darunter steht „Geprüfte Nummer: …“ mit Ihrer
+bereinigten Eingabe.
 
 | Überschrift | Farbe | Bedeutung |
 |---|---|---|
@@ -45,10 +54,16 @@ Nummer: …“ mit Ihrer bereinigten Eingabe.
 | „Die Nummer gehört nicht zu diesem Coin.“ | orange | Die Nummer gehört zu einem anderen Coin als dem gewählten. Welcher das ist, zeigt die Seite nicht. |
 | „Nummer nicht gefunden. Das Zertifikat kann nicht bestätigt werden.“ | grau | Zu dieser Nummer gibt es keine Ausgabe. Auch eine Nummer, die später korrigiert wurde, gilt als nicht gefunden. |
 
-Bei „gültig“ und „storniert“ folgen die Angaben aus der Tabelle oben: **Coin** (Link zur
-Detailseite), **Exemplar** („Nr. 12“), **Zertifikatsnummer**, **Hologrammnummer**, **Ausgabedatum**
-und **Status** („Aktiv“ oder „Storniert am …“), für Sachbearbeiter und Administratoren zusätzlich die
-Empfängerangaben und **Zur Ausgabe**.
+Bei „gültig“ und „storniert“ folgen die Angaben aus der Tabelle oben, in Gruppen:
+
+| Gruppe | Angaben |
+|---|---|
+| **Coin und Exemplar** | **Coin** (Link zur Detailseite), **Exemplar** („Nr. 12“) |
+| **Zertifikat** | **Zertifikatsnummer**, **Hologrammnummer** |
+| **Ausgabe** | **Ausgabedatum**, **Status** („Aktiv“ oder „Storniert am …“) |
+| **Empfängerdaten** (nur Sachbearbeiter und Administratoren) | Empfänger, Gelegenheit, Begründung, ausgebende Stelle |
+
+Darunter steht für Sachbearbeiter und Administratoren der Button **Zur Ausgabe**.
 
 ## Fehlermeldungen
 
