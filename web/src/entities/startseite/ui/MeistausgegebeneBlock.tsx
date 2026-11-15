@@ -1,6 +1,8 @@
 import { Link } from '@tanstack/react-router'
 import { ROUTEN } from '@/shared/config'
 import { formatiereZahl } from '@/shared/lib/format'
+import { Rangliste } from '@/shared/ui/rangliste'
+import { Leerzustand } from '@/shared/ui/zustaende'
 import type { AusgegebenerCoin } from '../model/types'
 import { BlockAbschnitt } from './BlockAbschnitt'
 import type { Ebene } from './Ueberschrift'
@@ -10,31 +12,29 @@ export interface MeistausgegebeneBlockProps {
   ebene: Ebene
 }
 
-/** „Meistausgegebene Coins“ (AK-20, AK-5) als Rangliste `<ol>` mit „{n} ausgegeben“; nie Empfängerdaten. */
+/** „Meistausgegebene Coins“ (AK-7) als Rangliste mit „{n} ausgegeben“; nie Empfängerdaten. */
 export function MeistausgegebeneBlock({ eintraege, ebene }: MeistausgegebeneBlockProps) {
   return (
     <BlockAbschnitt titel="Meistausgegebene Coins" ebene={ebene}>
       {eintraege.length === 0 ? (
-        <p className="text-muted-foreground">Noch keine Coins ausgegeben.</p>
+        <Leerzustand titel="Noch keine Coins ausgegeben." titelEbene={ebene === 3 ? 4 : 3} />
       ) : (
-        <ol className="grid list-decimal gap-2 pl-6">
-          {eintraege.map((coin) => (
-            <li key={coin.id}>
-              <span className="flex flex-wrap items-baseline justify-between gap-x-3">
-                <Link
-                  to={ROUTEN.coinDetail}
-                  params={{ coinId: coin.id }}
-                  className="font-medium break-words text-primary underline underline-offset-4"
-                >
-                  {coin.name}
-                </Link>
-                <span className="text-sm text-muted-foreground tabular-nums">
-                  {`${formatiereZahl(coin.ausgegeben)} ausgegeben`}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ol>
+        <Rangliste
+          eintraege={eintraege.map((coin, index) => ({
+            id: coin.id,
+            rang: index + 1,
+            inhalt: (
+              <Link
+                to={ROUTEN.coinDetail}
+                params={{ coinId: coin.id }}
+                className="inline-flex min-h-10 items-center font-medium break-words text-primary underline underline-offset-4"
+              >
+                {coin.name}
+              </Link>
+            ),
+            wert: <span className="text-sm">{`${formatiereZahl(coin.ausgegeben)} ausgegeben`}</span>,
+          }))}
+        />
       )}
     </BlockAbschnitt>
   )

@@ -1,5 +1,6 @@
+import { formatiereZeitpunkt, formatiereZeitpunktMitSekunden } from '@/shared/lib/format'
 import { DatenTabelle, type DatenSpalte } from '@/shared/ui/daten-tabelle'
-import { SYSTEM_ANZEIGE, wertAnzeige, zeitpunktAnzeige, type AuditEintrag } from '../model/types'
+import { SYSTEM_ANZEIGE, wertAnzeige, type AuditEintrag } from '../model/types'
 
 export interface AuditTabelleProps {
   /** Einträge in der Reihenfolge der API (neueste zuerst). */
@@ -12,7 +13,12 @@ const SPALTEN: ReadonlyArray<DatenSpalte<AuditEintrag>> = [
     titel: 'Zeitpunkt',
     breite: 'mittel',
     karte: 'titel',
-    zelle: (eintrag) => <time dateTime={eintrag.zeitpunkt}>{zeitpunktAnzeige(eintrag.zeitpunkt)}</time>,
+    // Europe/Berlin mit „Uhr“, im title mit Sekunden (startseite-listen-pruefung AK-30, R7).
+    zelle: (eintrag) => (
+      <time dateTime={eintrag.zeitpunkt} title={formatiereZeitpunktMitSekunden(eintrag.zeitpunkt) || undefined}>
+        {formatiereZeitpunkt(eintrag.zeitpunkt) || eintrag.zeitpunkt}
+      </time>
+    ),
   },
   {
     id: 'akteur',

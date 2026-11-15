@@ -94,7 +94,7 @@ export function CoinAuswahl({ id, wert, onWert, beschreibungId }: CoinAuswahlPro
       >
         <ComboboxInput
           id={id}
-          className="w-full min-w-0 flex-1 sm:w-96"
+          className="h-12 w-full min-w-0 flex-1 [&_input]:h-full [&_input]:text-base"
           autoComplete="off"
           aria-describedby={beschreibungId}
         />

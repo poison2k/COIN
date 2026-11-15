@@ -25,7 +25,7 @@ export {
 } from './model/types'
 export { KONFIGURATION_URL, ladeKonfiguration, ladeKopf, ladeStartseite } from './api/startseite'
 export { useDateiUrl } from './lib/use-datei-url'
-export { Kopfbereich, type KopfbereichProps } from './ui/Kopfbereich'
+export { KopfFlaeche, Kopfbereich, type KopfbereichProps } from './ui/Kopfbereich'
 export { InfotextBlock } from './ui/InfotextBlock'
 export { KennzahlenBlock, type KennzahlenBlockProps } from './ui/KennzahlenBlock'
 export { NeuesteCoinsBlock, type NeuesteCoinsBlockProps } from './ui/NeuesteCoinsBlock'

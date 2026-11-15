@@ -10,6 +10,7 @@ import { Blaettern, seitenAnzahl } from '@/shared/ui/blaettern'
 import { Filterleiste } from '@/shared/ui/filterleiste'
 import { Label } from '@/shared/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
+import { Fehlerzustand, Leerzustand } from '@/shared/ui/zustaende'
 
 type Filter = AusgabeStatus | 'alle'
 
@@ -161,14 +162,12 @@ export function AusgabenHistorie({ coinId, darfStornieren, darfZertifikat, onGea
         {meldung ?? (laedt && daten === null ? 'Ausgaben werden geladen …' : '')}
       </p>
       {fehlgeschlagen && (
-        <p
+        <Fehlerzustand
           ref={alarmRef}
-          role="alert"
-          tabIndex={-1}
-          className="rounded-md text-destructive outline-none focus-visible:ring-3 focus-visible:ring-ring"
-        >
-          Die Ausgaben konnten nicht geladen werden. Bitte später erneut versuchen.
-        </p>
+          fokussierbar
+          meldung="Die Ausgaben konnten nicht geladen werden. Bitte später erneut versuchen."
+          onErneutVersuchen={() => setNeuLaden((n) => n + 1)}
+        />
       )}
 
       {daten && (daten.gesamt > 0 || status !== undefined) && (
@@ -199,11 +198,14 @@ export function AusgabenHistorie({ coinId, darfStornieren, darfZertifikat, onGea
 
       {daten &&
         (daten.gesamt === 0 ? (
-          <p className="text-muted-foreground">
-            {status === undefined
-              ? 'Für diesen Coin wurden noch keine Ausgaben erfasst.'
-              : 'Keine Ausgaben mit diesem Status.'}
-          </p>
+          <Leerzustand
+            titelEbene={3}
+            titel={
+              status === undefined
+                ? 'Für diesen Coin wurden noch keine Ausgaben erfasst.'
+                : 'Keine Ausgaben mit diesem Status.'
+            }
+          />
         ) : (
           <>
             {daten.eintraege.length > 0 ? (
@@ -234,7 +236,7 @@ export function AusgabenHistorie({ coinId, darfStornieren, darfZertifikat, onGea
                 }
               />
             ) : (
-              <p className="text-muted-foreground">Auf dieser Seite gibt es keine Ausgaben.</p>
+              <Leerzustand titelEbene={3} titel="Auf dieser Seite gibt es keine Ausgaben." />
             )}
             <div ref={bereichRef}>
               <Blaettern

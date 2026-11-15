@@ -357,7 +357,9 @@ test('Betrachter sieht die Standardstartseite mit h1, Infotext, Kennzahlen und L
   expect([...new Set(apiAufrufe.filter((a) => a.startsWith('GET /api/startseite')))]).toEqual(['GET /api/startseite'])
 })
 
-test('Betrachter: Kennzahlen, Neueste und Meistausgegebene stehen auf breitem Bildschirm nebeneinander', async ({
+// startseite-listen-pruefung (K12, freigegeben 2026-11-15, Abschnitt 4.1, ADR-0043): Kennzahlen stehen in einer eigenen
+// Zeile; „Neueste Coins“ und „Meistausgegebene Coins“ folgen direkt aufeinander und teilen sich darunter eine Zeile.
+test('Betrachter: auf breitem Bildschirm Kennzahlen in eigener Zeile, Neueste und Meistausgegebene darunter nebeneinander', async ({
   page,
 }) => {
   await starteAls(page, BETRACHTER)
@@ -367,7 +369,9 @@ test('Betrachter: Kennzahlen, Neueste und Meistausgegebene stehen auf breitem Bi
 
   const kennzahlen = await page.getByRole('region', { name: 'Kennzahlen' }).boundingBox()
   const neueste = await page.getByRole('region', { name: 'Neueste Coins' }).boundingBox()
-  expect(kennzahlen && neueste && Math.abs(kennzahlen.y - neueste.y) < 5).toBe(true)
+  const meist = await page.getByRole('region', { name: 'Meistausgegebene Coins' }).boundingBox()
+  expect(kennzahlen && neueste && neueste.y >= kennzahlen.y + kennzahlen.height - 1).toBe(true)
+  expect(neueste && meist && Math.abs(neueste.y - meist.y) < 5).toBe(true)
 })
 
 test('Betrachter: Blöcke stehen auf schmalem Bildschirm untereinander', async ({ page }) => {

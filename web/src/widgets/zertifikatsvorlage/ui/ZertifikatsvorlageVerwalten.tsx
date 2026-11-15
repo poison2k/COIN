@@ -14,6 +14,7 @@ import { VorlageZuruecksetzen } from '@/features/vorlage-zuruecksetzen'
 import type { ApiErgebnis, Datei } from '@/shared/api'
 import { speichereDatei } from '@/shared/lib/datei'
 import { Button } from '@/shared/ui/button'
+import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
 
 const TEXT_DOWNLOAD_FEHLER = 'Die Vorlage konnte nicht heruntergeladen werden. Bitte später erneut versuchen.'
 const TEXT_LADEFEHLER = 'Die Zertifikatsvorlage konnte nicht geladen werden. Bitte später erneut versuchen.'
@@ -89,6 +90,9 @@ export function ZertifikatsvorlageVerwalten({ coinId, onGeaendert }: Zertifikats
   const meldungRef = useRef<HTMLParagraphElement>(null)
   const ueberschriftId = useId()
 
+  // Zählt „Erneut versuchen“ nach einem Ladefehler; jede Erhöhung lädt den Stand genau einmal neu.
+  const [neuladen, setNeuladen] = useState(0)
+
   useEffect(() => {
     let aktiv = true
     void ladeVorlagenStatus(coinId).then((ergebnis) => {
@@ -97,7 +101,7 @@ export function ZertifikatsvorlageVerwalten({ coinId, onGeaendert }: Zertifikats
     return () => {
       aktiv = false
     }
-  }, [coinId])
+  }, [coinId, neuladen])
 
   useEffect(() => {
     if (meldung?.fokus) meldungRef.current?.focus()
@@ -137,11 +141,15 @@ export function ZertifikatsvorlageVerwalten({ coinId, onGeaendert }: Zertifikats
         Zertifikatsvorlage
       </h2>
 
-      {ergebnis === null && <p role="status">Zertifikatsvorlage wird geladen …</p>}
+      {ergebnis === null && <Ladeanzeige text="Zertifikatsvorlage wird geladen …" />}
       {ergebnis !== null && status === null && (
-        <p role="alert" className="text-destructive">
-          {TEXT_LADEFEHLER}
-        </p>
+        <Fehlerzustand
+          meldung={TEXT_LADEFEHLER}
+          onErneutVersuchen={() => {
+            setGeladen(null)
+            setNeuladen((n) => n + 1)
+          }}
+        />
       )}
 
       {status && (
@@ -181,7 +189,7 @@ export function ZertifikatsvorlageVerwalten({ coinId, onGeaendert }: Zertifikats
           )}
 
           {status.versionen.length === 0 ? (
-            <p className="text-muted-foreground">Es wurde noch keine eigene Vorlage hochgeladen.</p>
+            <Leerzustand titelEbene={3} titel="Es wurde noch keine eigene Vorlage hochgeladen." />
           ) : (
             <VersionenTabelle
               versionen={status.versionen}

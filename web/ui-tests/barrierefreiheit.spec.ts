@@ -1,7 +1,22 @@
+import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 import { richteApiEin, SEITEN, setzeTheme, type ApiZustand, type SeitenFall } from './hilfen/api.js'
 import { erwarteKeineAxeVerstoesse } from './hilfen/pruefungen.js'
 import { ADMIN, AUSGABE, COIN, richteFormularApiEin } from './hilfen/formulare.js'
+import {
+  ansichtsKnopf,
+  BETRACHTER,
+  mockeAudit,
+  mockeKatalog,
+  mockePruefung,
+  oeffneAuditLog,
+  oeffneStartseitenFall,
+  pruefePerEnter,
+  SACHBEARBEITER,
+  STARTSEITEN_FAELLE,
+  UEBERSCHRIFT,
+  type Ergebnis,
+} from './hilfen/uebersicht.js'
 
 // Feature design-fundament, AK-28, AK-40, AK-41 (ADR-0037 Punkt 1): axe meldet 0 Verstöße der Stufe serious/critical
 // auf allen Seiten aus Abschnitt 11.2 (hell und dunkel bei 1280 px, hell bei 360 px), mit geöffnetem Mobilmenü und auf
@@ -246,4 +261,119 @@ for (const theme of ['light', 'dark'] as const) {
 
     await erwarteKeineAxeVerstoesse(page)
   })
+}
+
+// ---------- startseite-listen-pruefung, AK-40 und AK-33: alle Seiten hell/dunkel bei 360 und 1280 px, Zustände ----------
+
+for (const fall of SEITEN) {
+  test(`axe (startseite-listen-pruefung): ${fall.name} (dark, 360 px) ohne serious/critical`, async ({ page }) => {
+    test.slow()
+    await oeffne(page, fall, 'dark', 360)
+
+    await erwarteKeineAxeVerstoesse(page)
+  })
+
+  for (const breite of [360, 1280]) {
+    test(`axe heading-order (AK-33): ${fall.name} (${breite} px) ohne Befund`, async ({ page }) => {
+      await oeffne(page, fall, 'light', breite)
+
+      const ergebnis = await new AxeBuilder({ page }).withRules(['heading-order']).analyze()
+      expect(ergebnis.violations.flatMap((v) => v.nodes.map((n) => n.target.join(' ')))).toEqual([])
+    })
+  }
+}
+
+const THEMES_BREITEN = (['light', 'dark'] as const).flatMap((theme) =>
+  [360, 1280].map((breite) => [theme, breite] as const),
+)
+
+for (const fall of STARTSEITEN_FAELLE) {
+  for (const [theme, breite] of THEMES_BREITEN) {
+    test(`axe (AK-40): Startseite ${fall.name} (${theme}, ${breite} px) ohne serious/critical`, async ({ page }) => {
+      test.slow()
+      api = await oeffneStartseitenFall(page, fall, { breite, theme })
+
+      await erwarteKeineAxeVerstoesse(page)
+    })
+  }
+}
+
+const KATALOG_ZUSTAENDE: ReadonlyArray<[string, { coins?: unknown[]; fehler?: number; karten?: boolean }, RegExp]> = [
+  ['Tabelle', {}, /gefunden/],
+  ['Karten', { karten: true }, /gefunden/],
+  ['leer', { coins: [] }, /0 Coins gefunden|Noch keine Coins erfasst/],
+  ['Fehler', { fehler: 5 }, /Coins konnten nicht geladen werden/],
+]
+
+for (const [name, zustand, bereit] of KATALOG_ZUSTAENDE) {
+  for (const [theme, breite] of THEMES_BREITEN) {
+    test(`axe (AK-40): Katalog ${name} (${theme}, ${breite} px) ohne serious/critical`, async ({ page }) => {
+      test.slow()
+      await page.setViewportSize({ width: breite, height: 900 })
+      await setzeTheme(page, theme)
+      api = await richteApiEin(page, ADMIN)
+      await mockeKatalog(page, { coins: zustand.coins, fehler: zustand.fehler })
+      await page.goto('/coins')
+      await expect(page.getByRole('main').getByText(bereit).first()).toBeVisible()
+      if (zustand.karten) {
+        await ansichtsKnopf(page, 'Karten').click()
+        await expect(page.getByRole('main').getByRole('list', { name: 'Coins' })).toBeVisible()
+      }
+
+      await erwarteKeineAxeVerstoesse(page)
+    })
+  }
+}
+
+for (const ergebnis of Object.keys(UEBERSCHRIFT) as Ergebnis[]) {
+  for (const [theme, breite] of THEMES_BREITEN) {
+    for (const [rolle, me] of [
+      ['Betrachter', BETRACHTER],
+      ['Sachbearbeiter', SACHBEARBEITER],
+    ] as const) {
+      test(`axe (AK-40): Prüfmaske ${ergebnis} als ${rolle} (${theme}, ${breite} px) ohne serious/critical`, async ({
+        page,
+      }) => {
+        test.slow()
+        await page.setViewportSize({ width: breite, height: 900 })
+        await setzeTheme(page, theme)
+        api = await richteApiEin(page, me)
+        await mockePruefung(page)
+        await page.goto('/pruefung')
+        await expect(page.getByRole('heading', { level: 1, name: 'Zertifikat prüfen' })).toBeVisible()
+
+        await pruefePerEnter(page, ergebnis)
+
+        await erwarteKeineAxeVerstoesse(page)
+      })
+    }
+  }
+}
+
+for (const [name, leer] of [
+  ['mit aktivem Filter', false],
+  ['leer', true],
+] as const) {
+  for (const [theme, breite] of THEMES_BREITEN) {
+    test(`axe (AK-40): Audit-Log ${name} (${theme}, ${breite} px) ohne serious/critical`, async ({ page }) => {
+      test.slow()
+      await page.setViewportSize({ width: breite, height: 900 })
+      await setzeTheme(page, theme)
+      api = await richteApiEin(page, ADMIN)
+      await mockeAudit(page, { leer })
+      await oeffneAuditLog(page)
+      const panel = page.getByRole('tabpanel', { name: 'Audit-Log' })
+      if (leer) {
+        await expect(panel.getByRole('heading', { level: 3, name: 'Noch keine Einträge.' })).toBeVisible()
+      } else {
+        const feld = panel.getByRole('combobox', { name: /^Benutzer/ })
+        await feld.click()
+        await feld.pressSequentially('Betr')
+        await page.getByRole('option', { name: BETRACHTER.name }).click()
+        await expect(panel.getByRole('list', { name: 'Aktive Filter' })).toBeVisible()
+      }
+
+      await erwarteKeineAxeVerstoesse(page)
+    })
+  }
 }

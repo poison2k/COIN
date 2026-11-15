@@ -1,6 +1,13 @@
 import { Link } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
-import { Kopfbereich, ladeKopf, ladeStartseite, type KopfAnsicht, type StartseiteAnsicht } from '@/entities/startseite'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  KopfFlaeche,
+  Kopfbereich,
+  ladeKopf,
+  ladeStartseite,
+  type KopfAnsicht,
+  type StartseiteAnsicht,
+} from '@/entities/startseite'
 import { ROUTEN } from '@/shared/config'
 import { buttonVariants } from '@/shared/ui/button'
 import { Fehlerzustand, Ladeanzeige } from '@/shared/ui/zustaende'
@@ -23,9 +30,13 @@ export interface StartSeiteProps {
 
 type Laden<T> = { art: 'laedt' } | { art: 'ok'; daten: T } | { art: 'fehler' }
 
-/** Lädt einmal beim Einhängen; spätere Antworten nach dem Aushängen werden verworfen. */
-function useLaden<T>(laden: () => Promise<{ art: string; daten?: T }>): Laden<T> {
+/**
+ * Lädt beim Einhängen und nach `neuLaden` genau einmal; spätere Antworten nach dem Aushängen bzw. eines überholten
+ * Abrufs werden verworfen.
+ */
+function useLaden<T>(laden: () => Promise<{ art: string; daten?: T }>): [Laden<T>, () => void] {
   const [zustand, setZustand] = useState<Laden<T>>({ art: 'laedt' })
+  const [durchlauf, setDurchlauf] = useState(0)
   useEffect(() => {
     let aktiv = true
     void laden().then((ergebnis) => {
@@ -35,8 +46,12 @@ function useLaden<T>(laden: () => Promise<{ art: string; daten?: T }>): Laden<T>
     return () => {
       aktiv = false
     }
-  }, [laden])
-  return zustand
+  }, [laden, durchlauf])
+  const neuLaden = useCallback(() => {
+    setZustand({ art: 'laedt' })
+    setDurchlauf((n) => n + 1)
+  }, [])
+  return [zustand, neuLaden]
 }
 
 /**
@@ -60,15 +75,15 @@ function Laedt() {
   return <Ladeanzeige text="Startseite wird geladen …" />
 }
 
-/** Mit coins.read: Blöcke über das Widget; bei einem Fehler Begrüßung und Meldung (AK-21). */
+/** Mit coins.read: Blöcke über das Widget; bei einem Fehler Begrüßung, Meldung und „Erneut versuchen“ (AK-8). */
 function MitLeserecht() {
-  const zustand = useLaden<StartseiteAnsicht>(ladeStartseite)
+  const [zustand, neuLaden] = useLaden<StartseiteAnsicht>(ladeStartseite)
   if (zustand.art === 'laedt') return <Laedt />
   if (zustand.art === 'fehler') {
     return (
-      <div className="grid gap-4">
-        <h1 className="text-2xl font-semibold">{BEGRUESSUNG}</h1>
-        <Fehlerzustand meldung={FEHLERTEXT} />
+      <div className="grid gap-6">
+        <h1 className="text-2xl font-semibold md:text-3xl">{BEGRUESSUNG}</h1>
+        <Fehlerzustand meldung={FEHLERTEXT} onErneutVersuchen={neuLaden} />
       </div>
     )
   }
@@ -77,7 +92,7 @@ function MitLeserecht() {
 
 /** Ohne coins.read: aktiver Kopfbereich statt der Begrüßung, sonst (auch bei Fehlern) die statische Seite (AK-22). */
 function OhneLeserecht() {
-  const zustand = useLaden<KopfAnsicht>(ladeKopf)
+  const [zustand] = useLaden<KopfAnsicht>(ladeKopf)
   if (zustand.art === 'laedt') return <Laedt />
   if (zustand.art === 'ok' && zustand.daten.aktiv) {
     const kopf = zustand.daten
@@ -92,9 +107,11 @@ function OhneLeserecht() {
     )
   }
   return (
-    <div className="grid gap-4">
-      <h1 className="text-2xl font-semibold">{BEGRUESSUNG}</h1>
-      <p className="text-muted-foreground">{EINLEITUNG}</p>
-    </div>
+    <KopfFlaeche>
+      <div className="grid gap-2">
+        <h1 className="text-2xl font-semibold md:text-3xl">{BEGRUESSUNG}</h1>
+        <p className="max-w-reading text-lg text-muted-foreground">{EINLEITUNG}</p>
+      </div>
+    </KopfFlaeche>
   )
 }

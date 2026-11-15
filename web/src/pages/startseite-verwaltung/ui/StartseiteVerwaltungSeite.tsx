@@ -7,6 +7,7 @@ import {
   zuAnsicht,
   type Formular,
 } from '@/features/startseite-konfigurieren'
+import { formatiereZeitpunkt } from '@/shared/lib/format'
 import { Card, CardContent } from '@/shared/ui/card'
 import { Seitenkopf } from '@/shared/ui/seitenkopf'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
@@ -24,19 +25,8 @@ type Laden =
   | { art: 'ok'; konfiguration: Konfiguration; formular: Formular; ladung: number; neuGeladen: boolean }
   | { art: 'fehler' }
 
-const zeitFormat = new Intl.DateTimeFormat('de-DE', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'Europe/Berlin',
-})
-
-function formatiereZeitpunkt(wert: string): string {
-  const datum = new Date(wert)
-  return Number.isNaN(datum.getTime()) ? wert : `${zeitFormat.format(datum)} Uhr`
-}
+/** Beschreibung ohne gespeicherte Konfiguration (startseite-listen-pruefung 4.4). */
+const BESCHREIBUNG = 'Blöcke der Startseite ein- und ausschalten, ordnen und mit Inhalt füllen.'
 
 /**
  * Seite „Startseite verwalten“ (/verwaltung/startseite, AK-26 bis AK-33): lädt die Konfiguration, Tabs „Bearbeiten“
@@ -96,10 +86,10 @@ export function StartseiteVerwaltungSeite({ onGeaendert }: StartseiteVerwaltungS
         titel="Startseite verwalten"
         beschreibung={
           zustand.art === 'ok' && !zustand.konfiguration.standard && zustand.konfiguration.geaendertAm
-            ? `Zuletzt gespeichert am ${formatiereZeitpunkt(zustand.konfiguration.geaendertAm)} von ${
-                zustand.konfiguration.geaendertVon ?? 'unbekannt'
-              }`
-            : undefined
+            ? `Zuletzt gespeichert am ${
+                formatiereZeitpunkt(zustand.konfiguration.geaendertAm) || zustand.konfiguration.geaendertAm
+              } von ${zustand.konfiguration.geaendertVon ?? 'unbekannt'}`
+            : BESCHREIBUNG
         }
       />
       {zustand.art === 'laedt' ? <Ladeanzeige text="Konfiguration wird geladen …" form="karte" /> : null}
@@ -110,9 +100,10 @@ export function StartseiteVerwaltungSeite({ onGeaendert }: StartseiteVerwaltungS
         />
       ) : null}
       {zustand.art === 'ok' && neuLadenFehler ? (
-        <p role="alert" className="text-destructive">
-          Die Konfiguration konnte nicht neu geladen werden. Bitte später erneut versuchen.
-        </p>
+        <Fehlerzustand
+          meldung="Die Konfiguration konnte nicht neu geladen werden. Bitte später erneut versuchen."
+          onErneutVersuchen={neuLaden}
+        />
       ) : null}
       {zustand.art === 'ok' ? (
         <Bearbeitung

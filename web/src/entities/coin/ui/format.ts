@@ -1,13 +1,11 @@
-const datumsFormat = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
-const zahlFormat = new Intl.NumberFormat('de-DE')
+import { formatiereTag, formatiereZahl } from '@/shared/lib/format'
 
-/** Datum im Format `de-DE` (TT.MM.JJJJ); leer bei ungültigem Wert. */
+/** Datum `TT.MM.JJJJ` nach Europe/Berlin (R7, gemeinsame Formatfunktion); leer bei ungültigem Wert. */
 export function formatiereDatum(iso: string): string {
-  const datum = new Date(iso)
-  return Number.isNaN(datum.getTime()) ? '' : datumsFormat.format(datum)
+  return formatiereTag(iso)
 }
 
 /** Auflage als Zahl im Format `de-DE` oder „unbekannt“. */
 export function formatiereAuflage(auflage: number | null): string {
-  return auflage === null ? 'unbekannt' : zahlFormat.format(auflage)
+  return auflage === null ? 'unbekannt' : formatiereZahl(auflage)
 }

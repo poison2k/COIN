@@ -28,11 +28,3 @@ export function wertAnzeige(wert: string): string {
 }
 
 export const SYSTEM_ANZEIGE = 'System (Bootstrap)'
-
-const ZEITFORMAT = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' })
-
-/** Zeitpunkt als deutsches Datum mit Uhrzeit (lokale Zeitzone). */
-export function zeitpunktAnzeige(zeitpunkt: string): string {
-  const datum = new Date(zeitpunkt)
-  return Number.isNaN(datum.getTime()) ? zeitpunkt : ZEITFORMAT.format(datum)
-}
