@@ -117,7 +117,9 @@ describe('VersionenTabelle', () => {
     render(<VersionenTabelle versionen={VERSIONEN} />)
 
     expect(document.body.textContent).not.toMatch(/aktivieren/i)
-    expect(screen.queryAllByRole('button')).toHaveLength(0)
+    // formulare-detailseiten (AK-31): Die Spaltenköpfe haben jetzt Sortier-Buttons; geprüft wird weiter, dass es
+    // keinen Button zum Aktivieren gibt.
+    expect(screen.queryAllByRole('button', { name: /aktivieren/i })).toHaveLength(0)
   })
 
   it('rendert Namen als Text, nie als HTML', () => {

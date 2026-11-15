@@ -196,6 +196,15 @@
   html {
     @apply font-sans;
   }
+  /*
+   * Aktionsleiste (formulare-detailseiten, ADR-0039 Punkt 4): Unter 768 px klebt sie am unteren Rand. Das
+   * scroll-padding hält ein fokussiertes Feld oberhalb der Leiste (Leiste: 40 px Button + 2 × 12 px Innenabstand).
+   */
+  @media (width < 48rem) {
+    html:has([data-slot='aktionsleiste'][data-fest]) {
+      scroll-padding-bottom: calc(var(--spacing) * 20);
+    }
+  }
 }
 
 /* Bewegung (ADR-0035 Punkt 10): bei reduzierter Bewegung Animationen und Übergänge praktisch abschalten. */

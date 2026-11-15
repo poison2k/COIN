@@ -483,6 +483,8 @@ test('Teilerfolg beim Bild (415): „Ohne Bild fortfahren“ führt zur Detailse
 
   await expect(page).toHaveURL(new RegExp(`^${WEB}/coins/0199a1b2-`))
   await expect(page.getByRole('status').filter({ hasText: TEXTE.ohneBild })).toBeVisible()
+  // formulare-detailseiten (F1): Standard ist „Exemplare“; das Motivbild steht im Reiter „Stammdaten“.
+  await page.getByRole('tab', { name: 'Stammdaten' }).click()
   await expect(page.getByText('Kein Motivbild vorhanden.')).toBeVisible()
   expect(posts).toHaveLength(1)
 })
@@ -980,7 +982,8 @@ test('Katalog, „Coin hinzufügen“ und Detailseite enthalten keine englischen
   expect(await alleTexte(page)).not.toMatch(ENGLISCH)
 
   // Geändert durch coin-ausgaben (F1): statt „Verleihungen“ die Abschnitte „Exemplare“ und „Ausgabehistorie“.
-  await page.goto(`/coins/${coins[0].id}`)
+  // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+  await page.goto(`/coins/${coins[0].id}?reiter=ausgaben`)
   await expect(page.getByRole('heading', { level: 2, name: 'Ausgabehistorie' })).toBeVisible()
   expect(await alleTexte(page)).not.toMatch(ENGLISCH)
   expect(await alleTexte(page)).not.toMatch(/Verleihung/i)

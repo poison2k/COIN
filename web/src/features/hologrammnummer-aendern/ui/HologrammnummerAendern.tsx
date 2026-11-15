@@ -1,10 +1,12 @@
-import { useId, useRef, useState, type FormEvent } from 'react'
+import { useRef, useState } from 'react'
 import { HOLOGRAMMNUMMER_MAX, pruefeHologrammnummer, type Ausgabe } from '@/entities/ausgabe'
 import type { ApiErgebnis } from '@/shared/api'
+import { useFormular, useSendeSperre } from '@/shared/lib/formular'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
+import { Fehlerzusammenfassung } from '@/shared/ui/fehlerzusammenfassung'
+import { Formularfeld } from '@/shared/ui/formularfeld'
 import { Input } from '@/shared/ui/input'
-import { Label } from '@/shared/ui/label'
 import { Textarea } from '@/shared/ui/textarea'
 import { aendereHologrammnummer } from '../api/aendereHologrammnummer'
 
@@ -12,6 +14,8 @@ const GRUND_MAX = 500
 const TEXT_NUMMER_FEHLT = 'Bitte eine Hologrammnummer eingeben.'
 const TEXT_GRUND_FEHLT = 'Bitte einen Grund für die Korrektur angeben.'
 const TEXT_GRUND_ZU_LANG = `Der Grund darf höchstens ${GRUND_MAX} Zeichen lang sein.`
+const HINWEIS_NORMALISIERUNG =
+  'Kleinbuchstaben werden zu Großbuchstaben. Erlaubt sind A–Z und 0–9, höchstens 40 Zeichen. Die Nummer darf nur einmal vergeben sein.'
 const HINWEIS_PERSONEN = 'Bitte keine Personendaten eintragen.'
 const HINWEIS_FREI = 'Die bisherige Nummer wird dadurch wieder frei.'
 const TEXT_VERGEBEN = 'Diese Hologrammnummer ist bereits vergeben.'
@@ -38,16 +42,29 @@ function fehlertext(ergebnis: Fehlerantwort): string {
   }
 }
 
-/** Kennzeichnung eines Pflichtfelds im Label: sichtbar „*“, für Screenreader „(Pflichtfeld)“. */
-function Pflicht() {
-  return (
-    <>
-      <span aria-hidden="true" className="text-destructive">
-        *
-      </span>
-      <span className="sr-only">(Pflichtfeld)</span>
-    </>
-  )
+interface Werte {
+  nummer: string
+  grund: string
+}
+
+const LABEL: Readonly<Record<keyof Werte, string>> = { nummer: 'Hologrammnummer', grund: 'Grund der Korrektur' }
+
+/** Prüfregeln des Dialogs (unverändert, hologrammnummer AK-27): Nummer Pflicht, bei Korrektur auch der Grund. */
+function pruefeEingaben(werte: Werte, bisherige: string | null): Partial<Record<keyof Werte, string>> {
+  const fehler: Partial<Record<keyof Werte, string>> = {}
+  const pruefung = pruefeHologrammnummer(werte.nummer)
+  if (pruefung.art !== 'ok') {
+    fehler.nummer = pruefung.art === 'fehler' ? pruefung.meldung : TEXT_NUMMER_FEHLT
+  }
+  if (bisherige !== null) {
+    // Gleiche Normalform wie bisher: Der Server antwortet 200 ohne Änderung, ein Grund ist dann nicht nötig.
+    const aktuell = pruefeHologrammnummer(bisherige)
+    const unveraendert = pruefung.art === 'ok' && aktuell.art === 'ok' && aktuell.normalform === pruefung.normalform
+    const grund = werte.grund.trim()
+    if (!unveraendert && grund === '') fehler.grund = TEXT_GRUND_FEHLT
+    else if (!unveraendert && grund.length > GRUND_MAX) fehler.grund = TEXT_GRUND_ZU_LANG
+  }
+  return fehler
 }
 
 export interface HologrammnummerAendernProps {
@@ -69,79 +86,33 @@ export function HologrammnummerAendern({ coinId, ausgabe, onGeaendert, onNeuLade
   const korrektur = ausgabe.hologrammnummer !== null
   const titel = korrektur ? 'Hologrammnummer korrigieren' : 'Hologrammnummer ergänzen'
   const [offen, setOffen] = useState(false)
-  const [nummer, setNummer] = useState('')
-  const [grund, setGrund] = useState('')
-  const [nummerFehler, setNummerFehler] = useState<string | null>(null)
-  const [grundFehler, setGrundFehler] = useState<string | null>(null)
   const [dialogAlarm, setDialogAlarm] = useState<string | null>(null)
   const [alarm, setAlarm] = useState<string | null>(null)
   const [status, setStatus] = useState('')
-  const [sendet, setSendet] = useState(false)
-  // Synchroner Schutz gegen Mehrfachsendung (zwei Enter vor dem nächsten Rendern).
-  const sendetGerade = useRef(false)
+  const { sendet, mitSperre, gesperrt } = useSendeSperre()
   const ausloeser = useRef<HTMLButtonElement>(null)
   const nummerFeld = useRef<HTMLInputElement>(null)
-  const grundFeld = useRef<HTMLTextAreaElement>(null)
-  const basis = useId()
-  const nummerId = `${basis}-nummer`
-  const nummerFehlerId = `${basis}-nummer-fehler`
-  const grundId = `${basis}-grund`
-  const grundFehlerId = `${basis}-grund-fehler`
-  const hinweisPersonenId = `${basis}-hinweis-personen`
-  const hinweisFreiId = `${basis}-hinweis-frei`
+  const bisherige = ausgabe.hologrammnummer
+  const formular = useFormular<Werte>({
+    ausgangswerte: { nummer: bisherige ?? '', grund: '' },
+    pruefe: (werte) => pruefeEingaben(werte, bisherige),
+    reihenfolge: ['nummer', 'grund'],
+  })
 
   function oeffnen() {
-    setNummer(ausgabe.hologrammnummer ?? '')
-    setGrund('')
-    setNummerFehler(null)
-    setGrundFehler(null)
+    formular.zuruecksetzen({ nummer: bisherige ?? '', grund: '' })
     setDialogAlarm(null)
     setAlarm(null)
     setStatus('')
     setOffen(true)
   }
 
-  function zeigeNummerFehler(text: string) {
-    setNummerFehler(text)
-    nummerFeld.current?.focus()
-  }
-
-  function zeigeGrundFehler(text: string) {
-    setGrundFehler(text)
-    grundFeld.current?.focus()
-  }
-
-  async function speichern(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (sendetGerade.current) return
-    setDialogAlarm(null)
-    setNummerFehler(null)
-    setGrundFehler(null)
-
-    const pruefung = pruefeHologrammnummer(nummer)
-    if (pruefung.art !== 'ok') {
-      zeigeNummerFehler(pruefung.art === 'fehler' ? pruefung.meldung : TEXT_NUMMER_FEHLT)
-      return
-    }
-    const bisherige = ausgabe.hologrammnummer
-    // Gleiche Normalform wie bisher: Der Server antwortet 200 ohne Änderung, ein Grund ist dann nicht nötig.
-    const aktuell = bisherige === null ? null : pruefeHologrammnummer(bisherige)
-    const unveraendert = aktuell?.art === 'ok' && aktuell.normalform === pruefung.normalform
-    const grundText = grund.trim()
-    if (korrektur && !unveraendert) {
-      if (grundText === '') {
-        zeigeGrundFehler(TEXT_GRUND_FEHLT)
-        return
-      }
-      if (grundText.length > GRUND_MAX) {
-        zeigeGrundFehler(TEXT_GRUND_ZU_LANG)
-        return
-      }
-    }
-
-    sendetGerade.current = true
-    setSendet(true)
-    try {
+  const speichern = formular.absenden((werte) =>
+    mitSperre(async () => {
+      setDialogAlarm(null)
+      const pruefung = pruefeHologrammnummer(werte.nummer)
+      if (pruefung.art !== 'ok') return
+      const grundText = werte.grund.trim()
       const ergebnis = await aendereHologrammnummer(coinId, ausgabe.id, {
         hologrammnummer: pruefung.anzeige,
         grund: korrektur && grundText !== '' ? grundText : null,
@@ -154,7 +125,7 @@ export function HologrammnummerAendern({ coinId, ausgabe, onGeaendert, onNeuLade
         return
       }
       if (ergebnis.art === 'konflikt' && ergebnis.code === 'hologrammnummer_vergeben') {
-        zeigeNummerFehler(TEXT_VERGEBEN)
+        formular.setzeServerFehler({ nummer: TEXT_VERGEBEN })
         return
       }
       if (
@@ -170,25 +141,20 @@ export function HologrammnummerAendern({ coinId, ausgabe, onGeaendert, onNeuLade
         const nummerMeldung = ergebnis.fehler.hologrammnummer?.join(' ')
         const grundMeldung = ergebnis.fehler.grund?.join(' ')
         if (nummerMeldung) {
-          zeigeNummerFehler(nummerMeldung)
+          formular.setzeServerFehler({ nummer: nummerMeldung })
           return
         }
         if (grundMeldung && korrektur) {
-          zeigeGrundFehler(grundMeldung)
+          formular.setzeServerFehler({ grund: grundMeldung })
           return
         }
       }
       setDialogAlarm(fehlertext(ergebnis))
-    } finally {
-      sendetGerade.current = false
-      setSendet(false)
-    }
-  }
+    }),
+  )
 
-  const nummerBeschreibung = nummerFehler ? nummerFehlerId : undefined
-  const grundBeschreibung = [hinweisPersonenId, hinweisFreiId, grundFehler ? grundFehlerId : undefined]
-    .filter(Boolean)
-    .join(' ')
+  const nummer = formular.feld('nummer')
+  const grund = formular.feld('grund')
   const storniert = ausgabe.storno !== null
 
   return (
@@ -210,7 +176,7 @@ export function HologrammnummerAendern({ coinId, ausgabe, onGeaendert, onNeuLade
         open={offen}
         onOpenChange={(neu) => {
           // Während der Anfrage nicht schließen.
-          if (sendetGerade.current) return
+          if (gesperrt()) return
           setOffen(neu)
         }}
       >
@@ -218,56 +184,51 @@ export function HologrammnummerAendern({ coinId, ausgabe, onGeaendert, onNeuLade
           <DialogHeader>
             <DialogTitle>{titel}</DialogTitle>
           </DialogHeader>
-          <form className="grid gap-4" noValidate onSubmit={(e) => void speichern(e)}>
-            <div className="grid gap-1.5">
-              <Label htmlFor={nummerId}>
-                Hologrammnummer <Pflicht />
-              </Label>
-              <Input
-                ref={nummerFeld}
-                id={nummerId}
-                type="text"
-                maxLength={HOLOGRAMMNUMMER_MAX}
-                autoComplete="off"
-                spellCheck={false}
-                value={nummer}
-                onChange={(e) => setNummer(e.target.value)}
-                aria-invalid={nummerFehler ? true : undefined}
-                aria-describedby={nummerBeschreibung}
+          <form className="grid gap-4" noValidate onSubmit={speichern}>
+            {formular.versucht && formular.fehlerListe.length >= 2 && (
+              <Fehlerzusammenfassung
+                fehler={formular.fehlerListe.map((f) => ({ feldId: f.feldId, label: LABEL[f.feld], text: f.text }))}
               />
-              {nummerFehler && (
-                <p id={nummerFehlerId} className="text-sm text-destructive">
-                  {nummerFehler}
-                </p>
-              )}
-            </div>
-            {korrektur && (
-              <div className="grid gap-1.5">
-                <Label htmlFor={grundId}>
-                  Grund der Korrektur <Pflicht />
-                </Label>
-                <Textarea
-                  ref={grundFeld}
-                  id={grundId}
-                  rows={3}
-                  maxLength={GRUND_MAX}
-                  value={grund}
-                  onChange={(e) => setGrund(e.target.value)}
-                  aria-invalid={grundFehler ? true : undefined}
-                  aria-describedby={grundBeschreibung}
+            )}
+            <Formularfeld
+              label={LABEL.nummer}
+              pflicht
+              hilfetext={HINWEIS_NORMALISIERUNG}
+              id={nummer.id}
+              fehler={nummer.fehler}
+              onBlur={nummer.onBlur}
+            >
+              {(feld) => (
+                <Input
+                  {...feld}
+                  ref={nummerFeld}
+                  type="text"
+                  maxLength={HOLOGRAMMNUMMER_MAX}
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={nummer.value}
+                  onChange={nummer.onChange}
                 />
-                <p id={hinweisPersonenId} className="text-sm text-muted-foreground">
-                  {HINWEIS_PERSONEN}
-                </p>
-                <p id={hinweisFreiId} className="text-sm text-muted-foreground">
-                  {HINWEIS_FREI}
-                </p>
-                {grundFehler && (
-                  <p id={grundFehlerId} className="text-sm text-destructive">
-                    {grundFehler}
-                  </p>
+              )}
+            </Formularfeld>
+            {korrektur && (
+              <Formularfeld
+                label={LABEL.grund}
+                pflicht
+                hilfetext={
+                  <>
+                    <span className="block">{HINWEIS_PERSONEN}</span>
+                    <span className="block">{HINWEIS_FREI}</span>
+                  </>
+                }
+                id={grund.id}
+                fehler={grund.fehler}
+                onBlur={grund.onBlur}
+              >
+                {(feld) => (
+                  <Textarea {...feld} rows={3} maxLength={GRUND_MAX} value={grund.value} onChange={grund.onChange} />
                 )}
-              </div>
+              </Formularfeld>
             )}
             {dialogAlarm && (
               <p role="alert" className="text-sm text-destructive">
@@ -278,7 +239,7 @@ export function HologrammnummerAendern({ coinId, ausgabe, onGeaendert, onNeuLade
               <DialogClose render={<Button type="button" variant="outline" disabled={sendet} focusableWhenDisabled />}>
                 Abbrechen
               </DialogClose>
-              <Button type="submit" disabled={sendet} focusableWhenDisabled>
+              <Button type="submit" laedt={sendet}>
                 Speichern
               </Button>
             </DialogFooter>

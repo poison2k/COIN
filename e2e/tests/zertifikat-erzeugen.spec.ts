@@ -160,7 +160,8 @@ test('Sachbearbeiter lädt das Zertifikat einer Ausgabe herunter; nach Storno ge
     })
 
     await test.step('5. Nach dem Storno ist der Button gesperrt', async () => {
-      await sb.goto(detailPfad)
+      // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+      await sb.goto(`${detailPfad}?reiter=ausgaben`)
       await sb.getByRole('button', { name: 'Ausgabe von Exemplar Nr. 1 stornieren' }).click()
       const dialog = sb.getByRole('alertdialog', { name: 'Ausgabe stornieren?' })
       await dialog.getByLabel(/^Grund/).fill('Systemtest Storno')

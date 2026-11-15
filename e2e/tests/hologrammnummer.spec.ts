@@ -263,7 +263,8 @@ test("Sachbearbeiter erfasst mit Hologrammnummer, Betrachter prüft ohne Empfän
       ).toBeVisible();
       await expect(sb.getByText(empfaenger)).toBeVisible();
 
-      await sb.goto(pfadA);
+      // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+      await sb.goto(`${pfadA}?reiter=ausgaben`);
       await sb
         .getByRole("button", { name: "Ausgabe von Exemplar Nr. 1 stornieren" })
         .click();

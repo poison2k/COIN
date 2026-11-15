@@ -1,19 +1,24 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   aendereCoin,
   parseAuflage,
   validiereStammdaten,
   type Coin,
   type StammdatenEingaben,
-  type StammdatenFehler,
   type StammdatenFeld,
 } from '@/entities/coin'
+import { useFormular, useSendeSperre, type Formularfehler } from '@/shared/lib/formular'
+import { Aktionsleiste } from '@/shared/ui/aktionsleiste'
+import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
+import { Fehlerzusammenfassung } from '@/shared/ui/fehlerzusammenfassung'
+import { FormularAbschnitt } from '@/shared/ui/formular-abschnitt'
+import { Formularfeld } from '@/shared/ui/formularfeld'
 import { Input } from '@/shared/ui/input'
-import { Label } from '@/shared/ui/label'
 import { Textarea } from '@/shared/ui/textarea'
 
-const HINWEIS_AUFLAGE = 'Die Auflage kann nur bis zur höchsten bereits ausgegebenen Exemplar-Nummer gesenkt werden.'
+const HINWEIS_AUFLAGE =
+  'Die Auflage kann nur bis zur höchsten bereits ausgegebenen Exemplar-Nummer gesenkt werden. Beim Senken werden die Exemplare über der neuen Auflage gelöscht.'
 const TEXT_KONFLIKT = 'Ein Coin mit diesem Namen und Herausgeber existiert bereits.'
 const TEXT_SERVER_VALIDIERUNG = 'Die Eingaben wurden vom Server abgelehnt. Bitte prüfen.'
 const TEXT_KEIN_ZUGRIFF = 'Sie sind nicht berechtigt, Coins zu bearbeiten.'
@@ -36,8 +41,8 @@ function startWerte(coin: Coin): StammdatenEingaben {
   }
 }
 
-function serverFehler(fehler: Record<string, string[]>): StammdatenFehler {
-  const ergebnis: StammdatenFehler = {}
+function serverFehler(fehler: Record<string, string[]>): Formularfehler<StammdatenEingaben> {
+  const ergebnis: Formularfehler<StammdatenEingaben> = {}
   for (const feld of FELDER) {
     const meldungen = fehler[feld]
     if (meldungen && meldungen.length > 0) ergebnis[feld] = meldungen.join(' ')
@@ -49,56 +54,39 @@ export interface CoinBearbeitenFormularProps {
   coin: Coin
   /** Nach 200 mit dem gespeicherten Coin; die Navigation übernimmt der Aufrufer. */
   onGespeichert: (coin: Coin) => void
+  /** „Abbrechen“ (Link der Seite) links in der Aktionsleiste. */
+  abbrechen?: ReactNode
+  /** Meldet, ob Eingaben vom Ausgangszustand abweichen (Verlassen-Warnung der Seite, ADR-0040). */
+  onGeaendert?: (geaendert: boolean) => void
 }
 
 /**
- * Formular „Stammdaten“ auf „Coin bearbeiten“ (zertifikatsvorlagen, AK-22/AK-28): vorbelegt, gleiche Prüfung und
- * Texte wie beim Anlegen; eine gesetzte Auflage ist Pflicht. Fehler bleiben am Feld, Eingaben bleiben erhalten.
+ * Formular „Stammdaten“ auf „Coin bearbeiten“ (zertifikatsvorlagen, AK-22/AK-28) nach dem Formularmuster (ADR-0039):
+ * vorbelegt, gleiche Prüfung und Texte wie beim Anlegen; eine gesetzte Auflage ist Pflicht. Fehler bleiben am Feld,
+ * Eingaben bleiben erhalten.
  */
-export function CoinBearbeitenFormular({ coin, onGespeichert }: CoinBearbeitenFormularProps) {
-  const [werte, setWerte] = useState(() => startWerte(coin))
-  const [fehler, setFehler] = useState<StammdatenFehler>({})
-  const [meldung, setMeldung] = useState<Meldung | null>(null)
-  const [sendet, setSendet] = useState(false)
-  // Feld, das nach einer Prüfung den Fokus erhält (erstes fehlerhaftes Feld).
-  const [fokusFeld, setFokusFeld] = useState<{ feld: StammdatenFeld } | null>(null)
-  const sendetGerade = useRef(false)
-  const basis = useId()
+export function CoinBearbeitenFormular({ coin, onGespeichert, abbrechen, onGeaendert }: CoinBearbeitenFormularProps) {
   const auflagePflicht = coin.auflage !== null
+  const [ausgang] = useState(() => startWerte(coin))
+  const [meldung, setMeldung] = useState<Meldung | null>(null)
+  const { sendet, mitSperre } = useSendeSperre()
+  const formular = useFormular<StammdatenEingaben>({
+    ausgangswerte: ausgang,
+    pruefe: (werte) => validiereStammdaten(werte, { auflagePflicht }),
+    reihenfolge: FELDER,
+    onGeaendert,
+  })
 
-  useEffect(() => {
-    if (fokusFeld) document.getElementById(`${basis}-${fokusFeld.feld}`)?.focus()
-  }, [fokusFeld, basis])
-
-  function zeigeFehler(neu: StammdatenFehler) {
-    setFehler(neu)
-    const erstes = FELDER.find((f) => neu[f])
-    if (erstes) setFokusFeld({ feld: erstes })
+  const labels: Readonly<Record<StammdatenFeld, string>> = {
+    name: 'Name',
+    herausgeber: 'Herausgeber',
+    auflage: auflagePflicht ? 'Auflage' : 'Auflage (optional)',
+    beschreibung: 'Beschreibung (optional)',
   }
 
-  function aendere(feld: StammdatenFeld) {
-    return (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      const wert = e.target.value
-      setWerte((alt) => ({ ...alt, [feld]: wert }))
-    }
-  }
-
-  async function absenden(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (sendetGerade.current) return
-
-    const pruefung = validiereStammdaten(werte, { auflagePflicht })
-    if (Object.keys(pruefung).length > 0) {
+  const absenden = formular.absenden((werte) =>
+    mitSperre(async () => {
       setMeldung(null)
-      zeigeFehler(pruefung)
-      return
-    }
-
-    sendetGerade.current = true
-    setSendet(true)
-    setMeldung(null)
-    setFehler({})
-    try {
       const ergebnis = await aendereCoin(coin.id, {
         name: werte.name.trim(),
         herausgeber: werte.herausgeber.trim(),
@@ -108,17 +96,18 @@ export function CoinBearbeitenFormular({ coin, onGespeichert }: CoinBearbeitenFo
 
       switch (ergebnis.art) {
         case 'ok':
+          formular.zuruecksetzen()
           onGespeichert(ergebnis.daten)
           return
         case 'validierung': {
           const feldFehler = serverFehler(ergebnis.fehler)
           if (Object.keys(feldFehler).length === 0) setMeldung({ art: 'fehler', text: TEXT_SERVER_VALIDIERUNG })
-          else zeigeFehler(feldFehler)
+          else formular.setzeServerFehler(feldFehler)
           return
         }
         case 'konflikt':
           if (ergebnis.code === 'auflage_zu_klein') {
-            zeigeFehler({ auflage: ergebnis.detail ?? 'Die Auflage ist zu klein.' })
+            formular.setzeServerFehler({ auflage: ergebnis.detail ?? 'Die Auflage ist zu klein.' })
           } else {
             setMeldung({ art: 'fehler', text: TEXT_KONFLIKT })
           }
@@ -136,88 +125,77 @@ export function CoinBearbeitenFormular({ coin, onGespeichert }: CoinBearbeitenFo
           setMeldung({ art: 'fehler', text: TEXT_ALLGEMEINER_FEHLER })
           return
       }
-    } finally {
-      sendetGerade.current = false
-      setSendet(false)
-    }
-  }
+    }),
+  )
 
-  function feldAttribute(feld: StammdatenFeld, zusatzBeschreibung?: string) {
-    const fehlerId = `${basis}-${feld}-fehler`
-    const beschreibung = [zusatzBeschreibung, fehler[feld] ? fehlerId : undefined].filter(Boolean).join(' ')
-    return {
-      id: `${basis}-${feld}`,
-      'aria-invalid': fehler[feld] ? true : undefined,
-      'aria-describedby': beschreibung || undefined,
-    }
-  }
-
-  function feldFehler(feld: StammdatenFeld) {
-    return fehler[feld] ? (
-      <p id={`${basis}-${feld}-fehler`} className="text-sm text-destructive">
-        {fehler[feld]}
-      </p>
-    ) : null
-  }
-
-  const hinweisAuflageId = `${basis}-auflage-hinweis`
+  const name = formular.feld('name')
+  const herausgeber = formular.feld('herausgeber')
+  const auflage = formular.feld('auflage')
+  const beschreibung = formular.feld('beschreibung')
 
   return (
-    <form className="grid max-w-lg gap-4" onSubmit={absenden} noValidate>
-      <div className="grid gap-1.5">
-        <Label htmlFor={`${basis}-name`}>Name</Label>
-        <Input type="text" value={werte.name} onChange={aendere('name')} {...feldAttribute('name')} />
-        {feldFehler('name')}
-      </div>
-
-      <div className="grid gap-1.5">
-        <Label htmlFor={`${basis}-herausgeber`}>Herausgeber</Label>
-        <Input
-          type="text"
-          value={werte.herausgeber}
-          onChange={aendere('herausgeber')}
-          {...feldAttribute('herausgeber')}
+    <form className="grid max-w-reading gap-6" onSubmit={absenden} noValidate>
+      {formular.versucht && formular.fehlerListe.length >= 2 && (
+        <Fehlerzusammenfassung
+          fehler={formular.fehlerListe.map((f) => ({ feldId: f.feldId, label: labels[f.feld], text: f.text }))}
         />
-        {feldFehler('herausgeber')}
-      </div>
-
-      <div className="grid gap-1.5">
-        <Label htmlFor={`${basis}-auflage`}>{auflagePflicht ? 'Auflage' : 'Auflage (optional)'}</Label>
-        <Input
-          type="text"
-          inputMode="numeric"
-          required={auflagePflicht}
-          value={werte.auflage}
-          onChange={aendere('auflage')}
-          {...feldAttribute('auflage', hinweisAuflageId)}
-        />
-        <p id={hinweisAuflageId} className="text-sm text-muted-foreground">
-          {HINWEIS_AUFLAGE}
-        </p>
-        {feldFehler('auflage')}
-      </div>
-
-      <div className="grid gap-1.5">
-        <Label htmlFor={`${basis}-beschreibung`}>Beschreibung (optional)</Label>
-        <Textarea
-          rows={4}
-          value={werte.beschreibung}
-          onChange={aendere('beschreibung')}
-          {...feldAttribute('beschreibung')}
-        />
-        {feldFehler('beschreibung')}
-      </div>
-
-      <Button type="submit" className="justify-self-start" disabled={sendet}>
-        Änderungen speichern
-      </Button>
-
+      )}
       {meldung?.art === 'hinweis' && <p role="status">{meldung.text}</p>}
       {meldung?.art === 'fehler' && (
-        <p role="alert" className="text-destructive">
-          {meldung.text}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{meldung.text}</AlertDescription>
+        </Alert>
       )}
+
+      <FormularAbschnitt titel="Stammdaten" spalten={2}>
+        <Formularfeld label="Name" pflicht id={name.id} fehler={name.fehler} onBlur={name.onBlur}>
+          {(feld) => <Input {...feld} type="text" value={name.value} onChange={name.onChange} />}
+        </Formularfeld>
+        <Formularfeld
+          label="Herausgeber"
+          pflicht
+          id={herausgeber.id}
+          fehler={herausgeber.fehler}
+          onBlur={herausgeber.onBlur}
+        >
+          {(feld) => <Input {...feld} type="text" value={herausgeber.value} onChange={herausgeber.onChange} />}
+        </Formularfeld>
+        <Formularfeld
+          label={labels.auflage}
+          pflicht={auflagePflicht}
+          hilfetext={HINWEIS_AUFLAGE}
+          id={auflage.id}
+          fehler={auflage.fehler}
+          onBlur={auflage.onBlur}
+        >
+          {(feld) => (
+            <Input
+              {...feld}
+              type="text"
+              inputMode="numeric"
+              className="md:max-w-48"
+              value={auflage.value}
+              onChange={auflage.onChange}
+            />
+          )}
+        </Formularfeld>
+        <Formularfeld
+          label={labels.beschreibung}
+          id={beschreibung.id}
+          fehler={beschreibung.fehler}
+          onBlur={beschreibung.onBlur}
+          className="md:col-span-2"
+        >
+          {(feld) => <Textarea {...feld} rows={4} value={beschreibung.value} onChange={beschreibung.onChange} />}
+        </Formularfeld>
+      </FormularAbschnitt>
+
+      <Aktionsleiste>
+        {abbrechen}
+        <Button type="submit" laedt={sendet}>
+          Änderungen speichern
+        </Button>
+      </Aktionsleiste>
     </form>
   )
 }

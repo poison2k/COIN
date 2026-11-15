@@ -129,9 +129,10 @@ test('Sachbearbeiter lädt die Standardvorlage herunter und wieder hoch; der Bet
 
     await test.step('3. Über „Bearbeiten“ lädt er die heruntergeladene Datei hoch und sieht Version 1', async () => {
       await oeffneUeberSuche(sb, coinName)
-      await sb.getByRole('link', { name: 'Bearbeiten' }).click()
-      await expect(sb).toHaveURL(`${WEB}${detailPfad}/bearbeiten`)
-      await expect(sb.getByRole('heading', { level: 1, name: 'Coin bearbeiten' })).toBeVisible()
+      // formulare-detailseiten K5 (F2): Die Vorlagenverwaltung steht im Reiter „Zertifikatsvorlage“ der Detailseite
+      // statt auf „Coin bearbeiten“; der Navigationsschritt führt über den Reiter.
+      await sb.getByRole('tab', { name: 'Zertifikatsvorlage' }).click()
+      await expect(sb).toHaveURL(`${WEB}${detailPfad}?reiter=vorlage`)
       await expect(sb.getByText('Aktiv: Standardvorlage')).toBeVisible()
 
       await sb.getByLabel('Word-Vorlage (.docx)').setInputFiles(standardvorlage)

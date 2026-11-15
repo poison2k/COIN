@@ -47,6 +47,8 @@ const BETRACHTER: Me = {
 
 const COIN_ID = '0199a1b2-0000-7000-8000-0000000000f1'
 const BEARBEITEN = `/coins/${COIN_ID}/bearbeiten`
+// formulare-detailseiten K5 (F2): Die Vorlagenverwaltung steht im Reiter „Zertifikatsvorlage“ der Detailseite.
+const VORLAGE = `/coins/${COIN_ID}?reiter=vorlage`
 
 const ENGLISCH =
   /\b(Loading|Error|Forbidden|Not Found|Not found|Edit|Save|Cancel|Back|Submit|Upload|Download|Template|Version history|Reset|Size|Uploaded|Active|Choose file|No file chosen|Close|Required)\b/
@@ -339,7 +341,8 @@ test('Sachbearbeiter ändert die Stammdaten per Tastatur und landet auf der Deta
 
 test('Sachbearbeiter lädt eine Vorlage hoch und sieht Version 1 aktiv mit Tabelle', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(BEARBEITEN)
+  // formulare-detailseiten K5: Vorlagenverwaltung im Reiter „Zertifikatsvorlage“ (F2).
+  await page.goto(VORLAGE)
   await expect(page.getByText('Aktiv: Standardvorlage')).toBeVisible()
   await expect(page.getByText('Es wurde noch keine eigene Vorlage hochgeladen.')).toBeVisible()
 
@@ -359,7 +362,8 @@ test('Sachbearbeiter lädt eine Vorlage hoch und sieht Version 1 aktiv mit Tabel
 
 test('Ein zweiter Upload macht Version 2 aktiv, Version 1 bleibt in der Tabelle', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(BEARBEITEN)
+  // formulare-detailseiten K5: Vorlagenverwaltung im Reiter „Zertifikatsvorlage“ (F2).
+  await page.goto(VORLAGE)
   await ladeVorlageHoch(page)
   await expect(page.getByText('Aktiv: eigene Vorlage, Version 1')).toBeVisible()
 
@@ -372,7 +376,8 @@ test('Ein zweiter Upload macht Version 2 aktiv, Version 1 bleibt in der Tabelle'
 
 test('Eine abgelehnte Vorlage zeigt alle Meldungen als Liste im Alarm mit Fokus', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(BEARBEITEN)
+  // formulare-detailseiten K5: Vorlagenverwaltung im Reiter „Zertifikatsvorlage“ (F2).
+  await page.goto(VORLAGE)
   await expect(page.getByText('Aktiv: Standardvorlage')).toBeVisible()
   naechsterUpload = {
     status: 400,
@@ -401,7 +406,8 @@ test('Eine abgelehnte Vorlage zeigt alle Meldungen als Liste im Alarm mit Fokus'
 
 test('Clientseitig abgelehnte Datei (falsche Endung) sendet keinen Upload', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(BEARBEITEN)
+  // formulare-detailseiten K5: Vorlagenverwaltung im Reiter „Zertifikatsvorlage“ (F2).
+  await page.goto(VORLAGE)
   await expect(page.getByText('Aktiv: Standardvorlage')).toBeVisible()
 
   await page
@@ -419,7 +425,8 @@ test('Aktuelle Vorlage und einzelne Versionen werden mit Token und richtigem Dat
   page,
 }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(BEARBEITEN)
+  // formulare-detailseiten K5: Vorlagenverwaltung im Reiter „Zertifikatsvorlage“ (F2).
+  await page.goto(VORLAGE)
   await ladeVorlageHoch(page)
   await expect(page.getByText('Aktiv: eigene Vorlage, Version 1')).toBeVisible()
 
@@ -438,7 +445,8 @@ test('„Aktuelle Vorlage herunterladen“ nutzt den Dateinamen aus Content-Disp
   page,
 }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(BEARBEITEN)
+  // formulare-detailseiten K5: Vorlagenverwaltung im Reiter „Zertifikatsvorlage“ (F2).
+  await page.goto(VORLAGE)
   await ladeVorlageHoch(page)
   await expect(page.getByText('Aktiv: eigene Vorlage, Version 1')).toBeVisible()
   // Inzwischen hat jemand anderes Version 2 hochgeladen; der angezeigte Status ist noch Version 1.
@@ -467,7 +475,8 @@ test('Zurücksetzen auf die Standardvorlage per Tastatur mit Dialog', async ({ p
   ]
   aktiveVersion = 1
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(BEARBEITEN)
+  // formulare-detailseiten K5: Vorlagenverwaltung im Reiter „Zertifikatsvorlage“ (F2).
+  await page.goto(VORLAGE)
   await expect(page.getByText('Aktiv: eigene Vorlage, Version 1')).toBeVisible()
 
   const ausloeser = page.getByRole('button', { name: 'Auf Standardvorlage zurücksetzen' })
@@ -516,11 +525,16 @@ test('Dateifelder, Download- und Tabellen-Buttons sind per Tab erreichbar und si
   ]
   aktiveVersion = 1
   await starteAls(page, SACHBEARBEITER)
+  // formulare-detailseiten K5: Motivbild auf „Coin bearbeiten“, die Vorlage-Ziele im Reiter „Zertifikatsvorlage“
+  // der Detailseite (F2). Ziele und Prüfung bleiben gleich, nur der Seitenwechsel kommt hinzu.
   await page.goto(BEARBEITEN)
+  const motivbild = page.getByLabel(/^Neues Motivbild/)
+  await tabBis(page, motivbild)
+  expect(await hatSichtbarenFokus(motivbild), await motivbild.evaluate((el) => el.outerHTML.slice(0, 80))).toBe(true)
+  await page.goto(VORLAGE)
   await expect(page.getByText('Aktiv: eigene Vorlage, Version 1')).toBeVisible()
 
   for (const ziel of [
-    page.getByLabel(/^Neues Motivbild/),
     page.getByRole('button', { name: 'Aktuelle Vorlage herunterladen' }),
     page.getByRole('button', { name: 'Standardvorlage herunterladen' }),
     page.getByRole('button', { name: 'Version 1 herunterladen' }),
@@ -535,13 +549,17 @@ test('Dateifelder, Download- und Tabellen-Buttons sind per Tab erreichbar und si
 test('„Coin bearbeiten“ hat genau ein h1 und keine englischen Texte', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
   await page.goto(BEARBEITEN)
-  await expect(page.getByText('Aktiv: Standardvorlage')).toBeVisible()
+  // formulare-detailseiten K5: Die Vorlage ist nicht mehr auf „Coin bearbeiten“ (F2); gewartet wird auf den
+  // Motivbild-Abschnitt statt auf den Vorlagenstatus.
+  await expect(page.getByRole('button', { name: 'Bild hochladen' })).toBeVisible()
 
   await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
   expect(await alleTexte(page)).not.toMatch(ENGLISCH)
 })
 
-test('„Coin bearbeiten“ passt auf einen schmalen Viewport ohne waagerechtes Scrollen der Seite', async ({ page }) => {
+test('Reiter „Zertifikatsvorlage“ passt auf einen schmalen Viewport ohne waagerechtes Scrollen der Seite', async ({
+  page,
+}) => {
   versionen = [
     {
       version: 1,
@@ -554,7 +572,8 @@ test('„Coin bearbeiten“ passt auf einen schmalen Viewport ohne waagerechtes 
   aktiveVersion = 1
   await page.setViewportSize({ width: 375, height: 800 })
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(BEARBEITEN)
+  // formulare-detailseiten K5: Vorlagenverwaltung im Reiter „Zertifikatsvorlage“ (F2).
+  await page.goto(VORLAGE)
   await expect(page.getByText('Aktiv: eigene Vorlage, Version 1')).toBeVisible()
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)

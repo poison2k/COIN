@@ -9,8 +9,8 @@ import { istGuid } from '@/shared/lib/guid'
 import { buttonVariants } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
 import { Seitenkopf } from '@/shared/ui/seitenkopf'
+import { VerlassenWarnung } from '@/shared/ui/verlassen-warnung'
 import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
-import { ZertifikatsvorlageVerwalten } from '@/widgets/zertifikatsvorlage'
 
 export interface CoinBearbeitenSeiteProps {
   /** Id aus der URL; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf. */
@@ -21,9 +21,17 @@ export interface CoinBearbeitenSeiteProps {
 
 const NICHT_GEFUNDEN: ApiErgebnis<Coin> = { art: 'nichtGefunden' }
 
+/** Verlassen-Warnung bei ungespeicherten Stammdaten (mit oder ohne offenes Motivbild). */
+const TEXT_VERLASSEN_STAMMDATEN = 'Die Änderungen am Coin sind nicht gespeichert. Seite trotzdem verlassen?'
+/** Verlassen-Warnung, wenn nur noch ein gewähltes, nicht hochgeladenes Motivbild offen ist (G1). */
+const TEXT_VERLASSEN_MOTIVBILD =
+  'Das ausgewählte Motivbild ist noch nicht hochgeladen. Wenn Sie die Seite verlassen, geht die Auswahl verloren.'
+
 /**
- * Seite „Coin bearbeiten“ (/coins/{id}/bearbeiten, zertifikatsvorlagen AK-26 bis AK-30): Stammdaten, Motivbild und
- * Zertifikatsvorlage. Lädt zuerst den Coin; die Vorlage erst, wenn er existiert. Rendert kein eigenes <main>.
+ * Seite „Coin bearbeiten“ (/coins/{id}/bearbeiten, zertifikatsvorlagen AK-26 bis AK-30): Stammdaten und Motivbild.
+ * Die Zertifikatsvorlage steht im Reiter „Zertifikatsvorlage“ der Detailseite (formulare-detailseiten F2). Ungespeicherte
+ * Stammdaten oder ein gewähltes, nicht hochgeladenes Motivbild sichern das Verlassen ab (AK-13). Rendert kein eigenes
+ * <main>.
  */
 export function CoinBearbeitenSeite({ coinId, onGespeichert }: CoinBearbeitenSeiteProps) {
   const gueltig = istGuid(coinId)
@@ -33,6 +41,9 @@ export function CoinBearbeitenSeite({ coinId, onGespeichert }: CoinBearbeitenSei
   const schluessel = `${coinId}#${versuch}`
   // Nach dem Bild-Upload: Coin aus der Antwort übernehmen (gilt nur für dieselbe Id).
   const [aktualisiert, setAktualisiert] = useState<Coin | null>(null)
+  // Verlassen-Warnung: geänderte Stammdaten oder ein gewähltes, noch nicht hochgeladenes Motivbild (AK-13).
+  const [stammdatenGeaendert, setStammdatenGeaendert] = useState(false)
+  const [motivbildGeaendert, setMotivbildGeaendert] = useState(false)
   // Laufende Anfrage je Id wiederverwenden (z. B. im StrictMode), damit es genau einen Request gibt.
   const anfrage = useRef<{ id: string; ergebnis: Promise<ApiErgebnis<Coin>> } | null>(null)
 
@@ -84,28 +95,35 @@ export function CoinBearbeitenSeite({ coinId, onGespeichert }: CoinBearbeitenSei
     <div className="grid min-w-0 gap-6">
       <Seitenkopf titel="Coin bearbeiten" beschreibung={coin.name} />
 
-      <Card>
+      {/* overflow-visible: Die Aktionsleiste klebt unter 768 px am Viewport (sticky), nicht an der Karte. */}
+      <Card className="overflow-visible">
         <CardContent>
-          <section aria-labelledby="coin-bearbeiten-stammdaten" className="grid gap-4">
-            <h2 id="coin-bearbeiten-stammdaten" className="text-xl font-semibold">
-              Stammdaten
-            </h2>
-            <CoinBearbeitenFormular key={geladenerCoin?.id} coin={coin} onGespeichert={onGespeichert} />
-            <Link
-              to={ROUTEN.coinDetail}
-              params={{ coinId: coin.id }}
-              className={buttonVariants({ variant: 'outline', className: 'justify-self-start' })}
-            >
-              Abbrechen
-            </Link>
-          </section>
+          <CoinBearbeitenFormular
+            key={geladenerCoin?.id}
+            coin={coin}
+            onGespeichert={onGespeichert}
+            onGeaendert={setStammdatenGeaendert}
+            abbrechen={
+              <Link
+                to={ROUTEN.coinDetail}
+                params={{ coinId: coin.id }}
+                className={buttonVariants({ variant: 'outline' })}
+              >
+                Abbrechen
+              </Link>
+            }
+          />
         </CardContent>
       </Card>
+      <VerlassenWarnung
+        aktiv={stammdatenGeaendert || motivbildGeaendert}
+        beschreibung={stammdatenGeaendert ? TEXT_VERLASSEN_STAMMDATEN : TEXT_VERLASSEN_MOTIVBILD}
+      />
 
       <Card>
         <CardContent>
           <section aria-labelledby="coin-bearbeiten-motivbild" className="grid gap-4">
-            <h2 id="coin-bearbeiten-motivbild" className="text-xl font-semibold">
+            <h2 id="coin-bearbeiten-motivbild" className="text-lg font-semibold tracking-tight">
               Motivbild
             </h2>
             {coin.bildUrl ? (
@@ -119,14 +137,8 @@ export function CoinBearbeitenSeite({ coinId, onGespeichert }: CoinBearbeitenSei
             ) : (
               <p className="text-muted-foreground">Kein Motivbild vorhanden.</p>
             )}
-            <MotivbildHochladen coin={coin} onGespeichert={setAktualisiert} />
+            <MotivbildHochladen coin={coin} onGespeichert={setAktualisiert} onGeaendert={setMotivbildGeaendert} />
           </section>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          <ZertifikatsvorlageVerwalten coinId={coin.id} />
         </CardContent>
       </Card>
     </div>

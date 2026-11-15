@@ -302,9 +302,11 @@ describe('/coins/{id}', () => {
   // Geändert durch coin-ausgaben (AK-20, AK-22): Der Standardbenutzer (Administrator) lädt zusätzlich Exemplare und
   // Ausgabehistorie; diese Requests werden hier ausdrücklich erwartet (anonym: siehe „sendet anonym keinen weiteren Request“).
   it('zeigt den Coin mit seinem Namen als Überschrift', async () => {
-    zeigeApp(`/coins/${ALPHA.id}`, { coins: [ALPHA] })
+    const { user } = zeigeApp(`/coins/${ALPHA.id}`, { coins: [ALPHA] })
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Coin Alpha' })).toBeInTheDocument()
+    // formulare-detailseiten (AK-22): Die Historie lädt erst beim Öffnen des Reiters „Ausgaben“.
+    await user.click(await screen.findByRole('tab', { name: 'Ausgaben' }))
     await waitFor(() =>
       expect(
         api
@@ -357,10 +359,9 @@ describe('/coins/{id}', () => {
     await angemeldetGeladen()
     await screen.findByRole('button', { name: 'Auflage ändern' })
     // Exemplare (Filter-Auswahl) und Ausgabehistorie haben eigene Bedienelemente; geprüft werden nur die Stammdaten.
-    const ausgenommen = [
-      await screen.findByRole('region', { name: 'Exemplare' }),
-      await screen.findByRole('region', { name: 'Ausgabehistorie' }),
-    ]
+    // formulare-detailseiten K2: Exemplare und Historie stehen in Reitern, nur der gewählte ist im DOM. Ausgenommen wird
+    // deshalb das Panel des offenen Reiters (Standard „Exemplare“) statt der beiden Regionen.
+    const ausgenommen = [await screen.findByRole('tabpanel', { name: 'Exemplare' })]
 
     const main = screen.getByRole('main')
     const eingabeElemente = [...main.querySelectorAll('form, input, textarea, select')].filter(
@@ -439,6 +440,8 @@ describe('Coin hinzufügen → Detailseite', () => {
 
     await screen.findByRole('heading', { level: 1, name: 'Coin Neu' })
     await waitFor(() => expect(meldungMit(TEXTE.angelegt)).toBeDefined())
+    // formulare-detailseiten (F1): Standard ist „Exemplare“; das Motivbild steht im Reiter „Stammdaten“.
+    await user.click(await screen.findByRole('tab', { name: 'Stammdaten' }))
     expect(await screen.findByRole('img', { name: 'Motiv: Coin Neu' })).toBeInTheDocument()
   })
 
@@ -548,12 +551,14 @@ describe('Coin hinzufügen → Detailseite', () => {
     expect(router.state.location.pathname).toBe('/coins/neu')
   })
 
+  // formulare-detailseiten K6: Nach Eingaben fragt die Verlassen-Warnung nach; der Test bestätigt mit „Verlassen“.
   it('führt über „Abbrechen“ zu /coins, ohne zu speichern', async () => {
     const { user, router } = zeigeApp('/coins/neu')
     await screen.findByRole('heading', { level: 1, name: 'Coin hinzufügen' })
     await fuelleAus(user, { name: 'Coin Neu', herausgeber: 'Herausgeber Neu' })
 
     await user.click(screen.getByRole('link', { name: 'Abbrechen' }))
+    await user.click(await screen.findByRole('button', { name: 'Verlassen' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/coins'))
     expect(api.anfragenMit('POST')).toHaveLength(0)
@@ -859,8 +864,9 @@ describe('Barrierefreiheit und deutsche Texte', () => {
   })
 
   // Geändert durch coin-ausgaben (F1): Fachbegriff ist jetzt „Ausgabe“, „Verleihung“ kommt nicht mehr vor.
+  // formulare-detailseiten K2: Aufruf mit ?reiter=ausgaben, damit die Historie im DOM ist.
   it('verwendet den Begriff „Verleihung“ auf der Detailseite nicht', async () => {
-    zeigeApp(`/coins/${ALPHA.id}`, { coins: [ALPHA] })
+    zeigeApp(`/coins/${ALPHA.id}?reiter=ausgaben`, { coins: [ALPHA] })
     await screen.findByRole('heading', { level: 2, name: 'Ausgabehistorie' })
 
     expect(alleTexte()).not.toMatch(/Verleihung/i)

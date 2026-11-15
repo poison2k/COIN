@@ -103,21 +103,53 @@ Mit **Zurück** im Browser kommen Sie von der Detailseite wieder zu derselben Su
 
 ## Detailseite eines Coins
 
-Die Detailseite (`/coins/…`) zeigt als Überschrift den Namen des Coins, als Administrator oder
-Sachbearbeiter rechts daneben den Button **Bearbeiten** (siehe [Coin bearbeiten](#coin-bearbeiten)),
-und darunter:
+Die Detailseite (`/coins/…`) besteht aus dem Kopf, den Kennzahlen und den Reitern.
 
-- das Motivbild oder „Kein Motivbild vorhanden.“,
-- **Herausgeber**, **Auflage** (oder „unbekannt“), **Erfasst am** und **Beschreibung** (mit den
-  eingegebenen Zeilenumbrüchen, sonst „Keine Beschreibung“),
-- angemeldet mit Rolle den Abschnitt **Exemplare** (Kennzahlen und Status der Exemplare) und als
-  Sachbearbeiter oder Administrator zusätzlich die **Ausgabehistorie**. Beides beschreibt die
-  [Anleitung zu Exemplaren und Ausgaben](ausgaben.md).
+### Kopf
 
-Mit **Zurück zum Katalog** geht es zur ersten Seite des Katalogs ohne Suche.
+Oben steht der Name des Coins, darunter Hinweise zum Bestand:
 
-Die Auflage ändern Sie auch direkt auf der Detailseite (**Auflage ändern**, siehe
-[Ausgaben](ausgaben.md#auflage-ändern)). Löschen lässt sich ein Coin nicht. Gibt es den Coin nicht (z. B. bei
+- „Auflage unbekannt“, wenn keine Auflage erfasst ist (für alle sichtbar),
+- angemeldet mit Rolle zusätzlich „Exemplare verfügbar“ oder „Alle Exemplare ausgegeben“.
+
+Rechts neben dem Namen stehen die Aktionen, je nach Rolle (auf schmalen Bildschirmen darunter):
+
+| Button | Wer | Wirkung |
+|---|---|---|
+| **Auflage ändern** | Administrator, Sachbearbeiter | Dialog, siehe [Auflage ändern](ausgaben.md#auflage-ändern) |
+| **Bearbeiten** | Administrator, Sachbearbeiter | öffnet [Coin bearbeiten](#coin-bearbeiten) |
+| **Ausgabe erfassen** | Administrator, Sachbearbeiter | öffnet [Ausgabe erfassen](ausgaben.md#ausgabe-erfassen); nur bei bekannter Auflage und mindestens einem freien Exemplar |
+
+Betrachter und Besucher ohne Anmeldung sehen keine Aktionen. Meldungen wie „Coin wurde angelegt.“
+oder „Auflage wurde geändert.“ erscheinen direkt unter dem Kopf.
+
+### Kennzahlen
+
+Angemeldet mit Rolle sehen Sie unter dem Kopf drei Karten: **Auflage**, **Ausgegeben** und
+**Verfügbar** (oder „unbekannt“ ohne Auflage). Die Karte **Verfügbar** hat einen Balken, der den
+Anteil der freien Exemplare zeigt.
+
+### Reiter
+
+| Reiter | Wer sieht ihn | Inhalt |
+|---|---|---|
+| **Stammdaten** | alle | Motivbild (oder „Kein Motivbild vorhanden.“), **Herausgeber**, **Auflage**, **Erfasst am**, **Beschreibung** (sonst „Keine Beschreibung“) |
+| **Exemplare** | angemeldet mit Rolle | Tabelle der Exemplare mit Statusfilter, siehe [Exemplare](ausgaben.md#reiter-exemplare) |
+| **Ausgaben** | Administrator, Sachbearbeiter | Ausgabehistorie, siehe [Ausgaben](ausgaben.md#reiter-ausgaben) |
+| **Zertifikatsvorlage** | Administrator, Sachbearbeiter | Vorlage herunterladen und hochladen, siehe [Zertifikatsvorlagen](zertifikatsvorlagen.md) |
+
+- Angemeldet mit Rolle ist beim Öffnen der Reiter **Exemplare** gewählt. Direkt nach dem Erfassen
+  einer Ausgabe ist es **Ausgaben**.
+- Ohne Anmeldung (oder ohne Rolle) gibt es keine Reiter, die Seite zeigt nur die Stammdaten.
+- Den Reiter wechseln Sie per Klick. Mit der Tastatur bewegen Sie den Fokus mit den Pfeiltasten
+  und wählen mit **Eingabetaste** oder **Leertaste**.
+- Der gewählte Reiter steht in der Adresse (z. B. `/coins/…?reiter=ausgaben`). So können Sie ihn
+  als Lesezeichen speichern. **Zurück** im Browser führt nicht durch die Reiter, sondern zur
+  vorherigen Seite.
+
+Mit **Zurück zum Katalog** am Seitenende geht es zur ersten Seite des Katalogs ohne Suche.
+
+Löschen lässt sich ein Coin nicht. Gibt es den Coin nicht (z. B. bei
 einer falsch abgetippten Adresse), erscheint „Coin nicht gefunden“ mit dem Link **Zum Katalog**.
 Kann der Coin nicht geladen werden, erscheint „Der Coin konnte nicht geladen werden. Bitte später
 erneut versuchen.“ mit dem Button **Erneut versuchen**, der die Seite neu lädt. Dasselbe gilt auf
@@ -150,12 +182,17 @@ Name und Herausgeber zusammen müssen eindeutig sein. Groß- und Kleinschreibung
 Rolle: „Coin A“ von „Bataillon 1“ und „coin a“ von „BATAILLON 1“ gelten als derselbe Coin. Derselbe
 Name bei einem anderen Herausgeber ist erlaubt.
 
+Die Felder stehen in den Abschnitten **Stammdaten** und **Motivbild**. Wie Pflichtfelder,
+Fehlermeldungen und die Buttons am Formularende funktionieren, steht unter
+[Bedienung](bedienung.md#formulare-ausfüllen).
+
 Klicken Sie auf **Coin anlegen**. Während gespeichert wird, ist der Button gesperrt. Bei Erfolg
 öffnet sich die Detailseite des neuen Coins mit der Meldung „Coin wurde angelegt.“ Die Meldung
 erscheint nur dieses eine Mal. **Zurück** im Browser führt danach nicht wieder zum ausgefüllten
 Formular.
 
-Mit **Abbrechen** kehren Sie ohne Speichern zum Katalog zurück.
+Mit **Abbrechen** kehren Sie ohne Speichern zum Katalog zurück. Haben Sie schon etwas eingegeben,
+fragt C.O.I.N. vorher nach (siehe [Warnung bei ungespeicherten Änderungen](bedienung.md#warnung-bei-ungespeicherten-änderungen)).
 
 Einen angelegten Coin können Sie später auf **Coin bearbeiten** ändern, aber nicht löschen.
 
@@ -170,14 +207,17 @@ dauert das Speichern spürbar länger.
 Unter dem Formular steht der Abschnitt **Zertifikatsvorlage** mit dem Button **Standardvorlage
 herunterladen**. Damit laden Sie die Word-Vorlage für das Echtheitszertifikat herunter, um sie in Word zu
 gestalten; das Formular wird dabei weder gespeichert noch geleert. Die fertige Vorlage laden Sie nach dem
-Anlegen auf **Coin bearbeiten** hoch (siehe [Zertifikatsvorlagen](zertifikatsvorlagen.md)).
+Anlegen auf der Detailseite des Coins im Reiter **Zertifikatsvorlage** hoch (siehe
+[Zertifikatsvorlagen](zertifikatsvorlagen.md)).
 
 ## Coin bearbeiten
 
 Nur angemeldet mit der Rolle Administrator oder Sachbearbeiter. Öffnen Sie die Detailseite des Coins
 und klicken Sie auf **Bearbeiten**. Die Seite **Coin bearbeiten** (`/coins/…/bearbeiten`) zeigt unter der
-Überschrift den Namen des Coins und hat drei Abschnitte. Beim direkten Aufruf der Adresse gilt dasselbe
-wie bei **Coin hinzufügen** (Anmeldung bzw. **Kein Zugriff**).
+Überschrift den Namen des Coins und hat zwei Abschnitte, **Stammdaten** und **Motivbild**. Die
+Zertifikatsvorlage steht nicht mehr hier, sondern im Reiter **Zertifikatsvorlage** der Detailseite.
+Beim direkten Aufruf der Adresse gilt dasselbe wie bei **Coin hinzufügen** (Anmeldung bzw. **Kein
+Zugriff**).
 
 ### Stammdaten
 
@@ -195,7 +235,8 @@ Zusätzlich:
 
 Klicken Sie auf **Änderungen speichern**. Bei Erfolg öffnet sich die Detailseite mit „Änderungen wurden
 gespeichert.“ Bei einem Fehler bleiben Sie auf der Seite, Ihre Eingaben bleiben erhalten. **Abbrechen**
-führt ohne Speichern zur Detailseite. Bearbeiten zwei Personen gleichzeitig, gilt das zuletzt
+führt ohne Speichern zur Detailseite (nach Änderungen mit Rückfrage, siehe
+[Bedienung](bedienung.md#warnung-bei-ungespeicherten-änderungen)). Bearbeiten zwei Personen gleichzeitig, gilt das zuletzt
 Gespeicherte. Änderungen an den Stammdaten werden nicht protokolliert.
 
 ### Motivbild
@@ -205,10 +246,10 @@ Zeigt das aktuelle Bild oder „Kein Motivbild vorhanden.“ Wählen Sie im Feld
 „Motivbild wurde gespeichert.“ und das neue Bild. Ohne ausgewählte Datei erscheint „Bitte ein Bild
 auswählen.“ Löschen lässt sich das Bild nicht, nur ersetzen.
 
-### Zertifikatsvorlage
-
-Hier laden Sie die Word-Vorlage für das Echtheitszertifikat herunter und hoch. Die Anleitung dazu steht
-unter [Zertifikatsvorlagen](zertifikatsvorlagen.md).
+Ein gewähltes Bild wird nur mit **Bild hochladen** gespeichert, nicht mit **Änderungen speichern**.
+Wollen Sie die Seite mit einem gewählten, nicht hochgeladenen Bild verlassen, fragt C.O.I.N. nach,
+auch wenn die Stammdaten schon gespeichert sind (siehe
+[Bedienung](bedienung.md#warnung-bei-ungespeicherten-änderungen)).
 
 ## Motivbild
 

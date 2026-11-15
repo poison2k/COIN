@@ -1,12 +1,25 @@
 import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
-import { AusgabenTabelle, ladeAusgaben, type Ausgabe } from '@/entities/ausgabe'
+import { AusgabenTabelle, ladeAusgaben, type Ausgabe, type AusgabeStatus } from '@/entities/ausgabe'
 import { AusgabeStornieren } from '@/features/ausgabe-stornieren'
 import { ZertifikatHerunterladen } from '@/features/zertifikat-herunterladen'
 import type { ApiErgebnis, Seite } from '@/shared/api'
 import { ROUTEN } from '@/shared/config'
 import { useFokusBeiLadefehler } from '@/shared/lib/hooks'
 import { Blaettern, seitenAnzahl } from '@/shared/ui/blaettern'
+import { Filterleiste } from '@/shared/ui/filterleiste'
+import { Label } from '@/shared/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
+
+type Filter = AusgabeStatus | 'alle'
+
+const FILTER = [
+  { value: 'alle', label: 'Alle' },
+  { value: 'aktiv', label: 'Aktiv' },
+  { value: 'storniert', label: 'Storniert' },
+] satisfies Array<{ value: Filter; label: string }>
+
+const FILTER_TEXT: Readonly<Record<AusgabeStatus, string>> = { aktiv: 'Aktiv', storniert: 'Storniert' }
 
 interface Geladen {
   schluessel: string
@@ -24,13 +37,15 @@ export interface AusgabenHistorieProps {
 }
 
 /**
- * Abschnitt „Ausgabehistorie“ der Detailseite (coin-ausgaben AK-22, AK-24): Tabelle, Blättern (Seite lokal) und
- * „Stornieren“ je aktiver Zeile. Nach einem Storno erscheint eine Statusmeldung mit Fokus; die Historie lädt neu.
+ * Abschnitt „Ausgabehistorie“ der Detailseite (coin-ausgaben AK-22, AK-24): Statusfilter mit Chip (Server-Parameter
+ * `status`, nicht in der URL; formulare-detailseiten F8), Tabelle bzw. Karten, Blättern (Seite lokal), Zeilenklick zur
+ * Ausgabe-Seite und „Stornieren“ je aktiver Zeile. Nach einem Storno erscheint eine Statusmeldung mit Fokus; die Historie lädt neu.
  * Spalte „Zertifikat“ (zertifikat-erzeugen AK-24): Nummer als Link zur Ausgabe-Seite und, mit `darfZertifikat`, der
  * Download; nach 409 `ausgabe_storniert` lädt die Historie neu.
  */
 export function AusgabenHistorie({ coinId, darfStornieren, darfZertifikat, onGeaendert }: AusgabenHistorieProps) {
   const [seite, setSeite] = useState(1)
+  const [status, setStatus] = useState<AusgabeStatus | undefined>(undefined)
   const [neuLaden, setNeuLaden] = useState(0)
   const [geladen, setGeladen] = useState<Geladen | null>(null)
   const [meldung, setMeldung] = useState<string | null>(null)
@@ -40,13 +55,15 @@ export function AusgabenHistorie({ coinId, darfStornieren, darfZertifikat, onGea
   const meldungRef = useRef<HTMLParagraphElement>(null)
   const fokusAufMeldung = useRef(false)
   const anfrage = useRef<{ schluessel: string; ergebnis: Promise<ApiErgebnis<Seite<Ausgabe>>> } | null>(null)
-  const ueberschriftId = `${useId()}-ueberschrift`
+  const basis = useId()
+  const ueberschriftId = `${basis}-ueberschrift`
+  const filterId = `${basis}-filter`
 
-  const schluessel = JSON.stringify([coinId, seite, neuLaden])
+  const schluessel = JSON.stringify([coinId, status ?? null, seite, neuLaden])
 
   useEffect(() => {
     if (anfrage.current?.schluessel !== schluessel) {
-      anfrage.current = { schluessel, ergebnis: ladeAusgaben(coinId, { seite }) }
+      anfrage.current = { schluessel, ergebnis: ladeAusgaben(coinId, { status, seite }) }
     }
     let aktiv = true
     void anfrage.current.ergebnis.then((ergebnis) => {
@@ -55,7 +72,7 @@ export function AusgabenHistorie({ coinId, darfStornieren, darfZertifikat, onGea
     return () => {
       aktiv = false
     }
-  }, [schluessel, coinId, seite])
+  }, [schluessel, coinId, status, seite])
 
   // Nach einem Storno die Statusmeldung fokussieren (der Button der Zeile entfällt).
   useEffect(() => {
@@ -75,6 +92,44 @@ export function AusgabenHistorie({ coinId, darfStornieren, darfZertifikat, onGea
   function blaettern(neu: number) {
     merkeFokus()
     setSeite(neu)
+  }
+
+  function filtere(neu: AusgabeStatus | undefined) {
+    setStatus(neu)
+    setSeite(1)
+  }
+
+  function filterGewaehlt(wert: Filter | null) {
+    filtere(wert === 'aktiv' || wert === 'storniert' ? wert : undefined)
+  }
+
+  function zertifikatLink(ausgabe: Ausgabe) {
+    return (
+      <Link
+        to={ROUTEN.ausgabeDetail}
+        params={{ coinId, ausgabeId: ausgabe.id }}
+        data-zeilenlink=""
+        aria-label={
+          ausgabe.storno === null
+            ? `Ausgabe ${ausgabe.zertifikatsnummer} anzeigen`
+            : `Stornierte Ausgabe ${ausgabe.zertifikatsnummer} anzeigen`
+        }
+        className="inline-flex min-h-10 items-center rounded-sm font-mono tabular-nums underline underline-offset-4 outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring"
+      >
+        {ausgabe.zertifikatsnummer}
+      </Link>
+    )
+  }
+
+  function zertifikatDownload(ausgabe: Ausgabe) {
+    return darfZertifikat ? (
+      <ZertifikatHerunterladen
+        coinId={coinId}
+        ausgabe={ausgabe}
+        variante="zeile"
+        onStorniertErkannt={() => setNeuLaden((n) => n + 1)}
+      />
+    ) : null
   }
 
   function storniert(ausgabe: Ausgabe) {
@@ -116,36 +171,51 @@ export function AusgabenHistorie({ coinId, darfStornieren, darfZertifikat, onGea
         </p>
       )}
 
+      {daten && (daten.gesamt > 0 || status !== undefined) && (
+        <Filterleiste
+          chips={
+            status
+              ? [{ id: 'status', text: `Status: ${FILTER_TEXT[status]}`, onEntfernen: () => filtere(undefined) }]
+              : []
+          }
+        >
+          <div className="grid gap-1.5">
+            <Label htmlFor={filterId}>Status</Label>
+            <Select<Filter> items={FILTER} value={status ?? 'alle'} onValueChange={filterGewaehlt}>
+              <SelectTrigger id={filterId} className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FILTER.map((eintrag) => (
+                  <SelectItem key={eintrag.value} value={eintrag.value}>
+                    {eintrag.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </Filterleiste>
+      )}
+
       {daten &&
         (daten.gesamt === 0 ? (
-          <p className="text-muted-foreground">Für diesen Coin wurden noch keine Ausgaben erfasst.</p>
+          <p className="text-muted-foreground">
+            {status === undefined
+              ? 'Für diesen Coin wurden noch keine Ausgaben erfasst.'
+              : 'Keine Ausgaben mit diesem Status.'}
+          </p>
         ) : (
           <>
             {daten.eintraege.length > 0 ? (
               <AusgabenTabelle
                 ausgaben={daten.eintraege}
+                zeilenklick
+                kartenTitel={zertifikatLink}
+                zertifikatKarte={darfZertifikat ? zertifikatDownload : undefined}
                 zertifikat={(ausgabe) => (
                   <div className="grid justify-items-start gap-2">
-                    <Link
-                      to={ROUTEN.ausgabeDetail}
-                      params={{ coinId, ausgabeId: ausgabe.id }}
-                      aria-label={
-                        ausgabe.storno === null
-                          ? `Ausgabe ${ausgabe.zertifikatsnummer} anzeigen`
-                          : `Stornierte Ausgabe ${ausgabe.zertifikatsnummer} anzeigen`
-                      }
-                      className="rounded-sm font-mono tabular-nums underline underline-offset-4 outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring"
-                    >
-                      {ausgabe.zertifikatsnummer}
-                    </Link>
-                    {darfZertifikat && (
-                      <ZertifikatHerunterladen
-                        coinId={coinId}
-                        ausgabe={ausgabe}
-                        variante="zeile"
-                        onStorniertErkannt={() => setNeuLaden((n) => n + 1)}
-                      />
-                    )}
+                    {zertifikatLink(ausgabe)}
+                    {zertifikatDownload(ausgabe)}
                   </div>
                 )}
                 aktion={

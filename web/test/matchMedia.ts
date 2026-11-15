@@ -20,3 +20,15 @@ export function stubMatchMedia(trifftZu: (query: string) => boolean = () => fals
 
 /** Media-Query, mit der das System-Farbschema abgefragt wird. */
 export const DUNKEL_QUERY = '(prefers-color-scheme: dark)'
+
+/**
+ * formulare-detailseiten (ADR-0041): simuliert eine Viewport-Breite für einfache Media-Queries mit `min-width` bzw.
+ * `max-width` in px (z. B. `(max-width: 767px)` oder `(min-width: 768px)`). Andere Queries treffen nicht zu.
+ */
+export function stubBreite(breite: number): void {
+  stubMatchMedia((query) => {
+    const bedingungen = [...query.matchAll(/\((min|max)-width:\s*(\d+(?:\.\d+)?)px\)/g)]
+    if (bedingungen.length === 0) return false
+    return bedingungen.every(([, art, wert]) => (art === 'min' ? breite >= Number(wert) : breite <= Number(wert)))
+  })
+}

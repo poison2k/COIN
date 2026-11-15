@@ -284,11 +284,10 @@ async function alleTexte(page: Page): Promise<string> {
   })
 }
 
+// formulare-detailseiten K4: Die Kennzahlen stehen im Kopf in der Region „Kennzahlen“ (vorher im Abschnitt
+// „Exemplare“). Nur der Locator ändert sich, Texte und Regex der Prüfungen bleiben.
 function kennzahlen(page: Page): Locator {
-  return page
-    .locator('section')
-    .filter({ has: page.getByRole('heading', { level: 2, name: 'Exemplare' }) })
-    .locator('dl')
+  return page.getByRole('region', { name: 'Kennzahlen' }).locator('dl')
 }
 
 // ---------- Sachbearbeiter: Erfassen per Tastatur ----------
@@ -404,7 +403,11 @@ test('Pflichtfelder: leeres Absenden sendet nichts und fokussiert das erste fehl
 
   await expect(page.getByLabel(/^Name des Empfängers/)).toBeFocused()
   await expect(page.getByLabel(/^Name des Empfängers/)).toHaveAttribute('aria-invalid', 'true')
-  await expect(page.getByText('Name des Empfängers ist erforderlich.')).toBeVisible()
+  // formulare-detailseiten (AK-7): Die Meldung steht auch in der Fehlerzusammenfassung (role="alert"); geprüft wird
+  // die Meldung am Feld, also außerhalb der Zusammenfassung.
+  await expect(
+    page.getByText('Name des Empfängers ist erforderlich.').and(page.locator(':not([role="alert"] *)')),
+  ).toBeVisible()
   expect(posts).toEqual([])
 })
 
@@ -482,7 +485,8 @@ test('Storno per Tastatur: Dialog mit Grund und Datenschutz-Hinweis, danach Meld
   page,
 }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(`/coins/${COIN.id}`)
+  // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+  await page.goto(`/coins/${COIN.id}?reiter=ausgaben`)
   await expect(page.getByRole('table', { name: 'Ausgabehistorie' })).toBeVisible()
   const stornieren = page.getByRole('button', { name: 'Ausgabe von Exemplar Nr. 2 stornieren' })
 
@@ -513,7 +517,8 @@ test('Storno per Tastatur: Dialog mit Grund und Datenschutz-Hinweis, danach Meld
 
 test('Storno-Dialog: leerer Grund sendet nichts, Escape bricht ab und gibt den Fokus zurück', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(`/coins/${COIN.id}`)
+  // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+  await page.goto(`/coins/${COIN.id}?reiter=ausgaben`)
   const stornieren = page.getByRole('button', { name: 'Ausgabe von Exemplar Nr. 1 stornieren' })
   await stornieren.click()
   const dialog = page.getByRole('alertdialog', { name: 'Ausgabe stornieren?' })
@@ -529,7 +534,8 @@ test('Storno-Dialog: leerer Grund sendet nichts, Escape bricht ab und gibt den F
 
 test('Storno-Dialog: 409 bereits_storniert erscheint im Dialog', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(`/coins/${COIN.id}`)
+  // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+  await page.goto(`/coins/${COIN.id}?reiter=ausgaben`)
   await page.getByRole('button', { name: 'Ausgabe von Exemplar Nr. 1 stornieren' }).click()
   const dialog = page.getByRole('alertdialog', { name: 'Ausgabe stornieren?' })
   // Zwischenzeitlich anderswo storniert.
@@ -641,7 +647,9 @@ test('Filter und Seite aus der URL werden beim Laden übernommen, ungültige Wer
 test('sichtbarer Fokus an Filter, „Ausgabe erfassen“, „Auflage ändern“ und „Stornieren“', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
   await page.goto(`/coins/${COIN.id}`)
-  await expect(page.getByRole('table', { name: 'Ausgabehistorie' })).toBeVisible()
+  // formulare-detailseiten K3: Filter, „Ausgabe erfassen“ und „Auflage ändern“ im Standardreiter „Exemplare“ bzw. im
+  // Kopf; „Stornieren“ erst nach Wechsel in den Reiter „Ausgaben“. Ziele und Prüfung bleiben gleich.
+  await expect(page.getByRole('table', { name: 'Exemplare' })).toBeVisible()
 
   for (const ziel of [
     page.getByRole('combobox', { name: 'Status' }),
@@ -649,6 +657,10 @@ test('sichtbarer Fokus an Filter, „Ausgabe erfassen“, „Auflage ändern“ 
     page.getByRole('button', { name: 'Auflage ändern' }),
     page.getByRole('button', { name: 'Ausgabe von Exemplar Nr. 1 stornieren' }),
   ]) {
+    if ((await ziel.count()) === 0) {
+      await page.getByRole('tab', { name: 'Ausgaben' }).click()
+      await expect(page.getByRole('table', { name: 'Ausgabehistorie' })).toBeVisible()
+    }
     await tabBis(page, ziel)
     expect(await hatSichtbarenFokus(ziel)).toBe(true)
   }
@@ -656,7 +668,8 @@ test('sichtbarer Fokus an Filter, „Ausgabe erfassen“, „Auflage ändern“ 
 
 test('sichtbarer Fokus am Feld „Grund“ im Storno-Dialog', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(`/coins/${COIN.id}`)
+  // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+  await page.goto(`/coins/${COIN.id}?reiter=ausgaben`)
   const stornieren = page.getByRole('button', { name: 'Ausgabe von Exemplar Nr. 1 stornieren' })
   await tabBis(page, stornieren)
   await page.keyboard.press('Enter')
@@ -686,7 +699,8 @@ test('sichtbarer Fokus am Feld „Auflage“ im Dialog „Auflage ändern“', a
 
 test('Detailseite, Erfassen-Seite und beide Dialoge enthalten keine englischen Texte', async ({ page }) => {
   await starteAls(page, SACHBEARBEITER)
-  await page.goto(`/coins/${COIN.id}`)
+  // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+  await page.goto(`/coins/${COIN.id}?reiter=ausgaben`)
   await expect(page.getByRole('table', { name: 'Ausgabehistorie' })).toBeVisible()
   expect(await alleTexte(page)).not.toMatch(ENGLISCH)
 
@@ -709,7 +723,8 @@ test('schmaler Bildschirm: Detail- und Erfassen-Seite ohne waagerechtes Scrollen
   await page.setViewportSize({ width: 375, height: 800 })
   await starteAls(page, SACHBEARBEITER)
 
-  await page.goto(`/coins/${COIN.id}`)
+  // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+  await page.goto(`/coins/${COIN.id}?reiter=ausgaben`)
   await expect(page.getByRole('heading', { level: 2, name: 'Ausgabehistorie' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Ausgabe erfassen' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)

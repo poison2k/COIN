@@ -1,25 +1,30 @@
 import { formatiereZahl } from '@/shared/lib/format'
+import { KennzahlKarte, KennzahlRaster } from '@/shared/ui/kennzahl-karte'
 import type { Kennzahlen as KennzahlenDaten } from '../model/types'
+import { verfuegbarText } from '../model/verfuegbarText'
 
 export interface KennzahlenProps {
   kennzahlen: KennzahlenDaten
+  /** Fortschrittsbalken in der Karte „Verfügbar“ (nur bei bekannter Auflage; formulare-detailseiten AK-21). */
+  balken?: boolean
 }
 
-/** Kennzahlen als Beschreibungsliste: Auflage, Ausgegeben, Verfügbar (AK-20). */
-export function Kennzahlen({ kennzahlen }: KennzahlenProps) {
-  const werte: Array<[string, number | null]> = [
-    ['Auflage', kennzahlen.auflage],
-    ['Ausgegeben', kennzahlen.ausgegeben],
-    ['Verfügbar', kennzahlen.verfuegbar],
-  ]
+/** Kennzahlen als Karten in einer Beschreibungsliste: Auflage, Ausgegeben, Verfügbar (coin-ausgaben AK-20). */
+export function Kennzahlen({ kennzahlen, balken = false }: KennzahlenProps) {
+  const { auflage, ausgegeben, verfuegbar } = kennzahlen
   return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 sm:flex sm:flex-wrap sm:gap-x-8">
-      {werte.map(([begriff, wert]) => (
-        <div key={begriff} className="contents sm:block">
-          <dt className="text-sm text-muted-foreground">{begriff}</dt>
-          <dd className="text-lg font-semibold tabular-nums">{wert === null ? 'unbekannt' : formatiereZahl(wert)}</dd>
-        </div>
-      ))}
-    </dl>
+    <KennzahlRaster>
+      <KennzahlKarte begriff="Auflage" wert={auflage === null ? 'unbekannt' : formatiereZahl(auflage)} />
+      <KennzahlKarte begriff="Ausgegeben" wert={formatiereZahl(ausgegeben)} />
+      <KennzahlKarte
+        begriff="Verfügbar"
+        wert={formatiereZahl(verfuegbar)}
+        anteil={
+          balken && auflage !== null
+            ? { wert: verfuegbar, von: auflage, text: verfuegbarText(verfuegbar, auflage) }
+            : undefined
+        }
+      />
+    </KennzahlRaster>
   )
 }

@@ -1,5 +1,5 @@
 import { InboxIcon, PlusIcon, SaveIcon, SearchIcon, Trash2Icon, CircleCheckIcon } from 'lucide-react'
-import { useId, type ReactNode } from 'react'
+import { useId } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Badge } from '@/shared/ui/badge'
 import {
@@ -34,6 +34,8 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { Textarea } from '@/shared/ui/textarea'
 import { useToast } from '@/shared/ui/toast'
 import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
+import { Abschnitt, Zeile } from './Abschnitt'
+import { FormularBausteine } from './FormularBausteine'
 
 // Bausteinübersicht (design-fundament, Abschnitt 9, ADR-0036 Punkt 8): lebende Referenz aller Bausteine aus
 // shared/ui mit Varianten, Größen und Zuständen. Nur in der Entwicklungsumgebung, ohne API-Aufrufe, nur synthetische
@@ -110,25 +112,6 @@ const AUSWAHL = [
   { value: 'verfuegbar', label: 'Verfügbar' },
   { value: 'ausgegeben', label: 'Ausgegeben' },
 ]
-
-function Abschnitt({ titel, beschreibung, children }: { titel: string; beschreibung?: string; children: ReactNode }) {
-  const id = useId()
-  return (
-    <section aria-labelledby={id} className="grid min-w-0 gap-4">
-      <div className="grid gap-1">
-        <h2 id={id} className="text-xl font-semibold">
-          {titel}
-        </h2>
-        {beschreibung && <p className="text-sm text-muted-foreground">{beschreibung}</p>}
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function Zeile({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap items-center gap-3">{children}</div>
-}
 
 function ToastBeispiele() {
   const { zeige } = useToast()
@@ -545,6 +528,8 @@ export function BausteineSeite() {
           </BreadcrumbList>
         </Breadcrumb>
       </Abschnitt>
+
+      <FormularBausteine />
     </div>
   )
 }

@@ -92,9 +92,14 @@ test('(1)+(2) Admin legt über „Coin hinzufügen“ einen Coin an, landet auf 
   const detailPfad = new URL(page.url()).pathname
   await expect(page.getByRole('status').filter({ hasText: 'Coin wurde angelegt.' })).toBeVisible()
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
-  await expect(page.locator('dl').first()).toContainText('Systemtest Herausgeber')
-  await expect(page.locator('dl').first()).toContainText('1.250')
+  // formulare-detailseiten (F1): Standard ist „Exemplare“; Motivbild und Stammdaten stehen im Reiter „Stammdaten“.
+  await page.getByRole('tab', { name: 'Stammdaten' }).click()
+  // Eindeutiger Selektor: die Beschreibungsliste im Reiter „Stammdaten“ (die Kennzahlen stehen jetzt im Kopf).
+  await expect(page.getByRole('tabpanel', { name: 'Stammdaten' }).locator('dl')).toContainText('Systemtest Herausgeber')
+  await expect(page.getByRole('tabpanel', { name: 'Stammdaten' }).locator('dl')).toContainText('1.250')
   await expect(page.getByText('Kein Motivbild vorhanden.')).toBeVisible()
+  // formulare-detailseiten (F1): Der Abschnitt „Exemplare“ steht im gleichnamigen Reiter; zurück dorthin wechseln.
+  await page.getByRole('tab', { name: 'Exemplare' }).click()
   await expect(page.getByRole('heading', { level: 2, name: 'Exemplare' })).toBeVisible()
   await expect(page.getByRole('heading', { level: 2, name: 'Verleihungen' })).toHaveCount(0)
 

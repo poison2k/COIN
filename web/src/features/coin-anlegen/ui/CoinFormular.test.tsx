@@ -716,7 +716,8 @@ describe('AK-35: kein Doppelversand', () => {
 
     await user.click(formularFelder().absenden)
 
-    await waitFor(() => expect(formularFelder().absenden).toBeDisabled())
+    // formulare-detailseiten K7: Ladezustand per `laedt` (aria-disabled, fokussierbar) statt nativem disabled.
+    await waitFor(() => expect(formularFelder().absenden).toHaveAttribute('aria-disabled', 'true'))
     offen.aufloesen(
       jsonAntwort(201, {
         ...PFLICHT,
@@ -727,7 +728,9 @@ describe('AK-35: kein Doppelversand', () => {
         bildUrl: null,
       }),
     )
-    await waitFor(() => expect(formularFelder().absenden).toBeEnabled())
+    // formulare-detailseiten K7: Freigabe nach dem Senden über aria-disabled geprüft; toBeEnabled bestünde mit `laedt`
+    // auch während des Sendens und wäre damit schwächer.
+    await waitFor(() => expect(formularFelder().absenden).not.toHaveAttribute('aria-disabled', 'true'))
   })
 
   it('sendet bei doppeltem Klick nur einen POST', async () => {
@@ -753,9 +756,11 @@ describe('AK-35: kein Doppelversand', () => {
     await user.click(formularFelder().absenden)
 
     await waitFor(() => expect(api.anfragenMit('PUT')).toHaveLength(1))
-    expect(formularFelder().absenden).toBeDisabled()
+    // formulare-detailseiten K7: Ladezustand per `laedt` (aria-disabled, fokussierbar) statt nativem disabled.
+    expect(formularFelder().absenden).toHaveAttribute('aria-disabled', 'true')
     offen.aufloesen(problemAntwort(415))
-    await waitFor(() => expect(formularFelder().absenden).toBeEnabled())
+    // formulare-detailseiten K7: Freigabe über aria-disabled statt toBeEnabled (siehe oben).
+    await waitFor(() => expect(formularFelder().absenden).not.toHaveAttribute('aria-disabled', 'true'))
   })
 })
 

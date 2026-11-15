@@ -277,7 +277,9 @@ test('(4) Ein SVG als Logo wird mit „SVG-Dateien sind nicht erlaubt. …“ am
     .fill('Logo der Software (SVG)')
   await page.getByRole('button', { name: 'Speichern' }).click()
 
-  await expect(page.getByText(SVG_MELDUNG)).toBeVisible()
+  // formulare-detailseiten (AK-7): Die Meldung steht auch in der Fehlerzusammenfassung (role="alert"); geprüft wird
+  // die Meldung am Feld, also außerhalb der Zusammenfassung.
+  await expect(page.getByText(SVG_MELDUNG).and(page.locator(':not([role="alert"] *)'))).toBeVisible()
   await expect(page.getByRole('status').filter({ hasText: 'Die Startseite wurde gespeichert.' })).toHaveCount(0)
 
   await oeffneVerwaltung(page)

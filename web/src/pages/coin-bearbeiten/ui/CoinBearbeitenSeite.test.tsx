@@ -54,11 +54,23 @@ describe('Aufbau', () => {
     expect(screen.getAllByText('Coin Bearbeitbar').length).toBeGreaterThan(0)
   })
 
-  it.each(['Stammdaten', 'Motivbild', 'Zertifikatsvorlage'])('hat den Abschnitt „%s“ als Ebene 2', async (name) => {
+  // formulare-detailseiten (F2, Freigabe 2026-11-14): Der Fall „Zertifikatsvorlage“ ist in den Reiter
+  // „Zertifikatsvorlage“ der Detailseite umgezogen (CoinDetailSeite.reiter.test.tsx); hier nur Stammdaten und Motivbild,
+  // dazu die Prüfung, dass der Abschnitt „Zertifikatsvorlage“ fehlt.
+  it.each(['Stammdaten', 'Motivbild'])('hat den Abschnitt „%s“ als Ebene 2', async (name) => {
     zeige()
     await geladen()
 
     expect(screen.getByRole('heading', { level: 2, name })).toBeInTheDocument()
+  })
+
+  it('hat keinen Abschnitt „Zertifikatsvorlage“ mehr (F2)', async () => {
+    zeige()
+    await geladen()
+    await screen.findByRole('button', { name: 'Bild hochladen' })
+
+    expect(screen.queryByRole('heading', { name: 'Zertifikatsvorlage' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Word-Vorlage (.docx)')).not.toBeInTheDocument()
   })
 
   it('belegt das Formular mit den Stammdaten vor', async () => {
@@ -75,22 +87,22 @@ describe('Aufbau', () => {
     expect(screen.getByRole('link', { name: 'Abbrechen' })).toHaveAttribute('href', `/coins/${ID}`)
   })
 
-  it('lädt den Coin und den Vorlagenstatus', async () => {
+  // formulare-detailseiten (F2, Freigabe 2026-11-14): Den Vorlagenstatus lädt jetzt der Reiter „Zertifikatsvorlage“
+  // der Detailseite (Prüfung umgezogen nach CoinDetailSeite.reiter.test.tsx); „Coin bearbeiten“ lädt nur den Coin.
+  it('lädt nur den Coin und keinen Vorlagenstatus (F2)', async () => {
     zeige()
     await geladen()
+    await screen.findByRole('button', { name: 'Bild hochladen' })
+    await new Promise((resolve) => setTimeout(resolve, 20))
 
-    await waitFor(() =>
-      expect(api.anfragen.map((a) => `${a.methode} ${a.pfad}`).sort()).toEqual([
-        `GET /api/coins/${ID}`,
-        `GET /api/coins/${ID}/zertifikatsvorlage`,
-      ]),
-    )
+    expect(api.anfragen.map((a) => `${a.methode} ${a.pfad}`)).toEqual([`GET /api/coins/${ID}`])
   })
 
+  // formulare-detailseiten K5 (F2): Die Vorlage ist nicht mehr auf dieser Seite; gewartet wird auf den Motivbild-Abschnitt.
   it('zeigt keine englischen Texte', async () => {
     zeige()
     await geladen()
-    await waitFor(() => expect(seitentext()).toContain('Aktiv: Standardvorlage'))
+    await screen.findByRole('button', { name: 'Bild hochladen' })
 
     const attribute = [...document.body.querySelectorAll('*')].flatMap((el) =>
       ['aria-label', 'title', 'alt', 'placeholder'].map((a) => el.getAttribute(a) ?? ''),
@@ -139,6 +151,64 @@ describe('Speichern', () => {
   })
 })
 
+// formulare-detailseiten, AK-13 mit Entscheidung G1 (Mensch, Review-Runde 3): Steht nur noch das gewählte, nicht
+// hochgeladene Motivbild aus, nennt jede Verlassen-Warnung genau das Motivbild; sind Stammdaten ungespeichert, bleibt der
+// bisherige Text.
+describe('Verlassen-Warnung (AK-13, G1)', () => {
+  const NUR_BILD =
+    'Das ausgewählte Motivbild ist noch nicht hochgeladen. Wenn Sie die Seite verlassen, geht die Auswahl verloren.'
+  const STAMMDATEN = 'Die Änderungen am Coin sind nicht gespeichert. Seite trotzdem verlassen?'
+
+  async function warnung() {
+    return screen.findByRole('alertdialog', { name: 'Ungespeicherte Änderungen' })
+  }
+
+  it('nennt nach erfolgreichem Speichern der Stammdaten das noch nicht hochgeladene Motivbild', async () => {
+    const { user } = zeige()
+    await geladen()
+    await user.upload(screen.getByLabelText(/^Neues Motivbild/), testDatei('image/png', 2048, 'motiv.png'))
+    await user.clear(screen.getByLabelText(/^Herausgeber/))
+    await user.type(screen.getByLabelText(/^Herausgeber/), 'Herausgeber Geändert')
+    await user.click(screen.getByRole('button', { name: 'Änderungen speichern' }))
+    await waitFor(() => expect(onGespeichert).toHaveBeenCalledTimes(1))
+
+    await user.click(screen.getByRole('link', { name: 'Abbrechen' }))
+
+    expect(await warnung()).toHaveAccessibleDescription(NUR_BILD)
+  })
+
+  it('nennt das Motivbild, wenn nur ein Bild gewählt und nichts an den Stammdaten geändert ist', async () => {
+    const { user } = zeige()
+    await geladen()
+    await user.upload(screen.getByLabelText(/^Neues Motivbild/), testDatei('image/png', 2048, 'motiv.png'))
+
+    await user.click(screen.getByRole('link', { name: 'Abbrechen' }))
+
+    expect(await warnung()).toHaveAccessibleDescription(NUR_BILD)
+  })
+
+  it('behält den bisherigen Text, wenn Stammdaten ungespeichert sind und ein Bild gewählt ist', async () => {
+    const { user } = zeige()
+    await geladen()
+    await user.upload(screen.getByLabelText(/^Neues Motivbild/), testDatei('image/png', 2048, 'motiv.png'))
+    await user.type(screen.getByLabelText(/^Herausgeber/), ' Neu')
+
+    await user.click(screen.getByRole('link', { name: 'Abbrechen' }))
+
+    expect(await warnung()).toHaveAccessibleDescription(STAMMDATEN)
+  })
+
+  it('behält den bisherigen Text, wenn nur Stammdaten ungespeichert sind', async () => {
+    const { user } = zeige()
+    await geladen()
+    await user.type(screen.getByLabelText(/^Herausgeber/), ' Neu')
+
+    await user.click(screen.getByRole('link', { name: 'Abbrechen' }))
+
+    expect(await warnung()).toHaveAccessibleDescription(STAMMDATEN)
+  })
+})
+
 describe('nicht gefunden', () => {
   it('zeigt für eine Id ohne GUID-Format „Coin nicht gefunden“ ohne API-Aufruf', async () => {
     zeige('keine-guid')
@@ -156,17 +226,17 @@ describe('nicht gefunden', () => {
 })
 
 describe('Tastatur (AK-33)', () => {
-  it('erreicht Stammdaten, Motivbild und Vorlage in der Reihenfolge der Abschnitte', async () => {
+  // formulare-detailseiten (F2, Freigabe 2026-11-14): Die Vorlage-Ziele sind in den Reiter „Zertifikatsvorlage“ der
+  // Detailseite umgezogen (CoinDetailSeite.reiter.test.tsx); hier die Reihenfolge ohne Vorlage.
+  it('erreicht Stammdaten und Motivbild in der Reihenfolge der Abschnitte (ohne Vorlage, F2)', async () => {
     const { user } = zeige()
     await geladen()
-    await screen.findByRole('button', { name: 'Aktuelle Vorlage herunterladen' })
+    await screen.findByRole('button', { name: 'Bild hochladen' })
     const ziele = [
       screen.getByLabelText(/^Name/),
       screen.getByRole('button', { name: 'Änderungen speichern' }),
       screen.getByLabelText(/^Neues Motivbild/),
       screen.getByRole('button', { name: 'Bild hochladen' }),
-      screen.getByLabelText('Word-Vorlage (.docx)'),
-      screen.getByRole('button', { name: 'Vorlage hochladen' }),
     ]
 
     const reihenfolge: Element[] = []

@@ -12,8 +12,9 @@ Alle anderen sehen keine Schaltflächen dafür.
 
 - **Coin hinzufügen**: Unter dem Formular steht der Abschnitt **Zertifikatsvorlage** mit dem Button
   **Standardvorlage herunterladen**.
-- **Coin bearbeiten** (Detailseite des Coins › **Bearbeiten**): Abschnitt **Zertifikatsvorlage** mit
-  allen Funktionen dieser Anleitung.
+- **Detailseite des Coins**: Reiter **Zertifikatsvorlage** mit allen Funktionen dieser Anleitung
+  (direkt erreichbar über `/coins/…?reiter=vorlage`). Früher stand die Vorlage auf **Coin
+  bearbeiten**; dort gibt es sie nicht mehr.
 
 Dort steht oben, welche Vorlage gilt:
 
@@ -117,8 +118,13 @@ So setzt C.O.I.N. die Werte ein, wenn jemand ein Zertifikat herunterlädt:
 
 ## Vorlage hochladen
 
-1. Auf **Coin bearbeiten** im Feld **Word-Vorlage (.docx)** die Datei auswählen (höchstens 5 MB).
+1. Im Reiter **Zertifikatsvorlage** im Abschnitt **Neue Version hochladen** im Feld **Word-Vorlage
+   (.docx)** die Datei auswählen (höchstens 5 MB).
 2. **Vorlage hochladen** klicken. Während des Hochladens ist der Button gesperrt.
+
+Wechseln Sie mit einer gewählten, noch nicht hochgeladenen Datei in einen anderen Reiter oder
+verlassen die Seite, fragt C.O.I.N. nach: „Die ausgewählte Vorlage ist nicht hochgeladen. Seite
+trotzdem verlassen?“ (siehe [Bedienung](bedienung.md#warnung-bei-ungespeicherten-änderungen)).
 
 Die App prüft vorher nur Endung und Größe; alles andere prüft der Server. Bei Erfolg erscheint z. B.
 „Version 3 wurde hochgeladen und ist jetzt aktiv.“, die Tabelle zeigt die neue Version, das Dateifeld ist
@@ -144,7 +150,9 @@ mit Aufnahmeort) werden nicht entfernt**; verwenden Sie Bilder ohne solche Angab
 ## Versionen
 
 Die Tabelle (Spalten **Version**, **Hochgeladen am**, **Hochgeladen von**, **Größe**, **Status**) zeigt
-alle hochgeladenen Versionen, die neueste zuerst. Die aktive Version trägt „aktiv“. Ohne eigene Vorlage
+alle hochgeladenen Versionen, die neueste zuerst. Per Klick auf **Version**, **Hochgeladen am** oder
+**Größe** im Spaltenkopf sortieren Sie um (siehe [Bedienung](bedienung.md#sortieren)). Die aktive
+Version trägt „aktiv“. Ohne eigene Vorlage
 steht dort „Es wurde noch keine eigene Vorlage hochgeladen.“
 
 Jeder Upload ergibt eine neue Versionsnummer und ist sofort aktiv. Frühere Versionen bleiben gespeichert

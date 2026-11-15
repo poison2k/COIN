@@ -65,9 +65,12 @@ async function oeffneUeberSuche(page: Page, name: string): Promise<void> {
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
 }
 
-/** Kennzahlen-Liste im Abschnitt „Exemplare“. */
+/**
+ * Kennzahlen-Liste. formulare-detailseiten K4: Die Kennzahlen stehen im Kopf in der Region „Kennzahlen“ (vorher im
+ * Abschnitt „Exemplare“); nur der Locator ändert sich.
+ */
 function kennzahlen(page: Page): Locator {
-  return page.locator('section').filter({ has: page.getByRole('heading', { level: 2, name: 'Exemplare' }) }).locator('dl')
+  return page.getByRole('region', { name: 'Kennzahlen' }).locator('dl')
 }
 
 test('Sachbearbeiter erfasst eine Ausgabe, sie erscheint in der Historie; der Betrachter sieht nur den Status', async ({
@@ -99,6 +102,8 @@ test('Sachbearbeiter erfasst eine Ausgabe, sie erscheint in der Historie; der Be
     await test.step('2. Sachbearbeiter erfasst eine Ausgabe und sieht sie in der Historie', async () => {
       await oeffneUeberSuche(sb, coinName)
       await expect(kennzahlen(sb)).toHaveText(/Auflage\s*150\s*Ausgegeben\s*0\s*Verfügbar\s*150/)
+      // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“.
+      await sb.getByRole('tab', { name: 'Ausgaben' }).click()
       await expect(sb.getByText('Für diesen Coin wurden noch keine Ausgaben erfasst.')).toBeVisible()
 
       await sb.getByRole('link', { name: 'Ausgabe erfassen' }).click()
@@ -148,7 +153,8 @@ test('Sachbearbeiter erfasst eine Ausgabe, sie erscheint in der Historie; der Be
     })
 
     await test.step('4. Sachbearbeiter storniert die Ausgabe mit Grund', async () => {
-      await sb.goto(detailPfad)
+      // formulare-detailseiten K3: Die Historie steht im Reiter „Ausgaben“; Direktaufruf mit ?reiter=ausgaben.
+      await sb.goto(`${detailPfad}?reiter=ausgaben`)
       await sb.getByRole('button', { name: 'Ausgabe von Exemplar Nr. 1 stornieren' }).click()
       const dialog = sb.getByRole('alertdialog', { name: 'Ausgabe stornieren?' })
       await expect(dialog).toBeVisible()

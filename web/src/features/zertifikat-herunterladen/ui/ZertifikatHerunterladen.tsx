@@ -3,6 +3,7 @@ import { useId, useRef, useState } from 'react'
 import type { Ausgabe } from '@/entities/ausgabe'
 import type { ApiErgebnis, Datei } from '@/shared/api'
 import { speichereDatei } from '@/shared/lib/datei'
+import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { ladeZertifikat } from '../api/ladeZertifikat'
 import { zertifikatDateiname } from '../model/zertifikatDateiname'
@@ -88,7 +89,11 @@ export function ZertifikatHerunterladen({
         type="button"
         variant="outline"
         size={variante === 'zeile' ? 'sm' : 'default'}
-        className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+        // In Tabellenzeilen darf die Beschriftung umbrechen, damit die Historie ohne Querscrollen passt (AK-29).
+        className={cn(
+          'aria-disabled:cursor-not-allowed aria-disabled:opacity-50',
+          variante === 'zeile' && 'h-auto min-h-10 py-1.5 text-left whitespace-normal',
+        )}
         aria-label={name}
         aria-describedby={mitHinweis ? hinweisId : undefined}
         disabled={storniert || laedt}

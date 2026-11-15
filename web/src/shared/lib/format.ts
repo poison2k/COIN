@@ -6,6 +6,15 @@ const tagFormat = new Intl.DateTimeFormat('de-DE', {
   timeZone: 'Europe/Berlin',
 })
 
+const zeitpunktFormat = new Intl.DateTimeFormat('de-DE', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Europe/Berlin',
+})
+
 /** Zahl im Format `de-DE` (Tausenderpunkte). */
 export function formatiereZahl(zahl: number): string {
   return zahlFormat.format(zahl)
@@ -21,6 +30,12 @@ export function formatiereKalenderdatum(datum: string): string {
 export function formatiereTag(zeitpunkt: string): string {
   const datum = new Date(zeitpunkt)
   return Number.isNaN(datum.getTime()) ? '' : tagFormat.format(datum)
+}
+
+/** Tag und Uhrzeit eines Zeitstempels nach Europe/Berlin als `TT.MM.JJJJ, HH:MM`; leer bei ungültigem Wert. */
+export function formatiereZeitpunkt(zeitpunkt: string): string {
+  const datum = new Date(zeitpunkt)
+  return Number.isNaN(datum.getTime()) ? '' : zeitpunktFormat.format(datum)
 }
 
 /** Heutiges Datum nach Europe/Berlin als `JJJJ-MM-TT` (coin-ausgaben F8). */

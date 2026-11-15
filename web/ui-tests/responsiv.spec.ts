@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { ADMIN, richteApiEin, scrolltNichtHorizontal, SEITEN, type ApiZustand, type SeitenFall } from './hilfen/api.js'
 import { zuKleineKlickflaechen } from './hilfen/pruefungen.js'
+import { AUSGABE, COIN, richteFormularApiEin } from './hilfen/formulare.js'
 
 // Feature design-fundament, AK-15, AK-23, AK-31, AK-32, AK-33, AK-34 (ADR-0037 Punkt 4): kein horizontales Scrollen bei
 // 360/768/1280 px, Seitenränder und Inhaltsbreite der Shell, Umbruch des Seitenkopfs, Tabellen scrollen im Container,
@@ -114,7 +115,8 @@ test.describe('Seitenkopf (AK-23)', () => {
 })
 
 test.describe('Tabellen (AK-15)', () => {
-  for (const name of ['katalog', 'bausteine', 'benutzerverwaltung']) {
+  // formulare-detailseiten K8: Benutzer erscheinen bei 360 px als Karten (ADR-0041); abgedeckt in tabellen.spec.ts.
+  for (const name of ['katalog', 'bausteine']) {
     test(`lässt Tabellen auf „${name}“ bei 360 px in ihrem Container scrollen`, async ({ page }) => {
       await oeffne(page, seite(name), 360)
 
@@ -198,6 +200,77 @@ test.describe('Klickflächen ≥ 40 × 40 px (AK-34)', () => {
       await oeffne(page, seite('bausteine'), breite)
 
       expect(await zuKleineKlickflaechen(page.locator('main'))).toEqual([])
+    })
+  }
+})
+
+// ---------- formulare-detailseiten, AK-38: kein horizontales Scrollen mit Fehlern, Zusammenfassung, Dialog ----------
+
+test.describe('Formulare und Detailseiten ohne horizontales Scrollen (formulare-detailseiten, AK-38)', () => {
+  const FORMULARE = [
+    { pfad: '/coins/neu', h1: 'Coin hinzufügen', absenden: 'Coin anlegen' },
+    { pfad: `/coins/${COIN.id}/ausgaben/neu`, h1: 'Ausgabe erfassen', absenden: 'Ausgabe speichern' },
+  ]
+
+  for (const breite of [360, 768, 1280]) {
+    for (const { pfad, h1, absenden } of FORMULARE) {
+      test(`${pfad} mit Fehlern und Zusammenfassung bei ${breite} px`, async ({ page }) => {
+        await page.setViewportSize({ width: breite, height: 900 })
+        api = await richteFormularApiEin(page, ADMIN)
+        await page.goto(pfad)
+        await expect(page.getByRole('heading', { level: 1, name: h1 })).toBeVisible()
+
+        await page.getByRole('button', { name: absenden }).click()
+        await expect(page.getByRole('alert').filter({ hasText: 'Bitte die markierten Eingaben prüfen.' })).toBeVisible()
+
+        await scrolltNichtHorizontal(page)
+      })
+    }
+
+    test(`Ausgabe-Seite mit geöffnetem Storno-Dialog bei ${breite} px`, async ({ page }) => {
+      await page.setViewportSize({ width: breite, height: 900 })
+      api = await richteFormularApiEin(page, ADMIN)
+      await page.goto(`/coins/${COIN.id}/ausgaben/${AUSGABE.id}`)
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+
+      await page
+        .getByRole('main')
+        .getByRole('button', { name: /stornieren/i })
+        .click()
+      await expect(page.getByRole('alertdialog', { name: 'Ausgabe stornieren?' })).toBeVisible()
+
+      await scrolltNichtHorizontal(page)
+    })
+
+    test(`Verlassen-Warnung bei ${breite} px`, async ({ page }) => {
+      await page.setViewportSize({ width: breite, height: 900 })
+      api = await richteFormularApiEin(page, ADMIN)
+      await page.goto('/coins/neu')
+      await page.getByLabel(/^Name/).fill('Coin Neu')
+      await page.getByRole('link', { name: 'Abbrechen' }).click()
+      await expect(page.getByRole('alertdialog', { name: 'Ungespeicherte Änderungen' })).toBeVisible()
+
+      await scrolltNichtHorizontal(page)
+    })
+  }
+
+  for (const breite of [360, 1280]) {
+    test(`Klickflächen auf der Ausgabe-Seite bei ${breite} px`, async ({ page }) => {
+      await page.setViewportSize({ width: breite, height: 900 })
+      api = await richteFormularApiEin(page, ADMIN)
+      await page.goto(`/coins/${COIN.id}/ausgaben/${AUSGABE.id}`)
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+
+      expect(await zuKleineKlickflaechen(page.getByRole('main'))).toEqual([])
+    })
+
+    test(`Klickflächen auf „Ausgabe erfassen“ bei ${breite} px`, async ({ page }) => {
+      await page.setViewportSize({ width: breite, height: 900 })
+      api = await richteFormularApiEin(page, ADMIN)
+      await page.goto(`/coins/${COIN.id}/ausgaben/neu`)
+      await expect(page.getByRole('button', { name: 'Ausgabe speichern' })).toBeVisible()
+
+      expect(await zuKleineKlickflaechen(page.getByRole('main'))).toEqual([])
     })
   }
 })

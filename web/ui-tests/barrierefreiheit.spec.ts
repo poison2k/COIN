@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { richteApiEin, SEITEN, setzeTheme, type ApiZustand, type SeitenFall } from './hilfen/api.js'
 import { erwarteKeineAxeVerstoesse } from './hilfen/pruefungen.js'
+import { ADMIN, AUSGABE, COIN, richteFormularApiEin } from './hilfen/formulare.js'
 
 // Feature design-fundament, AK-28, AK-40, AK-41 (ADR-0037 Punkt 1): axe meldet 0 Verstöße der Stufe serious/critical
 // auf allen Seiten aus Abschnitt 11.2 (hell und dunkel bei 1280 px, hell bei 360 px), mit geöffnetem Mobilmenü und auf
@@ -158,3 +159,91 @@ test.describe('Links im Fließtext sind unterstrichen (AK-40)', () => {
     })
   }
 })
+
+// ---------- formulare-detailseiten, AK-37: Seiten dieses Laufs (360/1280, hell/dunkel), Fehlerzustände, Dialoge ----------
+
+const FORMULAR_SEITEN = [
+  { name: 'coin-anlegen', pfad: '/coins/neu', h1: 'Coin hinzufügen', absenden: 'Coin anlegen', leeren: [] as RegExp[] },
+  {
+    name: 'coin-bearbeiten',
+    pfad: `/coins/${COIN.id}/bearbeiten`,
+    h1: 'Coin bearbeiten',
+    absenden: 'Änderungen speichern',
+    leeren: [/^Name/, /^Herausgeber/],
+  },
+  {
+    name: 'ausgabe-erfassen',
+    pfad: `/coins/${COIN.id}/ausgaben/neu`,
+    h1: 'Ausgabe erfassen',
+    absenden: 'Ausgabe speichern',
+    leeren: [] as RegExp[],
+  },
+  {
+    name: 'startseite-verwaltung',
+    pfad: '/verwaltung/startseite',
+    h1: 'Startseite verwalten',
+    absenden: 'Speichern',
+    leeren: [/^Infotext/],
+  },
+]
+
+const WEITERE_SEITEN = [
+  {
+    name: 'ausgabe-detail',
+    pfad: `/coins/${COIN.id}/ausgaben/${AUSGABE.id}`,
+    h1: `Ausgabe von Exemplar Nr. ${AUSGABE.exemplarNummer}`,
+  },
+  { name: 'benutzerverwaltung', pfad: '/benutzerverwaltung', h1: 'Benutzerverwaltung' },
+]
+
+async function oeffneFormularSeite(page: Page, pfad: string, h1: string, theme: 'light' | 'dark', breite: number) {
+  await page.setViewportSize({ width: breite, height: 900 })
+  api = await richteFormularApiEin(page, ADMIN, { theme })
+  await page.goto(pfad)
+  await expect(page.getByRole('heading', { level: 1, name: h1 })).toBeVisible()
+  await expect(page.locator('html')).toHaveClass(new RegExp(`(^|\\s)${theme}(\\s|$)`))
+}
+
+for (const seite of [...FORMULAR_SEITEN, ...WEITERE_SEITEN]) {
+  for (const breite of [360, 1280]) {
+    for (const theme of ['light', 'dark'] as const) {
+      test(`axe (formulare-detailseiten): ${seite.name} (${theme}, ${breite} px) ohne serious/critical`, async ({
+        page,
+      }) => {
+        test.slow()
+        await oeffneFormularSeite(page, seite.pfad, seite.h1, theme, breite)
+
+        await erwarteKeineAxeVerstoesse(page)
+      })
+    }
+  }
+}
+
+for (const seite of FORMULAR_SEITEN) {
+  for (const theme of ['light', 'dark'] as const) {
+    test(`axe (formulare-detailseiten): ${seite.name} im Fehlerzustand mit Zusammenfassung (${theme})`, async ({
+      page,
+    }) => {
+      test.slow()
+      await oeffneFormularSeite(page, seite.pfad, seite.h1, theme, 1280)
+      // Textfeld per Rolle, damit nicht der gleichnamige Schalter (z. B. „Infotext anzeigen“) getroffen wird.
+      for (const feld of seite.leeren) await page.getByRole('textbox', { name: feld }).first().fill('')
+
+      await page.getByRole('button', { name: seite.absenden, exact: true }).click()
+      await expect(page.getByRole('alert').filter({ hasText: 'Bitte die markierten Eingaben prüfen.' })).toBeVisible()
+
+      await erwarteKeineAxeVerstoesse(page)
+    })
+  }
+}
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`axe (formulare-detailseiten): geöffnete Verlassen-Warnung (${theme})`, async ({ page }) => {
+    await oeffneFormularSeite(page, '/coins/neu', 'Coin hinzufügen', theme, 1280)
+    await page.getByLabel(/^Name/).fill('Coin Neu')
+    await page.getByRole('link', { name: 'Abbrechen' }).click()
+    await expect(page.getByRole('alertdialog', { name: 'Ungespeicherte Änderungen' })).toBeVisible()
+
+    await erwarteKeineAxeVerstoesse(page)
+  })
+}

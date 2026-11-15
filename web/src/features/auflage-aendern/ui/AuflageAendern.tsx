@@ -1,6 +1,7 @@
-import { useId, useRef, useState, type FormEvent } from 'react'
+import { useRef, useState } from 'react'
 import { aendereAuflage, type Coin } from '@/entities/coin'
 import type { ApiErgebnis } from '@/shared/api'
+import { useFormular, useSendeSperre } from '@/shared/lib/formular'
 import { Button } from '@/shared/ui/button'
 import {
   Dialog,
@@ -11,18 +12,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog'
+import { Formularfeld } from '@/shared/ui/formularfeld'
 import { Input } from '@/shared/ui/input'
-import { Label } from '@/shared/ui/label'
 
 const AUFLAGE_MAX = 1_000_000
 const TEXT_ERFORDERLICH = 'Auflage ist erforderlich.'
 const TEXT_BEREICH = `Auflage muss zwischen 1 und ${AUFLAGE_MAX} liegen.`
+const HILFE =
+  'Beim Senken werden die Exemplare über der neuen Auflage gelöscht. Senken ist nur bis zur höchsten je ausgegebenen Nummer möglich.'
 
-function pruefe(wert: string): string | null {
-  const text = wert.trim()
-  if (text === '') return TEXT_ERFORDERLICH
+interface Werte {
+  auflage: string
+}
+
+function pruefe(werte: Werte): Partial<Record<keyof Werte, string>> {
+  const text = werte.auflage.trim()
+  if (text === '') return { auflage: TEXT_ERFORDERLICH }
   const zahl = /^\d+$/.test(text) ? Number(text) : Number.NaN
-  return zahl >= 1 && zahl <= AUFLAGE_MAX ? null : TEXT_BEREICH
+  return zahl >= 1 && zahl <= AUFLAGE_MAX ? {} : { auflage: TEXT_BEREICH }
 }
 
 function fehlertext(ergebnis: Exclude<ApiErgebnis<Coin>, { art: 'ok' | 'validierung' }>): string {
@@ -50,76 +57,56 @@ export interface AuflageAendernProps {
   onGeaendert: (coin: Coin) => void
 }
 
-/** Button „Auflage ändern“ mit Dialog (coin-ausgaben AK-25, F3/F4). */
+/**
+ * Button „Auflage ändern“ mit Dialog (coin-ausgaben AK-25, F3/F4) nach dem Formularmuster (ADR-0039): Pflichtfeld mit
+ * Hilfetext zum Senken, Fehler beim Verlassen und Absenden, Ladezustand am Speichern-Button. Der Dialog warnt beim
+ * Schließen nicht (formulare-detailseiten A3).
+ */
 export function AuflageAendern({ coinId, auflage, onGeaendert }: AuflageAendernProps) {
   const [offen, setOffen] = useState(false)
-  const [wert, setWert] = useState('')
-  const [feldFehler, setFeldFehler] = useState<string | null>(null)
   const [alarm, setAlarm] = useState<string | null>(null)
-  const [sendet, setSendet] = useState(false)
-  const sendetGerade = useRef(false)
-  const feld = useRef<HTMLInputElement>(null)
+  const { sendet, mitSperre, gesperrt } = useSendeSperre()
+  const feldRef = useRef<HTMLInputElement>(null)
   const ausloeser = useRef<HTMLButtonElement>(null)
-  const basis = useId()
-  const feldId = `${basis}-auflage`
-  const fehlerId = `${basis}-fehler`
+  const startwert = auflage === null ? '' : String(auflage)
+  const formular = useFormular<Werte>({ ausgangswerte: { auflage: startwert }, pruefe, reihenfolge: ['auflage'] })
+  const feld = formular.feld('auflage')
 
   function oeffnen() {
-    setWert(auflage === null ? '' : String(auflage))
-    setFeldFehler(null)
+    formular.zuruecksetzen({ auflage: startwert })
     setAlarm(null)
     setOffen(true)
   }
 
-  async function speichern(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (sendetGerade.current) return
-    const fehler = pruefe(wert)
-    if (fehler) {
-      setFeldFehler(fehler)
+  const speichern = formular.absenden((werte) =>
+    mitSperre(async () => {
       setAlarm(null)
-      feld.current?.focus()
-      return
-    }
-
-    sendetGerade.current = true
-    setSendet(true)
-    setFeldFehler(null)
-    setAlarm(null)
-    try {
-      const ergebnis = await aendereAuflage(coinId, Number(wert.trim()), { konfliktDetail: true })
+      const ergebnis = await aendereAuflage(coinId, Number(werte.auflage.trim()), { konfliktDetail: true })
       if (ergebnis.art === 'ok') {
         setOffen(false)
         onGeaendert(ergebnis.daten)
       } else if (ergebnis.art === 'validierung') {
         const meldung = ergebnis.fehler.auflage?.join(' ')
-        if (meldung) {
-          setFeldFehler(meldung)
-          feld.current?.focus()
-        } else {
-          setAlarm('Die Eingabe wurde vom Server abgelehnt. Bitte prüfen.')
-        }
+        if (meldung) formular.setzeServerFehler({ auflage: meldung })
+        else setAlarm('Die Eingabe wurde vom Server abgelehnt. Bitte prüfen.')
       } else {
         setAlarm(fehlertext(ergebnis))
       }
-    } finally {
-      sendetGerade.current = false
-      setSendet(false)
-    }
-  }
+    }),
+  )
 
   return (
     <>
-      <Button ref={ausloeser} type="button" variant="outline" size="sm" onClick={oeffnen}>
+      <Button ref={ausloeser} type="button" variant="outline" onClick={oeffnen}>
         Auflage ändern
       </Button>
       <Dialog
         open={offen}
         onOpenChange={(neu) => {
-          if (!sendetGerade.current) setOffen(neu)
+          if (!gesperrt()) setOffen(neu)
         }}
       >
-        <DialogContent initialFocus={feld} finalFocus={ausloeser} showCloseButton={false} aria-busy={sendet}>
+        <DialogContent initialFocus={feldRef} finalFocus={ausloeser} showCloseButton={false} aria-busy={sendet}>
           <form className="grid gap-4" noValidate onSubmit={speichern}>
             <DialogHeader>
               <DialogTitle>Auflage ändern</DialogTitle>
@@ -127,32 +114,27 @@ export function AuflageAendern({ coinId, auflage, onGeaendert }: AuflageAendernP
                 Eine Senkung ist nur bis zur höchsten jemals ausgegebenen Exemplar-Nummer möglich.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-1.5">
-              <Label htmlFor={feldId}>
-                Auflage{' '}
-                <span aria-hidden="true" className="text-destructive">
-                  *
-                </span>
-                <span className="sr-only">(Pflichtfeld)</span>
-              </Label>
-              <Input
-                ref={feld}
-                id={feldId}
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={AUFLAGE_MAX}
-                value={wert}
-                onChange={(e) => setWert(e.target.value)}
-                aria-invalid={feldFehler ? true : undefined}
-                aria-describedby={feldFehler ? fehlerId : undefined}
-              />
-              {feldFehler && (
-                <p id={fehlerId} className="text-sm text-destructive">
-                  {feldFehler}
-                </p>
+            <Formularfeld
+              label="Auflage"
+              pflicht
+              hilfetext={HILFE}
+              id={feld.id}
+              fehler={feld.fehler}
+              onBlur={feld.onBlur}
+            >
+              {(attribute) => (
+                <Input
+                  {...attribute}
+                  ref={feldRef}
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={AUFLAGE_MAX}
+                  value={feld.value}
+                  onChange={feld.onChange}
+                />
               )}
-            </div>
+            </Formularfeld>
             {alarm && (
               <p role="alert" className="text-sm text-destructive">
                 {alarm}
@@ -162,7 +144,7 @@ export function AuflageAendern({ coinId, auflage, onGeaendert }: AuflageAendernP
               <DialogClose render={<Button type="button" variant="outline" disabled={sendet} focusableWhenDisabled />}>
                 Abbrechen
               </DialogClose>
-              <Button type="submit" disabled={sendet} focusableWhenDisabled>
+              <Button type="submit" laedt={sendet}>
                 Speichern
               </Button>
             </DialogFooter>

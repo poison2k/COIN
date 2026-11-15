@@ -1,15 +1,8 @@
+import { UserCheckIcon, UserXIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { aenderungFehlertext, type BenutzerEintrag } from '@/entities/benutzer'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/shared/ui/alert-dialog'
+import { useSendeSperre } from '@/shared/lib/formular'
+import { Bestaetigungsdialog } from '@/shared/ui/bestaetigungsdialog'
 import { Button } from '@/shared/ui/button'
 import { setzeStatus } from '../api/status-aendern'
 
@@ -23,28 +16,23 @@ export interface StatusAendernProps {
   onFehler: (meldung: string) => void
 }
 
-/** Benutzer deaktivieren (mit Bestätigung) oder reaktivieren (ohne Dialog), AK-28. */
+/**
+ * Benutzer deaktivieren (mit Bestätigung über den `Bestaetigungsdialog`, formulare-detailseiten AK-18) oder
+ * reaktivieren (ohne Dialog), rollen-benutzerverwaltung AK-28. Texte unverändert (F5).
+ */
 export function StatusAendern({ benutzer, deaktiviert, beschreibungId, onGeaendert, onFehler }: StatusAendernProps) {
   const [dialogOffen, setDialogOffen] = useState(false)
-  const [sendet, setSendet] = useState(false)
   // Synchroner Schutz gegen Mehrfachsendung (AK-49): Zwei Klicks vor dem nächsten Rendern sehen den State noch nicht.
-  const sendetGerade = useRef(false)
+  const { sendet, mitSperre, gesperrt } = useSendeSperre()
   const ausloeser = useRef<HTMLButtonElement>(null)
-  const abbrechen = useRef<HTMLButtonElement>(null)
 
-  async function aendern(aktiv: boolean) {
-    if (sendetGerade.current) return
-    sendetGerade.current = true
-    setSendet(true)
-    try {
+  function aendern(aktiv: boolean) {
+    void mitSperre(async () => {
       const ergebnis = await setzeStatus(benutzer.id, aktiv)
       setDialogOffen(false)
       if (ergebnis.art === 'ok') onGeaendert(ergebnis.daten)
       else onFehler(aenderungFehlertext(ergebnis))
-    } finally {
-      sendetGerade.current = false
-      setSendet(false)
-    }
+    })
   }
 
   // Ein einziger Button für beide Zustände: Das DOM-Element bleibt nach dem Statuswechsel erhalten und behält den
@@ -64,46 +52,27 @@ export function StatusAendern({ benutzer, deaktiviert, beschreibungId, onGeaende
         focusableWhenDisabled={!deaktiviert}
         className="aria-disabled:opacity-50"
         onClick={() => {
-          if (sendetGerade.current) return
-          if (reaktivieren) void aendern(true)
+          if (gesperrt()) return
+          if (reaktivieren) aendern(true)
           else setDialogOffen(true)
         }}
       >
-        {reaktivieren ? 'Reaktivieren' : 'Deaktivieren'}
+        {reaktivieren ? <UserCheckIcon aria-hidden="true" /> : <UserXIcon aria-hidden="true" />}
+        {/* Neben der Seitenleiste (768–1279 px) nur das Symbol, damit die Benutzertabelle passt (AK-30). */}
+        <span className="md:max-xl:sr-only">{reaktivieren ? 'Reaktivieren' : 'Deaktivieren'}</span>
       </Button>
-      <AlertDialog
-        open={dialogOffen}
-        onOpenChange={(offen) => {
-          // Escape, „Abbrechen“ und Klick außerhalb schließen während der Anfrage nicht (AK-48).
-          if (!sendetGerade.current) setDialogOffen(offen)
-        }}
-      >
-        <AlertDialogContent initialFocus={abbrechen} finalFocus={ausloeser} aria-busy={sendet}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Benutzer deaktivieren?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {`${benutzer.name} kann sich danach nicht mehr in C.O.I.N. anmelden. Den öffentlichen Katalog kann er weiterhin sehen.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <p role="status" className="text-sm text-muted-foreground empty:sr-only sm:mr-auto sm:self-center">
-              {sendet ? 'Änderung wird gespeichert …' : ''}
-            </p>
-            <AlertDialogCancel ref={abbrechen} disabled={sendet} focusableWhenDisabled>
-              Abbrechen
-            </AlertDialogCancel>
-            <AlertDialogAction
-              type="button"
-              variant="destructive"
-              onClick={() => void aendern(false)}
-              disabled={sendet}
-              focusableWhenDisabled
-            >
-              Deaktivieren
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Bestaetigungsdialog
+        offen={dialogOffen}
+        onOffenAendern={setDialogOffen}
+        titel="Benutzer deaktivieren?"
+        folge={`${benutzer.name} kann sich danach nicht mehr in C.O.I.N. anmelden. Den öffentlichen Katalog kann er weiterhin sehen.`}
+        bestaetigen="Deaktivieren"
+        variante="gefaehrlich"
+        laedt={sendet}
+        ladeText="Änderung wird gespeichert …"
+        onBestaetigen={() => aendern(false)}
+        ausloeserRef={ausloeser}
+      />
     </>
   )
 }

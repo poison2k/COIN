@@ -11,6 +11,7 @@ import { istGuid } from '@/shared/lib/guid'
 import { buttonVariants } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
 import { Seitenkopf } from '@/shared/ui/seitenkopf'
+import { VerlassenWarnung } from '@/shared/ui/verlassen-warnung'
 import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
 
 const TEXT_AUFLAGE_UNBEKANNT =
@@ -32,7 +33,8 @@ interface Geladen {
 
 /**
  * Seite „Ausgabe erfassen“ (/coins/{id}/ausgaben/neu, coin-ausgaben AK-26 bis AK-29): lädt Coin und Kennzahlen und
- * zeigt das Formular oder den Grund, warum keine Ausgabe möglich ist. Ohne Router-Hooks, kein eigenes <main>.
+ * zeigt das Formular oder den Grund, warum keine Ausgabe möglich ist. Ungespeicherte Eingaben sichern das Verlassen ab
+ * (formulare-detailseiten AK-13). Kein eigenes <main>.
  */
 export function AusgabeErfassenSeite({ coinId, onErfasst }: AusgabeErfassenSeiteProps) {
   const gueltig = istGuid(coinId)
@@ -42,6 +44,7 @@ export function AusgabeErfassenSeite({ coinId, onErfasst }: AusgabeErfassenSeite
   const schluessel = `${coinId}#${versuch}`
   // Laufende Anfragen je Id wiederverwenden (z. B. im StrictMode), damit es je genau einen Request gibt.
   const anfrage = useRef<{ id: string; ergebnis: Promise<Geladen> } | null>(null)
+  const [geaendert, setGeaendert] = useState(false)
 
   useEffect(() => {
     if (!gueltig) return
@@ -119,7 +122,8 @@ export function AusgabeErfassenSeite({ coinId, onErfasst }: AusgabeErfassenSeite
         )}
       </div>
 
-      <Card className="max-w-reading">
+      {/* overflow-visible: Die Aktionsleiste klebt unter 768 px am Viewport (sticky), nicht an der Karte. */}
+      <Card className="max-w-reading overflow-visible">
         <CardContent className="grid gap-6">
           {grund ? (
             <>
@@ -130,10 +134,21 @@ export function AusgabeErfassenSeite({ coinId, onErfasst }: AusgabeErfassenSeite
             </>
           ) : (
             <>
-              <AusgabeFormular coin={coin} kennzahlen={kennzahlen} onErfasst={onErfasst} />
-              <Link {...zurueck} className={buttonVariants({ variant: 'outline', className: 'justify-self-start' })}>
-                Abbrechen
-              </Link>
+              <AusgabeFormular
+                coin={coin}
+                kennzahlen={kennzahlen}
+                onErfasst={onErfasst}
+                onGeaendert={setGeaendert}
+                abbrechen={
+                  <Link {...zurueck} className={buttonVariants({ variant: 'outline' })}>
+                    Abbrechen
+                  </Link>
+                }
+              />
+              <VerlassenWarnung
+                aktiv={geaendert}
+                beschreibung="Die Ausgabe ist nicht gespeichert. Seite trotzdem verlassen?"
+              />
             </>
           )}
         </CardContent>
