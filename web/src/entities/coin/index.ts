@@ -22,5 +22,6 @@ export {
   MELDUNG_BILD_ZU_GROSS,
   validiereBild,
 } from './model/validiereBild'
+export { CoinKarten, type CoinKartenProps } from './ui/CoinKarten'
 export { CoinListe, type CoinListeProps } from './ui/CoinListe'
 export { CoinStammdaten, type CoinStammdatenProps } from './ui/CoinStammdaten'

@@ -65,6 +65,9 @@ function ComboboxInput({
             variant="ghost"
             render={<ComboboxTrigger />}
             data-slot="input-group-button"
+            // Kein eigener Tab-Stopp (WAI-ARIA-Muster Combobox): Per Tastatur öffnet Pfeil runter im Eingabefeld die Liste
+            // (startseite-listen-pruefung AK-20: Coin, Hologrammnummer, Prüfen).
+            tabIndex={-1}
             className="group-has-data-[slot=combobox-clear]/input-group:hidden data-pressed:bg-transparent"
             disabled={disabled}
           />

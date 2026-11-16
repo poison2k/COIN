@@ -110,7 +110,13 @@ ADR-0039–0042): Formularmuster (`useFormular`, `Formularfeld`, `FormularAbschn
 `Fehlerzusammenfassung`, `Aktionsleiste`), `VerlassenWarnung`, `Bestaetigungsdialog`, `DatenTabelle`
 mit Filter-Chips und Karten; Coin-Detailseite mit Status-Chips, Aktionen im Kopf, Kennzahlenkarten und
 Reitern (`?reiter=stammdaten|exemplare|ausgaben|vorlage`); die Zertifikatsvorlage liegt im Reiter
-„Zertifikatsvorlage“ statt auf `/coins/{id}/bearbeiten`; Ausgabe-Seite mit Verlauf und Stornieren. Noch nicht vorhanden: Signatur, PDF, QR-Code,
+„Zertifikatsvorlage“ statt auf `/coins/{id}/bearbeiten`; Ausgabe-Seite mit Verlauf und Stornieren.
+Startseite, Listen und Prüfmaske (`docs/features/startseite-listen-pruefung.md`, ADR-0043/0044):
+Startseite als Zeilenraster ohne Lücken (`bildeZeilen`), Kennzahlkarten, Rangliste; Katalog mit
+Karten-/Tabellenansicht (`Ansichtsumschalter`, Wahl in `localStorage` `coin-katalog-ansicht`);
+Prüfmaske als zentrierte Seite mit `Ergebniskarte`, Fokus bleibt nach der Prüfung im Feld;
+Audit-Log mit Benutzerfilter (Zeitraum/Aktion offen); Zeitpunkte nur über `shared/lib/format.ts`
+(Europe/Berlin, „Uhr“). Noch nicht vorhanden: Signatur, PDF, QR-Code,
 öffentliche Prüfseite,
 Löschkonzept für Audit, Empfängerdaten und Vorlagenversionen.
 Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup im `README.md`.
@@ -154,9 +160,11 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
   Die Tailwind-Standardpalette ist abgeschaltet (`--color-*: initial`).
 - Bausteine aus `shared/ui` verwenden (Button, Formularfeld, Card, Badge, Hinweisbanner,
   Seitenkopf, Ladeanzeige/Leerzustand/Fehlerzustand, Toast, Bestätigungsdialog, Datentabelle,
-  Filterleiste, Kennzahlkarte, Zeitleiste, Fortschrittsbalken; Übersicht unter
-  `/entwicklung/bausteine`, nur in Entwicklung). Neue Seiten: `Seitenkopf` + `Card`, kein
-  eigener Seitenrand und keine eigene Maximalbreite (Shell, ADR-0036).
+  Filterleiste, Kennzahlkarte, Zeitleiste, Fortschrittsbalken, Ansichtsumschalter, Rangliste,
+  Ergebniskarte; Übersicht unter `/entwicklung/bausteine`, nur in Entwicklung). Neue Seiten:
+  `Seitenkopf` + `Card`, kein eigener Seitenrand und keine eigene Maximalbreite (Shell, ADR-0036);
+  einzige Ausnahme ist die zentrierte Spalte von `/pruefung` (ADR-0043). Am Combobox-Trigger
+  „Vorschläge anzeigen“ muss `tabIndex={-1}` auch nach `npx shadcn add` erhalten bleiben.
 - WCAG 2.1 AA: Text ≥ 4,5:1, Fokus sichtbar (`ring` ohne Deckkraft), Klickflächen ≥ 40 px,
   Bedeutung nie nur über Farbe; axe ohne serious/critical (ADR-0037), 360 px ohne
   horizontales Scrollen. Neue Seiten in `barrierefreiheit.spec.ts`/`responsiv.spec.ts`
@@ -169,9 +177,16 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
 - Tabellen über `DatenTabelle` mit `Filterleiste` (ADR-0041), Karten auf kleinen Bildschirmen;
   sortiert wird nur clientseitig bei vollständig geladenen Listen. Reiter von Detailseiten stehen im
   Suchparameter `reiter` und wechseln per `replace` (ADR-0042).
+- Seitenzustände immer über `Ladeanzeige`/`Leerzustand`/`Fehlerzustand` (mit „Erneut versuchen“),
+  nie eigenes `<p role="alert">` für Ladefehler; Datum/Uhrzeit nie mit eigenem `Intl.DateTimeFormat`
+  (geprüft in `web/src/app/konsistenz.test.ts`). `localStorage` nur über `useLokaleWahl` mit
+  Schlüssel aus `shared/config/speicher.ts` und Positivliste (ADR-0044), nie für Fachdaten.
 - Screenshots zur Sichtprüfung: `COIN_SCREENSHOTS=1` mit `web/ui-tests/screenshots.spec.ts`
   nach `docs/design/ablage/`; `web/ui-tests/screenshots-formulare.spec.ts` schreibt nur lokal nach
-  `web/test-results/screenshots-formulare/` (nicht einchecken).
+  `web/test-results/screenshots-formulare/` (nicht einchecken); ebenso
+  `screenshots-uebersicht.spec.ts` nach `web/test-results/screenshots-uebersicht/`. Ausnahme:
+  `COIN_VERGLEICH=vorher|nachher` mit `vergleich-startseite.spec.ts` schreibt eingecheckte
+  Vergleichsbilder nach `docs/design/vergleich-startseite/`.
 
 ## Sicherheit und Datenschutz
 - Ausgaben enthalten Personendaten (Empfänger) und gelten als schutzbedürftig. Zugriff nur mit

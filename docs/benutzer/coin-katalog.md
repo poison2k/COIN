@@ -59,16 +59,31 @@ Ihre Wahl wird im Browser gespeichert und gilt auch nach dem Neuladen der Seite.
 
 ## Katalog ansehen
 
-Die Seite **Katalog** zeigt eine Tabelle mit den Spalten **Bild**, **Name**, **Herausgeber**,
-**Auflage** und **Erfasst am**, alphabetisch nach Name sortiert, 25 Coins pro Seite.
+Die Seite **Katalog** zeigt die Coins alphabetisch nach Name, 25 Coins pro Seite. Oben steht eine
+Leiste mit der Suche und dem Umschalter **Ansicht**.
 
-- **Bild**: kleines Vorschaubild des Motivs oder „Kein Bild“.
-- **Auflage**: z. B. „1.000“, oder „unbekannt“, wenn keine Auflage angegeben wurde.
-- **Erfasst am**: Datum der Erfassung, z. B. 05.10.2026.
+### Ansicht wählen: Tabelle oder Karten
+
+Mit **Tabelle** und **Karten** im Umschalter **Ansicht** wechseln Sie die Darstellung. Der gewählte
+Button ist hervorgehoben. Mit der Tastatur: **Tab** bis zum Button, dann **Eingabetaste** oder
+**Leertaste**. Suche und Seite bleiben beim Wechsel erhalten.
+
+- **Tabelle** (Voreinstellung): Spalten **Bild**, **Name**, **Herausgeber**, **Auflage** und
+  **Erfasst am**.
+  - **Bild**: kleines Vorschaubild des Motivs oder „Kein Bild“.
+  - **Auflage**: z. B. „1.000“, oder die Markierung „unbekannt“, wenn keine Auflage angegeben wurde.
+  - **Erfasst am**: Datum der Erfassung, z. B. 05.10.2026.
+  - Auf schmalen Bildschirmen lässt sich die Tabelle seitlich verschieben.
+- **Karten**: je Coin eine Karte mit großem Motivbild (oder „Kein Bild“), Name, Herausgeber,
+  **Auflage** und **Erfasst am**; ohne Auflage zusätzlich die Markierung „Auflage unbekannt“.
+
+Ihre Wahl merkt sich der Browser (auch nach dem Neuladen und beim nächsten Besuch). Sie steht nicht in
+der Adresse; ein geteilter Link öffnet beim Empfänger dessen eigene Ansicht.
 
 Solange der Katalog lädt, erscheint „Coins werden geladen …“. Gibt es noch keine Coins, steht dort
 „Noch keine Coins erfasst.“ Kann der Katalog nicht geladen werden, erscheint „Coins konnten nicht
-geladen werden. Bitte später erneut versuchen.“
+geladen werden. Bitte später erneut versuchen.“ mit dem Button **Erneut versuchen**, der dieselbe
+Suche und Seite neu lädt.
 
 ### Suchen
 
@@ -77,13 +92,15 @@ geladen werden. Bitte später erneut versuchen.“
 2. Klicken Sie auf **Suchen** oder drücken Sie die Eingabetaste. Die Suche beginnt immer auf Seite 1.
    Ein leeres Suchfeld zeigt wieder alle Coins.
 
-Über der Tabelle steht, wie viele Coins gefunden wurden, z. B. „3 Coins gefunden“. Gibt es keinen
-Treffer, steht dort „Keine Coins gefunden.“ Ist das Laden fehlgeschlagen, startet ein erneuter Klick
-auf **Suchen** das Laden neu.
+Über der Liste steht, wie viele Coins gefunden wurden, z. B. „3 Coins gefunden“. Ein aktiver
+Suchbegriff erscheint als Chip „Suche: …“; das Kreuz im Chip hebt die Suche auf und zeigt wieder alle
+Coins ab Seite 1 (siehe [Bedienung](bedienung.md#filter-chips)). Gibt es keinen Treffer, steht dort
+„Keine Coins gefunden.“ mit einem Hinweis zur Schreibweise und dem Button **Suche zurücksetzen**. Ist
+das Laden fehlgeschlagen, startet auch ein erneuter Klick auf **Suchen** das Laden neu.
 
 ### Blättern
 
-Mit **Vorherige Seite** und **Nächste Seite** unter der Tabelle blättern Sie; dazwischen steht
+Mit **Vorherige Seite** und **Nächste Seite** unter der Liste blättern Sie (in beiden Ansichten); dazwischen steht
 „Seite x von y“. Auf der ersten bzw. letzten Seite ist der jeweilige Button gesperrt. Während die
 nächste Seite lädt, bleibt die bisherige Seite sichtbar.
 
@@ -94,9 +111,9 @@ Coins.“ **Vorherige Seite** führt dann zur letzten vorhandenen Seite.
 
 ### Coin öffnen
 
-Klicken Sie auf den Namen eines Coins oder irgendwo in seine Zeile. Mit der Tastatur erreichen Sie
-den Namen mit der Tab-Taste und öffnen ihn mit der Eingabetaste. Mit gedrückter Strg-, Cmd-,
-Umschalt- oder Alt-Taste öffnet ein Klick auf die Zeile nichts; den Namen können Sie so wie jeden
+Klicken Sie auf den Namen eines Coins oder irgendwo in seine Zeile bzw. Karte. Mit der Tastatur
+erreichen Sie den Namen mit der Tab-Taste und öffnen ihn mit der Eingabetaste. Mit gedrückter Strg-,
+Cmd-, Umschalt- oder Alt-Taste öffnet ein Klick auf die Zeile oder Karte nichts; den Namen können Sie so wie jeden
 Link z. B. in einem neuen Tab öffnen.
 
 Mit **Zurück** im Browser kommen Sie von der Detailseite wieder zu derselben Suche und Seite.

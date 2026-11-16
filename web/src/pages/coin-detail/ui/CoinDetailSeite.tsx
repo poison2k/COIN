@@ -276,6 +276,7 @@ export function CoinDetailSeite({
                 onSeite={onSeite}
                 daten={exemplare}
                 kennzahlenZeigen={false}
+                onErneutVersuchen={() => setExemplareNeuLaden((n) => n + 1)}
               />
             </CardContent>
           </Card>

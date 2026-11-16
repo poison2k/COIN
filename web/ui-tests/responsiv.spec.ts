@@ -2,6 +2,20 @@ import { expect, test, type Page } from '@playwright/test'
 import { ADMIN, richteApiEin, scrolltNichtHorizontal, SEITEN, type ApiZustand, type SeitenFall } from './hilfen/api.js'
 import { zuKleineKlickflaechen } from './hilfen/pruefungen.js'
 import { AUSGABE, COIN, richteFormularApiEin } from './hilfen/formulare.js'
+import {
+  ansichtsKnopf,
+  BETRACHTER,
+  mockeAudit,
+  mockeKatalog,
+  mockePruefung,
+  oeffneAuditLog,
+  oeffneStartseitenFall,
+  pruefePerEnter,
+  SACHBEARBEITER,
+  STARTSEITEN_FAELLE,
+  UEBERSCHRIFT,
+  type Ergebnis,
+} from './hilfen/uebersicht.js'
 
 // Feature design-fundament, AK-15, AK-23, AK-31, AK-32, AK-33, AK-34 (ADR-0037 Punkt 4): kein horizontales Scrollen bei
 // 360/768/1280 px, Seitenränder und Inhaltsbreite der Shell, Umbruch des Seitenkopfs, Tabellen scrollen im Container,
@@ -269,6 +283,121 @@ test.describe('Formulare und Detailseiten ohne horizontales Scrollen (formulare-
       api = await richteFormularApiEin(page, ADMIN)
       await page.goto(`/coins/${COIN.id}/ausgaben/neu`)
       await expect(page.getByRole('button', { name: 'Ausgabe speichern' })).toBeVisible()
+
+      expect(await zuKleineKlickflaechen(page.getByRole('main'))).toEqual([])
+    })
+  }
+})
+
+// ---------- startseite-listen-pruefung, AK-41: Zustände dieses Laufs ohne horizontales Scrollen, Klickflächen ----------
+
+const BREITEN = [360, 768, 1280] as const
+
+test.describe('Startseite, Katalog, Prüfmaske und Audit-Log ohne horizontales Scrollen (AK-41)', () => {
+  for (const fall of STARTSEITEN_FAELLE) {
+    for (const breite of BREITEN) {
+      test(`Startseite ${fall.name} bei ${breite} px`, async ({ page }) => {
+        api = await oeffneStartseitenFall(page, fall, { breite })
+
+        await scrolltNichtHorizontal(page)
+      })
+    }
+  }
+
+  const KATALOG: ReadonlyArray<
+    [string, { coins?: unknown[]; fehler?: number; karten?: boolean; pfad?: string }, RegExp]
+  > = [
+    ['Tabelle', {}, /gefunden/],
+    ['Karten', { karten: true }, /gefunden/],
+    ['leer', { coins: [] }, /Noch keine Coins erfasst/],
+    ['kein Treffer', { pfad: '/coins?suche=gibtesnicht' }, /Keine Coins gefunden/],
+    ['Fehler', { fehler: 5 }, /Coins konnten nicht geladen werden/],
+  ]
+  for (const [name, zustand, bereit] of KATALOG) {
+    for (const breite of BREITEN) {
+      test(`Katalog ${name} bei ${breite} px`, async ({ page }) => {
+        await page.setViewportSize({ width: breite, height: 900 })
+        api = await richteApiEin(page, ADMIN)
+        await mockeKatalog(page, { coins: zustand.coins, fehler: zustand.fehler })
+        await page.goto(zustand.pfad ?? '/coins')
+        await expect(page.getByRole('main').getByText(bereit).first()).toBeVisible()
+        if (zustand.karten) {
+          await ansichtsKnopf(page, 'Karten').click()
+          await expect(page.getByRole('main').getByRole('list', { name: 'Coins' })).toBeVisible()
+        }
+
+        await scrolltNichtHorizontal(page)
+      })
+    }
+  }
+
+  for (const ergebnis of Object.keys(UEBERSCHRIFT) as Ergebnis[]) {
+    for (const breite of BREITEN) {
+      test(`Prüfmaske ${ergebnis} (Sachbearbeiter) bei ${breite} px`, async ({ page }) => {
+        await page.setViewportSize({ width: breite, height: 900 })
+        api = await richteApiEin(page, SACHBEARBEITER)
+        await mockePruefung(page)
+        await page.goto('/pruefung')
+
+        await pruefePerEnter(page, ergebnis)
+
+        await scrolltNichtHorizontal(page)
+      })
+    }
+  }
+
+  for (const [name, leer] of [
+    ['mit aktivem Filter', false],
+    ['leer', true],
+  ] as const) {
+    for (const breite of BREITEN) {
+      test(`Audit-Log ${name} bei ${breite} px`, async ({ page }) => {
+        await page.setViewportSize({ width: breite, height: 900 })
+        api = await richteApiEin(page, ADMIN)
+        await mockeAudit(page, { leer })
+        await oeffneAuditLog(page)
+        const panel = page.getByRole('tabpanel', { name: 'Audit-Log' })
+        if (leer) {
+          await expect(panel.getByRole('heading', { level: 3, name: 'Noch keine Einträge.' })).toBeVisible()
+        } else {
+          const feld = panel.getByRole('combobox', { name: /^Benutzer/ })
+          await feld.click()
+          await feld.pressSequentially('Betr')
+          await page.getByRole('option', { name: BETRACHTER.name }).click()
+          await expect(panel.getByRole('list', { name: 'Aktive Filter' })).toBeVisible()
+        }
+
+        await scrolltNichtHorizontal(page)
+      })
+    }
+  }
+})
+
+test.describe('Klickflächen ≥ 40 × 40 px auf Startseite, Katalog und Prüfmaske (AK-41)', () => {
+  for (const breite of [360, 1280]) {
+    test(`auf der Startseite (alle Blöcke, einschließlich Startseiten-Links) bei ${breite} px`, async ({ page }) => {
+      api = await oeffneStartseitenFall(page, STARTSEITEN_FAELLE[0], { breite })
+
+      expect(await zuKleineKlickflaechen(page.getByRole('main'))).toEqual([])
+    })
+
+    test(`im Katalog mit Ansichtsumschalter und Kartenlinks bei ${breite} px`, async ({ page }) => {
+      await page.setViewportSize({ width: breite, height: 900 })
+      api = await richteApiEin(page, ADMIN)
+      await mockeKatalog(page)
+      await page.goto('/coins')
+      await ansichtsKnopf(page, 'Karten').click()
+      await expect(page.getByRole('main').getByRole('list', { name: 'Coins' })).toBeVisible()
+
+      expect(await zuKleineKlickflaechen(page.getByRole('main'))).toEqual([])
+    })
+
+    test(`auf der Prüfmaske mit Ergebnis bei ${breite} px`, async ({ page }) => {
+      await page.setViewportSize({ width: breite, height: 900 })
+      api = await richteApiEin(page, SACHBEARBEITER)
+      await mockePruefung(page)
+      await page.goto('/pruefung')
+      await pruefePerEnter(page, 'gueltig')
 
       expect(await zuKleineKlickflaechen(page.getByRole('main'))).toEqual([])
     })

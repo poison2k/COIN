@@ -281,7 +281,7 @@ Gemeinsame Mocks für die neuen UI-Tests (angemeldet als Administrator, Betracht
 `/` (anonym und Administrator), `/coins`, `/coins/neu`, `/coins/{id}`, `/coins/{id}/bearbeiten`, `/coins/{id}/ausgaben/neu`, `/coins/{id}/ausgaben/{aid}`, `/pruefung` (mit gültigem Ergebnis), `/benutzerverwaltung`, `/verwaltung/startseite`, `/kein-zugriff` (ohne Rolle), `/abgemeldet`, `/anmeldung/rueckruf` (fehlgeschlagen), unbekannter Pfad (404), `/entwicklung/bausteine`.
 
 ## 12. Sicherheit, Datenschutz, Doku
-- Kein neuer Endpunkt, keine neue Berechtigung, keine neue Speicherung. `localStorage` enthält weiter nur `coin-theme`, für die Seitenleiste gibt es kein Cookie (ADR-0009).
+- Kein neuer Endpunkt, keine neue Berechtigung, keine neue Speicherung. `localStorage` enthielt in diesem Lauf nur `coin-theme`, für die Seitenleiste gibt es kein Cookie (ADR-0009). Seit startseite-listen-pruefung kommt `coin-katalog-ansicht` (Ansicht des Katalogs, `tabelle`/`karten`) hinzu ([ADR-0044](../adr/0044-ansichtswahl-lokal-speichern.md)); weitere Schlüssel gibt es nicht.
 - Die Bausteinseite ist nicht im Produktions-Bundle (AK-39) und zeigt nur synthetische Daten.
 - Kein `dangerouslySetInnerHTML`, Schrift lokal (kein CDN), keine externen Ressourcen.
 - Die Rolle in der Kopfzeile ist reine Anzeige, Sichtbarkeit nur aus `berechtigungen` (CLAUDE.md, `abhaengigkeiten.test.ts`).
@@ -326,8 +326,8 @@ Umgesetzt auf `feature/design-fundament`. Neue Tests wie in Abschnitt 11.1, dazu
 
 ### Abweichungen
 1. **„Kein Zugriff“ ohne Seitenkopf (Abschnitt 8, AK-36):** Das h1 steht direkt in der `Card`, gestaltet wie der Seitenkopf. Grund: `web/src/app/App.anmeldung.test.tsx:425` verlangt den Button „Abmelden“ im Elternelement des h1. Die Umstellung auf `Seitenkopf` folgt in einem Folgelauf mit freigegebener Testanpassung.
-2. **Startseite zwischen 768 und 1023 px einspaltig:** Die Blöcke stehen erst ab `lg` (1024 px) dreispaltig (`StartseiteBloecke`, `lg:grid-cols-3`), vorher untereinander. Bei 768 px mit sichtbarer Seitenleiste führte die dreispaltige Anordnung zu horizontalem Scrollen (AK-33).
-3. **Prüfseite mit einer gemeinsamen Karte:** Formular und Ergebnis stehen in einer `Card` statt in zwei (Abschnitt 8). Das Ergebnis gehört zum Formular `PruefFormular` und wird dort gerendert.
+2. **Startseite zwischen 768 und 1023 px einspaltig:** Die Blöcke stehen erst ab `lg` (1024 px) dreispaltig (`StartseiteBloecke`, `lg:grid-cols-3`), vorher untereinander. Bei 768 px mit sichtbarer Seitenleiste führte die dreispaltige Anordnung zu horizontalem Scrollen (AK-33). Abgelöst durch das Zeilenraster aus [startseite-listen-pruefung](startseite-listen-pruefung.md) 4.1 (ADR-0043): Paarzeilen ab 1024 px zweispaltig, sonst eine Spalte.
+3. **Prüfseite mit einer gemeinsamen Karte:** Formular und Ergebnis standen in einer `Card` statt in zwei (Abschnitt 8). Abgelöst durch [startseite-listen-pruefung](startseite-listen-pruefung.md) 4.3: Formular in einer Karte, das Ergebnis als eigene Ergebniskarte darunter.
 4. **Formularfeld – Pflichtkennzeichnung (AK-13):** Ersetzt durch [ADR-0039](../adr/0039-formularmuster-und-validierung.md) Punkt 3 (formulare-detailseiten): sichtbar „(Pflicht)“ (`aria-hidden`), im zugänglichen Namen „(Pflichtfeld)“ (sr-only), z. B. „Name (Pflichtfeld)“.
 5. **Zugänglicher Name des Zertifikat-Buttons (WCAG 2.5.3):** axe meldete `label-content-name-mismatch`, weil „Zertifikat C0042-0012 herunterladen“ den sichtbaren Text „Zertifikat herunterladen“ nicht zusammenhängend enthält. Auf Entscheidung des Auftraggebers vom 2026-11-13 heißt der Button jetzt „Zertifikat herunterladen: <Nummer>“, bei Storno „Zertifikat herunterladen: <Nummer> (nicht möglich, Ausgabe storniert)“. Der sichtbare Text bleibt gleich. Die betroffenen bestehenden Tests (u. a. `ZertifikatHerunterladen.test.tsx`, `App.zertifikat-erzeugen.test.tsx`, `e2e/tests/zertifikat-erzeugen.spec.ts`) wurden mit Freigabe angepasst. Nachgezogen in [zertifikat-erzeugen](zertifikat-erzeugen.md) AK-24 und Abschnitt 12.
 6. **Toast-Ansage ohne `priority: 'high'`:** siehe Nachtrag in [ADR-0038](../adr/0038-toast-mit-base-ui.md).
@@ -335,7 +335,7 @@ Umgesetzt auf `feature/design-fundament`. Neue Tests wie in Abschnitt 11.1, dazu
 
 ### Vormerkungen für Folgeläufe
 - Brotkrumen auf bestehenden Seiten (D1), mit freigegebener Testanpassung.
-- Zustände in Widgets (Katalog, Exemplare, Historie, Benutzer, Audit, Startseiten-Blöcke, Prüfergebnis) auf `Ladeanzeige`/`Leerzustand`/`Fehlerzustand` (D2).
-- Tabellen-Umbau: erledigt für Exemplare, Ausgabehistorie, Benutzer, Audit-Log und Vorlagenversionen (`DatenTabelle`, Textlinks ≥ 40 px, ADR-0041). Offen für den Katalog `/coins` (Listen der Übersicht, formulare-detailseiten F6).
+- Zustände in Widgets (D2): erledigt in startseite-listen-pruefung (Abschnitt 13 dort).
+- Tabellen-Umbau: erledigt für Exemplare, Ausgabehistorie, Benutzer, Audit-Log und Vorlagenversionen (`DatenTabelle`, Textlinks ≥ 40 px, ADR-0041). Der Katalog `/coins` hat seit startseite-listen-pruefung eine Kartenansicht, die Tabelle (`CoinListe`) nutzt aber weiter die shadcn-`Table` statt `DatenTabelle` (dort Abschnitt 14).
 - Seitenkopf auf „Kein Zugriff“ (Abweichung 1).
 - Entfernen von `framer-motion` und `react-day-picker` in einem `chore/*`-Branch (D13).

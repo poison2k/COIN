@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { ROUTEN } from '@/shared/config'
 import { useZeilenklick } from '@/shared/lib/hooks'
+import { Badge } from '@/shared/ui/badge'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
 import type { Coin } from '../model/types'
 import { formatiereAuflage, formatiereDatum } from './format'
@@ -27,7 +28,9 @@ export function CoinListe({ coins }: CoinListeProps) {
           <TableHead scope="col">Bild</TableHead>
           <TableHead scope="col">Name</TableHead>
           <TableHead scope="col">Herausgeber</TableHead>
-          <TableHead scope="col">Auflage</TableHead>
+          <TableHead scope="col" className="text-right">
+            Auflage
+          </TableHead>
           <TableHead scope="col">Erfasst am</TableHead>
         </TableRow>
       </TableHeader>
@@ -59,7 +62,14 @@ export function CoinListe({ coins }: CoinListeProps) {
               </Link>
             </TableCell>
             <TableCell>{coin.herausgeber}</TableCell>
-            <TableCell>{formatiereAuflage(coin.auflage)}</TableCell>
+            <TableCell className="text-right tabular-nums">
+              {/* Ohne Auflage ein Chip mit genau dem Text „unbekannt“ (startseite-listen-pruefung AK-14, F3). */}
+              {coin.auflage === null ? (
+                <Badge variant="warning">{formatiereAuflage(null)}</Badge>
+              ) : (
+                formatiereAuflage(coin.auflage)
+              )}
+            </TableCell>
             <TableCell>{formatiereDatum(coin.erstelltAm)}</TableCell>
           </TableRow>
         ))}

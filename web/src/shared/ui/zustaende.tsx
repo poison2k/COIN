@@ -1,5 +1,5 @@
 import { RotateCcwIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { cn } from '@/shared/lib/cn'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
@@ -16,7 +16,7 @@ export interface LeerzustandProps {
   /** Dekoratives Icon; wird für Screenreader ausgeblendet. */
   icon?: ReactNode
   /** Überschriftenebene des Titels (Standard 2). */
-  titelEbene?: 1 | 2 | 3
+  titelEbene?: 1 | 2 | 3 | 4
   className?: string
 }
 
@@ -43,6 +43,11 @@ export function Leerzustand({ titel, beschreibung, aktion, icon, titelEbene = 2,
 export interface LadeanzeigeProps {
   /** Text nur für Screenreader, z. B. „Coin wird geladen …“. */
   text: string
+  /**
+   * `false`, wenn eine eigene Statuszeile den Ladetext schon ansagt (z. B. Katalog, Audit-Log): dann nur die
+   * Platzhalter ohne zweite Live-Region (startseite-listen-pruefung, Abschnitt 4.2).
+   */
+  ansage?: boolean
   form?: 'zeilen' | 'karte' | 'tabelle'
   className?: string
 }
@@ -79,12 +84,14 @@ function Platzhalter({ form }: { form: NonNullable<LadeanzeigeProps['form']> }) 
   }
 }
 
-export function Ladeanzeige({ text, form = 'zeilen', className }: LadeanzeigeProps) {
+export function Ladeanzeige({ text, form = 'zeilen', ansage = true, className }: LadeanzeigeProps) {
   return (
     <div className={cn('grid w-full gap-4', className)}>
-      <span role="status" className="sr-only">
-        {text}
-      </span>
+      {ansage && (
+        <span role="status" className="sr-only">
+          {text}
+        </span>
+      )}
       <div aria-hidden="true">
         <Platzhalter form={form} />
       </div>
@@ -99,12 +106,30 @@ export interface FehlerzustandProps {
   onErneutVersuchen?: () => void
   /** Weitere Bedienelemente (z. B. ein Link) neben „Erneut versuchen“. */
   aktion?: ReactNode
+  /** Ref auf die Alarm-Wurzel, z. B. für die Fokusführung beim Blättern (`useFokusBeiLadefehler`). */
+  ref?: Ref<HTMLDivElement>
+  /** Per Skript fokussierbar (`tabIndex={-1}`) mit sichtbarem Fokusring, ohne eigenen Tab-Stopp. */
+  fokussierbar?: boolean
   className?: string
 }
 
-export function Fehlerzustand({ meldung, titel, onErneutVersuchen, aktion, className }: FehlerzustandProps) {
+export function Fehlerzustand({
+  meldung,
+  titel,
+  onErneutVersuchen,
+  aktion,
+  ref,
+  fokussierbar = false,
+  className,
+}: FehlerzustandProps) {
   return (
-    <Alert variant="destructive" role="alert" className={className}>
+    <Alert
+      ref={ref}
+      variant="destructive"
+      role="alert"
+      tabIndex={fokussierbar ? -1 : undefined}
+      className={cn(fokussierbar && 'outline-none focus-visible:ring-3 focus-visible:ring-ring', className)}
+    >
       {titel && <AlertTitle>{titel}</AlertTitle>}
       <AlertDescription>{meldung}</AlertDescription>
       {(onErneutVersuchen || aktion) && (

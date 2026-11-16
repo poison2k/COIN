@@ -10,6 +10,7 @@ import { buttonVariants } from '@/shared/ui/button'
 import { Filterleiste } from '@/shared/ui/filterleiste'
 import { Label } from '@/shared/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
+import { Fehlerzustand, Leerzustand } from '@/shared/ui/zustaende'
 import { useExemplare, type ExemplareDaten } from '../model/use-exemplare'
 
 type Filter = ExemplarStatus | 'alle'
@@ -46,6 +47,8 @@ export interface CoinExemplareProps {
   daten?: ExemplareDaten
   /** Kennzahlen im Abschnitt zeigen (Standard `true`); die Detailseite zeigt sie im Kopf. */
   kennzahlenZeigen?: boolean
+  /** „Erneut versuchen“ bei Daten von außen (der Aufrufer lädt neu); sonst lädt das Widget selbst neu. */
+  onErneutVersuchen?: () => void
 }
 
 /**
@@ -65,6 +68,7 @@ export function CoinExemplare({
   onAuflageGeaendert,
   daten: datenVonAussen,
   kennzahlenZeigen = true,
+  onErneutVersuchen,
 }: CoinExemplareProps) {
   // Eigener Zähler für „Auflage geändert“; zusammen mit `neuLaden` Teil des Schlüssels.
   const [eigenesNeuLaden, setEigenesNeuLaden] = useState(0)
@@ -113,14 +117,12 @@ export function CoinExemplare({
         {laedt ? 'Exemplare werden geladen …' : (meldung ?? '')}
       </p>
       {fehlgeschlagen && (
-        <p
+        <Fehlerzustand
           ref={alarmRef}
-          role="alert"
-          tabIndex={-1}
-          className="rounded-md text-destructive outline-none focus-visible:ring-3 focus-visible:ring-ring"
-        >
-          Die Exemplare konnten nicht geladen werden. Bitte später erneut versuchen.
-        </p>
+          fokussierbar
+          meldung="Die Exemplare konnten nicht geladen werden. Bitte später erneut versuchen."
+          onErneutVersuchen={datenVonAussen === undefined ? () => setEigenesNeuLaden((n) => n + 1) : onErneutVersuchen}
+        />
       )}
 
       {daten && (kennzahlenZeigen || darfAuflageAendern || darfErfassen) && (
@@ -143,9 +145,10 @@ export function CoinExemplare({
 
       {daten &&
         (!auflageBekannt ? (
-          <p className="text-muted-foreground">
-            Für diesen Coin ist keine Auflage erfasst. Es gibt daher keine Exemplare.
-          </p>
+          <Leerzustand
+            titelEbene={3}
+            titel="Für diesen Coin ist keine Auflage erfasst. Es gibt daher keine Exemplare."
+          />
         ) : (
           <>
             <Filterleiste
@@ -172,13 +175,13 @@ export function CoinExemplare({
               </div>
             </Filterleiste>
             {daten.gesamt === 0 ? (
-              <p className="text-muted-foreground">Keine Exemplare mit diesem Status.</p>
+              <Leerzustand titelEbene={3} titel="Keine Exemplare mit diesem Status." />
             ) : (
               <>
                 {daten.eintraege.length > 0 ? (
                   <ExemplarTabelle exemplare={daten.eintraege} />
                 ) : (
-                  <p className="text-muted-foreground">Auf dieser Seite gibt es keine Exemplare.</p>
+                  <Leerzustand titelEbene={3} titel="Auf dieser Seite gibt es keine Exemplare." />
                 )}
                 <div ref={bereichRef}>
                   <Blaettern

@@ -30,3 +30,7 @@ Alle Seiten sollen auf einem gemeinsamen Gerüst aufbauen: gruppierte, einklappb
 - Neue Seiten verwenden `Seitenkopf`, `Card` und die Zustandsbausteine. Eigene Ränder, Breiten und Farben in Seiten sind nicht vorgesehen.
 - Brotkrumen auf bestehenden Seiten und die Zustände in Widgets folgen in eigenen Läufen mit freigegebener Testanpassung.
 - Die Bausteinseite ist die lebende Referenz der Bausteine. Neue Bausteine werden dort mit allen Varianten ergänzt.
+
+## Nachtrag (2026-11-15, startseite-listen-pruefung)
+- **Ausnahme zu Punkt 1:** `/pruefung` steht als einzige Seite in einer zentrierten Spalte `mx-auto max-w-reading` ([ADR-0043](0043-uebersichtsmuster-startseitenraster-katalog-pruefmaske.md) Punkt 3). Rand und Maximalbreite der Shell gelten dort weiter.
+- **Zu Punkt 5:** Die Zustände in Widgets nutzen jetzt ebenfalls `Ladeanzeige`, `Leerzustand` und `Fehlerzustand` mit „Erneut versuchen“ (Liste in [startseite-listen-pruefung](../features/startseite-listen-pruefung.md) Abschnitt 13).

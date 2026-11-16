@@ -399,6 +399,13 @@ export function FormularBausteine() {
             anteil={{ wert: 147, von: 150, text: '147 von 150 verfügbar (98 %)' }}
           />
         </KennzahlRaster>
+        <p className="text-sm text-muted-foreground">Vier Spalten (ab 1024 px), Wert groß:</p>
+        <KennzahlRaster spalten={4}>
+          <KennzahlKarte begriff="Coins" wert="12" groesse="gross" />
+          <KennzahlKarte begriff="Exemplare gesamt" wert="1.800" groesse="gross" />
+          <KennzahlKarte begriff="Ausgegeben" wert="245" groesse="gross" />
+          <KennzahlKarte begriff="Verfügbar" wert="1.555" groesse="gross" />
+        </KennzahlRaster>
       </Abschnitt>
 
       <Abschnitt titel="Zeitleiste" beschreibung="Geordnete Liste, älteste zuerst; Zeitpunkte als time-Element.">

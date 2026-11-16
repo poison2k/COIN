@@ -36,6 +36,7 @@ import { useToast } from '@/shared/ui/toast'
 import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
 import { Abschnitt, Zeile } from './Abschnitt'
 import { FormularBausteine } from './FormularBausteine'
+import { UebersichtBausteine } from './UebersichtBausteine'
 
 // Bausteinübersicht (design-fundament, Abschnitt 9, ADR-0036 Punkt 8): lebende Referenz aller Bausteine aus
 // shared/ui mit Varianten, Größen und Zuständen. Nur in der Entwicklungsumgebung, ohne API-Aufrufe, nur synthetische
@@ -530,6 +531,7 @@ export function BausteineSeite() {
       </Abschnitt>
 
       <FormularBausteine />
+      <UebersichtBausteine />
     </div>
   )
 }

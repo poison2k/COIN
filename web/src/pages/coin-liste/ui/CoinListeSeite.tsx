@@ -26,6 +26,7 @@ export function CoinListeSeite({ suche, seite, darfAnlegen, onSuche, onSeite }: 
     <div className="grid min-w-0 gap-6">
       <Seitenkopf
         titel="Katalog"
+        beschreibung="Alle Gedenk-Coins mit Motiv, Herausgeber und Auflage."
         aktionen={
           darfAnlegen && (
             <Link to={ROUTEN.coinNeu} className={buttonVariants()}>

@@ -60,6 +60,12 @@ Webanwendung zur Verwaltung von Gedenk-Coins. Umgesetzt sind bisher:
   Kennzahlenkarten und Reitern (`?reiter=`), Ausgabe-Seite mit Verlauf und „Stornieren“;
   Bestätigungsdialoge; Tabellen mit Filter-Chips und Kartenansicht auf kleinen Bildschirmen
   (ADR-0039 bis ADR-0042, [docs/features/formulare-detailseiten.md](docs/features/formulare-detailseiten.md)).
+- **Startseite, Listen und Prüfmaske**: Startseite im Zeilenraster ohne Lücken (Kopffläche,
+  Kennzahlkarten, Kacheln, Rangliste); Katalog mit Filterleiste, Suche als Chip und umschaltbarer
+  Tabellen- oder Kartenansicht (Wahl im `localStorage`); Prüfmaske als zentrierte Arbeitsseite mit
+  Ergebniskarte, Fokus nach jeder Prüfung im Nummernfeld; Audit-Log mit Benutzerfilter und Zeitpunkten
+  in Europe/Berlin; einheitliche Lade-, Leer- und Fehlerzustände (ADR-0043, ADR-0044,
+  [docs/features/startseite-listen-pruefung.md](docs/features/startseite-listen-pruefung.md)).
 
 Noch offen sind Signatur, PDF, QR-Code und öffentliche Prüfseite der Zertifikate.
 
@@ -336,14 +342,14 @@ Routen:
 | Pfad | Zugang | Inhalt |
 |---|---|---|
 | `/` | öffentlich | Startseite: mit `coins.read` alle aktiven Blöcke (`GET /api/startseite`), sonst nur der öffentliche Kopfbereich (`GET /api/startseite/kopf`) bzw. die statische Begrüßung „Willkommen bei C.O.I.N.“; „Zum Katalog“ immer |
-| `/coins` | öffentlich | Katalog mit Suche und Blättern; Suchparameter `suche` (≤ 100 Zeichen) und `seite` in der URL; Link „Coin hinzufügen“ nur mit `coins.write` |
+| `/coins` | öffentlich | Katalog mit Suche (Chip „Suche: …“), Ansicht „Tabelle“/„Karten“ und Blättern; Suchparameter `suche` (≤ 100 Zeichen) und `seite` in der URL, die Ansicht nur im `localStorage` (`coin-katalog-ansicht`, ADR-0044); Link „Coin hinzufügen“ nur mit `coins.write` |
 | `/coins/neu` | `coins.write` | Seite „Coin hinzufügen“ (Formular inkl. Motivbild, darunter „Standardvorlage herunterladen“); danach `replace` auf die Detailseite |
 | `/coins/$coinId` | öffentlich | Detailseite; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf. Kopf mit Status-Chips und Aktionen („Auflage ändern“, „Bearbeiten“ mit `coins.write`, „Ausgabe erfassen“ mit `issues.write` bei freiem Exemplar), Kennzahlen mit `coins.read`. Reiter im Suchparameter `reiter` (`stammdaten`, `exemplare` mit `coins.read`, `ausgaben` mit `issues.read`, `vorlage` mit `coins.write`; Wechsel per `replace`, unbekannt/nicht erlaubt = Standard „Exemplare“ bzw. ohne `coins.read` Stammdaten ohne Reiterleiste). Exemplare mit Suchparametern `status` (`verfuegbar`/`ausgegeben`) und `seite`; Ausgabehistorie mit Statusfilter (nicht in der URL), Zeilenklick zur Ausgabe-Seite, „Stornieren“/„Zertifikat herunterladen“ mit `issues.write` |
 | `/coins/$coinId/bearbeiten` | `coins.write` | Seite „Coin bearbeiten“: Stammdaten und Motivbild (die Zertifikatsvorlage steht im Reiter „Zertifikatsvorlage“ der Detailseite); nach dem Speichern der Stammdaten `replace` auf die Detailseite |
 | `/coins/$coinId/ausgaben/neu` | `issues.write` | Seite „Ausgabe erfassen“; danach `replace` auf die Detailseite |
 | `/coins/$coinId/ausgaben/$ausgabeId` | `issues.read` | Seite „Ausgabe“ (`ROUTEN.ausgabeDetail`): Status-Chip, Abschnitte „Zertifikat“, „Empfängerdaten“, „Ausgabedaten“ und „Verlauf“; „Hologrammnummer ergänzen/korrigieren“, „Zertifikat herunterladen“ und „Stornieren“ (nur aktive Ausgaben) mit `issues.write`; `coinId` oder `ausgabeId` keine GUID → „Ausgabe nicht gefunden“ ohne API-Aufruf |
-| `/pruefung` | `coins.read` | Seite „Zertifikat prüfen“ (`ROUTEN.pruefung`): Coin-Auswahl (optional), Hologrammnummer, Ergebnis; mit `issues.read` über `POST /api/pruefung/mit-empfaenger` samt Empfängerdaten. Die Nummer steht nie in der URL |
-| `/benutzerverwaltung` | `users.manage` | Tabs „Benutzer“ und „Audit-Log“ |
+| `/pruefung` | `coins.read` | Seite „Zertifikat prüfen“ (`ROUTEN.pruefung`) in zentrierter Spalte (ADR-0043): Coin-Auswahl (optional), Hologrammnummer, Ergebniskarte; mit `issues.read` über `POST /api/pruefung/mit-empfaenger` samt Empfängerdaten. Nach jeder Prüfung Fokus im Nummernfeld, Inhalt markiert. Die Nummer steht nie in der URL |
+| `/benutzerverwaltung` | `users.manage` | Tabs „Benutzer“ und „Audit-Log“ (Karte „Änderungsprotokoll“ mit Benutzerfilter über `GET /api/benutzer?suche` und `GET /api/audit?benutzerId`; Filter nur im Zustand, nie in der URL) |
 | `/verwaltung/startseite` | `startpage.manage` | Seite „Startseite verwalten“ (`ROUTEN.startseiteVerwaltung`): Tabs „Bearbeiten“ und „Vorschau“; Verlassen mit ungespeicherten Änderungen fragt per Dialog nach (`VerlassenWarnung`), Neuladen/Schließen per `beforeunload` |
 | `/anmeldung/rueckruf` | öffentlich | Rückkehr vom Keycloak (ohne App-Shell) |
 | `/abgemeldet` | öffentlich | Bestätigung nach dem Abmelden |
@@ -402,21 +408,26 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
   (`Ladeanzeige`, `Leerzustand`, `Fehlerzustand`) und `toast.tsx` (Base UI Toast, `useToast().zeige`,
   ADR-0038), dazu für Formulare und Detailseiten `formular-abschnitt.tsx`, `fehlerzusammenfassung.tsx`,
   `aktionsleiste.tsx` (ADR-0039), `verlassen-warnung.tsx` (ADR-0040), `bestaetigungsdialog.tsx`,
-  `daten-tabelle.tsx` und `filterleiste.tsx` (ADR-0041), `kennzahl-karte.tsx`, `progress.tsx` (shadcn,
-  nachbearbeitet) und `zeitleiste.tsx` (ADR-0042). Neue Seiten nutzen `Seitenkopf` und `Card` ohne eigenen Seitenrand und ohne eigene
+  `daten-tabelle.tsx` und `filterleiste.tsx` (ADR-0041), `kennzahl-karte.tsx` (`KennzahlRaster` mit
+  `spalten` 3/4, `KennzahlKarte` mit `groesse`), `progress.tsx` (shadcn, nachbearbeitet) und
+  `zeitleiste.tsx` (ADR-0042), dazu `ansichtsumschalter.tsx`, `rangliste.tsx` und `ergebniskarte.tsx`
+  (ADR-0043). Neue Seiten nutzen `Seitenkopf` und `Card` ohne eigenen Seitenrand und ohne eigene
   Maximalbreite; den Container stellt `widgets/app-shell` (Skip-Link, Seitenleiste mit Gruppen,
   Kopfzeile als einziges `<header>`, `main#inhalt`). `pages/entwicklung-bausteine` ist die
   Bausteinübersicht. `shared/lib` enthält u. a. `cn()`, das Farbschema, `istGuid`
   (`shared/lib/guid`), Zahl- und Datumsformate (`shared/lib/format.ts`: `de-DE`, Europe/Berlin,
-  `heuteInBerlin`), Hooks (`shared/lib/hooks`: `useIsMobile`, `useFokusBeiLadefehler`,
-  `useMedienabfrage`, `useZeilenklick`, `useVerlassenWarnung`), den Formular-Hook (`shared/lib/formular`:
+  Zeitpunkte als „TT.MM.JJJJ, HH:MM Uhr“, `formatiereZeitpunktMitSekunden`, `heuteInBerlin`; einzige
+  Datei mit `Intl.DateTimeFormat`, geprüft in `src/app/konsistenz.test.ts`), Hooks (`shared/lib/hooks`:
+  `useIsMobile`, `useFokusBeiLadefehler`, `useMedienabfrage`, `useZeilenklick`, `useVerlassenWarnung`,
+  `useLokaleWahl` für Bedienvorlieben im `localStorage` mit fester Werteliste, ADR-0044), den Formular-Hook (`shared/lib/formular`:
   `useFormular`, `useSendeSperre`, `pruefeNachZeigerklick`; `zeiger.ts` registriert beim Import globale
   Listener, ADR-0039) und die
   Anmeldung (`shared/lib/anmeldung`: UserManager, Provider, `useAnmeldung`, `sicheresZiel`),
   `shared/api` den generischen HTTP-Teil (inkl. Bearer-Header; Option `konfliktDetail` übernimmt bei
   `409` auch `detail`; Datei-Downloads mit Token als Blob samt Dateiname aus `Content-Disposition`),
   `shared/lib/datei` das Speichern eines Blobs als Datei (Object-URL erst nach 40 s freigegeben),
-  `shared/config` die Routenpfade und die OIDC-Konfiguration.
+  `shared/config` die Routenpfade, die OIDC-Konfiguration und die Speicherschlüssel (`speicher.ts`:
+  `SPEICHER_KATALOG_ANSICHT`).
 - Anmeldung im Überblick: `entities/benutzer` (`GET /api/me`, Benutzerliste, `hatBerechtigung`,
   `StatusBadge`), `features/anmeldung` (Buttons „Anmelden“/„Abmelden“), `pages/kein-zugriff`,
   `pages/abgemeldet`, `pages/anmeldung-rueckruf`. `app` lädt `/api/me` einmal pro Anmeldung und
@@ -424,9 +435,10 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
   ein anderer Aufruf `403 benutzer_deaktiviert`, wechselt `app` in den Zustand „deaktiviert“.
 - Katalog: `entities/coin` (API `ladeCoins`/`ladeCoin`/`legeCoinAn`/`aendereCoin`/`ladeBildHoch`/
   `aendereAuflage`, gemeinsame Feldprüfung `validiereStammdaten` und `validiereBild` für Anlegen und
-  Bearbeiten, `CoinListe`, `CoinStammdaten`), `features/coin-anlegen` (`CoinFormular`),
-  `features/coin-bearbeiten` (`CoinBearbeitenFormular`), `features/motivbild-hochladen`,
-  `widgets/coin-katalog` (Suche, Statuszeile, Liste, Blättern), `pages/coin-liste`, `pages/coin-detail`,
+  Bearbeiten, `CoinListe` als Tabelle, `CoinKarten` als Kartenansicht, `CoinStammdaten`),
+  `features/coin-anlegen` (`CoinFormular`), `features/coin-bearbeiten` (`CoinBearbeitenFormular`),
+  `features/motivbild-hochladen`, `widgets/coin-katalog` (Filterleiste mit Suche, Chip und
+  Ansichtsumschalter, Statuszeile, Tabelle oder Karten, Zustände, Blättern), `pages/coin-liste`, `pages/coin-detail`,
   `pages/coin-anlegen`, `pages/coin-bearbeiten`.
 - Zertifikatsvorlagen: `entities/zertifikatsvorlage` (Status, Downloads, `VersionenTabelle`,
   Dateiname aus der Antwort), `features/standardvorlage-herunterladen`, `features/vorlage-hochladen`
@@ -457,11 +469,14 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
   `app/router/routen-komponenten.tsx` als Props durch.
 - Benutzerverwaltung: `entities/audit` (`AuditTabelle`, `GET /api/audit`), `features/rolle-zuweisen`
   und `features/benutzer-status-aendern` (je Auswahl bzw. Button mit Bestätigungsdialog),
-  `widgets/benutzer-tabelle`, `widgets/audit-log`, `pages/benutzerverwaltung`.
+  `features/audit-filtern` (`BenutzerFilter`: Combobox „Benutzer“, Suche über `ladeBenutzerliste`, nur
+  Namen), `widgets/benutzer-tabelle`, `widgets/audit-log` (Benutzerfilter mit Chip),
+  `pages/benutzerverwaltung`.
 - Startseite: `entities/startseite` (Typen, Grenzen, `ladeStartseite`/`ladeKopf`/`ladeKonfiguration`,
   `useDateiUrl` für Object-URLs der Logo-Vorschau, Block-Komponenten `Kopfbereich`, `InfotextBlock`,
   `KennzahlenBlock`, `NeuesteCoinsBlock`, `MeistausgegebeneBlock`), `widgets/startseite`
-  (`StartseiteBloecke`: Blöcke in Reihenfolge, Überschriftenebene 1 auf `/`, 2 in der Vorschau),
+  (`StartseiteBloecke`: Blöcke in Reihenfolge, Zeilen aus `bildeZeilen` nach ADR-0043,
+  Überschriftenebene 1 auf `/`, 2 in der Vorschau),
   `features/startseite-konfigurieren` (`StartseiteFormular`, Blockkarten mit Schalter und
   Verschieben-Buttons, Logo-Felder, Vorprüfung, Speichern als `multipart/form-data`), `pages/start`,
   `pages/startseite-verwaltung`.
@@ -511,7 +526,7 @@ nur, wenn Index und Arbeitsstand übereinstimmen.
 
 | | `web/ui-tests` (`npm run test:ui`) | `e2e/` (`npx playwright test`) |
 |---|---|---|
-| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen, Zertifikat-Download, Startseite (inkl. XSS-Nutzlasten im echten Chromium), Hologrammnummer und Prüfseite: Routing, Seitenleiste, Tastaturbedienung, Darstellung; dazu Barrierefreiheit mit axe (`barrierefreiheit.spec.ts`), 360/768/1280 px (`responsiv.spec.ts`), Tastatur (`tastatur.spec.ts`), Bausteinseite (`bausteine.spec.ts`), reduzierte Bewegung (`bewegung.spec.ts`), Formulare (`formulare.spec.ts`), Verlassen-Warnung (`verlassen-warnung.spec.ts`), Bestätigungsdialoge (`bestaetigungen.spec.ts`), Detailseite je Rolle (`coin-detail-rollen.spec.ts`), Tabellen (`tabellen.spec.ts`) und Screenshots (`screenshots.spec.ts`, `screenshots-formulare.spec.ts`) | fachliche Abläufe über alle Schichten; `design-fundament.spec.ts` prüft die Hauptseiten mit echten Daten per axe und auf horizontales Scrollen bei 360 px, `formulare-detailseiten.spec.ts` Tastaturbedienung, Reiter und Storno auf der Ausgabe-Seite |
+| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen, Zertifikat-Download, Startseite (inkl. XSS-Nutzlasten im echten Chromium), Hologrammnummer und Prüfseite: Routing, Seitenleiste, Tastaturbedienung, Darstellung; dazu Barrierefreiheit mit axe (`barrierefreiheit.spec.ts`), 360/768/1280 px (`responsiv.spec.ts`), Tastatur (`tastatur.spec.ts`), Bausteinseite (`bausteine.spec.ts`), reduzierte Bewegung (`bewegung.spec.ts`), Formulare (`formulare.spec.ts`), Verlassen-Warnung (`verlassen-warnung.spec.ts`), Bestätigungsdialoge (`bestaetigungen.spec.ts`), Detailseite je Rolle (`coin-detail-rollen.spec.ts`), Tabellen (`tabellen.spec.ts`), Startseitenraster (`startseite-raster.spec.ts`), Katalogansichten (`katalog-ansicht.spec.ts`), Prüfmaske (`pruefmaske.spec.ts`), Verwaltungsseiten (`verwaltung.spec.ts`), unveränderte Rechte je Rolle (`rechte-unveraendert.spec.ts`) und Screenshots (`screenshots.spec.ts`, `screenshots-formulare.spec.ts`, `screenshots-uebersicht.spec.ts`, `vergleich-startseite.spec.ts`) | fachliche Abläufe über alle Schichten; `design-fundament.spec.ts` prüft die Hauptseiten mit echten Daten per axe und auf horizontales Scrollen bei 360 px, `formulare-detailseiten.spec.ts` Tastaturbedienung, Reiter und Storno auf der Ausgabe-Seite, `startseite-listen-pruefung.spec.ts` Startseite ohne Lücken, gemerkte Katalogansicht und Serienprüfung nur per Tastatur |
 | API | gemockt per `page.route`; Proxy-Ziel absichtlich unerreichbar; jeder nicht gemockte `/api`-Aufruf lässt den Test scheitern | echte API (Release-Build) mit Wegwerf-PostgreSQL |
 | Anmeldung | Identitätsanbieter gemockt (`VITE_OIDC_AUTHORITY=http://127.0.0.1:9/realms/coin`) | echter Wegwerf-Keycloak |
 | Voraussetzungen | nur Node.js und Chromium | Docker, .NET 10 SDK, Node.js ≥ 22.18 |
@@ -544,7 +559,15 @@ $env:COIN_SCREENSHOTS = "1"; npx playwright test screenshots-formulare.spec.ts; 
 
 Die Bilder liegen unter `web/test-results/screenshots-formulare/<ansicht>_<breite>_<hell|dunkel>.png`
 (per `.gitignore` ausgeschlossen). Playwright leert `test-results` zu Beginn jedes Laufs, also direkt
-danach ansehen. Ohne die Variable wird die Spec übersprungen.
+danach ansehen. Ohne die Variable wird die Spec übersprungen. Ebenso nur lokal entstehen die Bilder von
+Startseite, Katalog, Prüfmaske und Verwaltung (`screenshots-uebersicht.spec.ts`, nach
+`web/test-results/screenshots-uebersicht/`); diese Spec einzeln aufrufen, sonst überschreibt
+`screenshots.spec.ts` die eingecheckten Bilder.
+
+Eingecheckt ist der Vorher-Nachher-Vergleich der Startseite: 24 Bilder (6 Fälle × 1280/360 px, hell,
+je `vorher_` und `nachher_`) in `docs/design/vergleich-startseite/`. Erzeugt werden sie mit
+`vergleich-startseite.spec.ts` und der Variable `COIN_VERGLEICH=vorher` bzw. `nachher`; ohne sie wird
+die Spec übersprungen.
 
 ### shadcn-Komponenten
 
@@ -556,7 +579,8 @@ Seitenleiste, die Ausnahme für Strg+B in Eingabefeldern, die Tab-Falle in `aler
 `dialog.tsx`, „Schließen“ in `dialog.tsx` und den Pfeiltasten-Umlauf in `select.tsx` (vollständige
 Liste in ADR-0009). Seit coin-ausgaben gehören auch `radio-group` und `dialog` dazu, seit startseite
 `switch`, seit hologrammnummer `combobox` und ihre Abhängigkeit `input-group` (deutsche `sr-only`-Namen
-der Icon-Buttons in `combobox.tsx`), seit design-fundament `checkbox`, `field`, `breadcrumb` („Brotkrumen“,
+der Icon-Buttons in `combobox.tsx`; seit startseite-listen-pruefung hat der Trigger „Vorschläge
+anzeigen“ `tabIndex={-1}`, ADR-0043), seit design-fundament `checkbox`, `field`, `breadcrumb` („Brotkrumen“,
 „Weitere Seiten“), `empty` und `spinner` („Wird geladen“). Danach `npm run format` und `npm run lint` ausführen.
 
 Gestaltungsregeln (ADR-0035): Farbwerte stehen nur in `src/app/styles/index.css` (Hex, `:root` hell und

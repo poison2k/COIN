@@ -7,11 +7,16 @@ welcher Reihenfolge erscheinen, legen Administratoren auf der Seite **Startseite
 
 | Block | Inhalt |
 |---|---|
-| **Kopfbereich** | links das Logo des Bereitstellers, in der Mitte Titel und Untertitel, rechts das Logo der Software; auf schmalen Bildschirmen untereinander |
+| **Kopfbereich** | hervorgehobene Fläche: links das Logo des Bereitstellers, in der Mitte Titel und Untertitel, rechts das Logo der Software; auf schmalen Bildschirmen untereinander |
 | **Infotext** | ein Text mit einfacher Formatierung |
-| **Kennzahlen** | **Coins** (Anzahl im Katalog), **Exemplare gesamt** (Summe der Auflagen), **Ausgegeben** (nicht stornierte Ausgaben), **Verfügbar** (Exemplare minus Ausgegeben) |
-| **Neueste Coins** | die zuletzt angelegten Coins mit Motivbild, Name (Link zur Detailseite) und Herausgeber |
-| **Meistausgegebene Coins** | Coins mit den meisten nicht stornierten Ausgaben, z. B. „7 ausgegeben“; bei Gleichstand alphabetisch. Coins ohne Ausgabe fehlen |
+| **Kennzahlen** | vier Karten mit großen Zahlen: **Coins** (Anzahl im Katalog), **Exemplare gesamt** (Summe der Auflagen), **Ausgegeben** (nicht stornierte Ausgaben), **Verfügbar** (Exemplare minus Ausgegeben) |
+| **Neueste Coins** | die zuletzt angelegten Coins als Kacheln mit Motivbild, Name (Link zur Detailseite) und Herausgeber |
+| **Meistausgegebene Coins** | Rangliste mit Platz (1, 2, …), Name und z. B. „7 ausgegeben“: Coins mit den meisten nicht stornierten Ausgaben, bei Gleichstand alphabetisch. Coins ohne Ausgabe fehlen |
+
+Die Blöcke stehen ohne Lücken untereinander. Kopfbereich, Infotext und Kennzahlen nehmen immer die
+ganze Breite ein. **Neueste Coins** und **Meistausgegebene Coins** stehen auf breiten Bildschirmen
+nebeneinander, wenn sie in der Reihenfolge direkt aufeinander folgen; sonst nimmt jeder die ganze
+Breite ein. Ausgeschaltete Blöcke hinterlassen keine Lücke.
 
 Am Ende steht immer der Button **Zum Katalog**. Ist der Kopfbereich eingeschaltet, ist sein Titel die
 Überschrift der Seite; sonst heißt sie „Willkommen bei C.O.I.N.“.
@@ -25,7 +30,8 @@ Wer was sieht:
 
 Leere Listen zeigen „Noch keine Coins im Katalog.“ bzw. „Noch keine Coins ausgegeben.“ Kann die
 Startseite nicht geladen werden, erscheint „Die Startseite konnte nicht geladen werden. Bitte später
-erneut versuchen.“ (nur mit Rolle; ohne Rolle erscheint die Begrüßung).
+erneut versuchen.“ mit dem Button **Erneut versuchen** (nur mit Rolle; ohne Rolle erscheint die
+Begrüßung).
 
 Solange ein Administrator nichts gespeichert hat, gilt die Standardeinstellung: Kopfbereich aus,
 Infotext „C.O.I.N. verwaltet die Gedenk-Coins der Bundeswehr: den Katalog der Coins, ihre nummerierten
@@ -37,7 +43,8 @@ Nur für Administratoren: Seitenleiste › **Startseite verwalten** (Adresse `/v
 Andere Benutzer sehen den Eintrag nicht; rufen sie die Adresse direkt auf, erscheint „Kein Zugriff“.
 
 Die Seite hat zwei Reiter: **Bearbeiten** und **Vorschau**. Unter der Überschrift steht nach dem ersten
-Speichern „Zuletzt gespeichert am {Datum} von {Name}“.
+Speichern „Zuletzt gespeichert am {Datum}, {Uhrzeit} Uhr von {Name}“ (deutsche Zeit), vorher eine
+kurze Beschreibung der Seite.
 
 ### Blöcke ein- und ausschalten, Reihenfolge ändern
 

@@ -12,7 +12,8 @@ Seite **Kein Zugriff** (mit einer anderen Rolle mit dem Text „Ihr Benutzerkont
 nicht berechtigt. …“, siehe [Anmeldung](anmeldung.md#keine-berechtigung-für-eine-seite)).
 
 Die Seite hat zwei Reiter: **Benutzer** und **Audit-Log**. Zwischen den Reitern wechseln Sie per
-Klick oder mit den Pfeiltasten, wenn ein Reiter den Fokus hat.
+Klick oder mit den Pfeiltasten, wenn ein Reiter den Fokus hat. Der Reiter **Benutzer** enthält die
+Karte „Benutzer“, der Reiter **Audit-Log** die Karte „Änderungsprotokoll“.
 
 ## Rollen und Rechte
 
@@ -39,7 +40,8 @@ Benutzer von Hand anlegen oder löschen können Sie nicht.
 
 Über der Tabelle steht, wie viele Benutzer gefunden wurden, z. B. „3 Benutzer gefunden“. Ein
 aktiver Suchbegriff erscheint als Chip „Suche: …“; das Kreuz im Chip zeigt wieder alle Benutzer (siehe
-[Bedienung](bedienung.md#filter-chips)). Die Tabelle zeigt Name, E-Mail, Rolle, Status und Aktion,
+[Bedienung](bedienung.md#filter-chips)). Ohne Treffer steht dort „Keine Benutzer gefunden.“ mit dem
+Button **Suche zurücksetzen**. Die Tabelle zeigt Name, E-Mail, Rolle, Status und Aktion,
 sortiert nach Namen, 25 Benutzer pro Seite; unter 768 Pixel Breite erscheinen die Benutzer als
 Karten.
 Mit **Vorherige Seite** und **Nächste Seite** blättern Sie; dazwischen steht „Seite x von y“.
@@ -95,18 +97,35 @@ sich seine Ansicht (z. B. Menüeinträge) erst an, wenn er die Seite neu lädt o
 | „Sie sind nicht berechtigt, Benutzer zu verwalten.“ | Ihnen wurde inzwischen die Rolle Administrator entzogen. |
 | „Ihr Benutzerkonto ist deaktiviert.“ | Ihr eigenes Konto wurde deaktiviert. |
 | „Die Änderung konnte nicht gespeichert werden. Bitte später erneut versuchen.“ | Technisches Problem, z. B. keine Verbindung zum Server. |
-| „Benutzer konnten nicht geladen werden. Bitte später erneut versuchen.“ | Die Liste konnte nicht geladen werden. |
+| „Benutzer konnten nicht geladen werden. Bitte später erneut versuchen.“ | Die Liste konnte nicht geladen werden. **Erneut versuchen** lädt sie neu. |
+| „Audit-Log konnte nicht geladen werden. Bitte später erneut versuchen.“ | Das Audit-Log konnte nicht geladen werden. **Erneut versuchen** lädt es neu. |
 
 Nach einer Fehlermeldung zeigt die Zeile wieder den gespeicherten Stand.
 
 ## Audit-Log
 
-Der Reiter **Audit-Log** zeigt jede Änderung an Rollen und Status, die neueste zuerst, 25 Einträge
-pro Seite. Er wird bei jedem Öffnen neu geladen. Geblättert wird wie in der Benutzerliste.
+Der Reiter **Audit-Log** zeigt im **Änderungsprotokoll** jede Änderung an Rollen und Status, die
+neueste zuerst, 25 Einträge pro Seite. Er wird bei jedem Öffnen neu geladen. Geblättert wird wie in
+der Benutzerliste.
+
+### Nach Benutzer filtern
+
+Im Feld **Benutzer** über der Tabelle wählen Sie ein Benutzerkonto, um nur die Änderungen **an
+diesem Konto** zu sehen (nicht die Änderungen, die dieser Benutzer selbst vorgenommen hat).
+
+1. Tippen Sie einen Teil des Namens. Nach einem kurzen Moment erscheinen passende Benutzer (nur mit
+   Namen). Gibt es keinen, steht dort „Keine Benutzer gefunden“.
+2. Wählen Sie den Benutzer per Klick oder mit Pfeiltasten und **Eingabetaste**.
+
+Das Audit-Log beginnt dann wieder auf Seite 1, und über der Tabelle steht der Chip „Benutzer: {Name}“.
+Das Kreuz im Chip hebt den Filter auf. Gibt es zu dem Benutzer keine Einträge, steht dort „Keine
+Einträge für diesen Benutzer.“ mit dem Button **Filter entfernen**. Der Filter steht nicht in der
+Adresse und wird beim Verlassen des Reiters vergessen. Nach Zeitraum oder Art der Änderung lässt sich
+noch nicht filtern.
 
 | Spalte | Inhalt |
 |---|---|
-| Zeitpunkt | Datum und Uhrzeit der Änderung |
+| Zeitpunkt | Datum und Uhrzeit der Änderung in deutscher Zeit, z. B. „05.10.2026, 14:34 Uhr“; mit der Maus darüber erscheinen auch die Sekunden |
 | Geändert von | wer die Änderung vorgenommen hat; „System (Bootstrap)“ beim ersten Administrator, der beim Einrichten automatisch angelegt wurde |
 | Benutzer | wessen Konto geändert wurde |
 | Änderung | „Rolle“ oder „Status“ |

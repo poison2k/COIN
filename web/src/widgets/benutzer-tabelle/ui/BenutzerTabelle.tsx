@@ -11,6 +11,7 @@ import { DatenTabelle, type DatenSpalte } from '@/shared/ui/daten-tabelle'
 import { Filterleiste } from '@/shared/ui/filterleiste'
 import { Formularfeld } from '@/shared/ui/formularfeld'
 import { Input } from '@/shared/ui/input'
+import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
 
 const GROESSE = 25
 const HINWEIS_EIGENES_KONTO = 'Das eigene Konto kann nicht geändert werden.'
@@ -73,6 +74,12 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
     setMeldung(null)
     setEingabe('')
     setAnfrage({ suche: '', seite: 1 })
+  }
+
+  function erneutLaden() {
+    setMeldung(null)
+    // Neues Objekt mit gleicher Suche und Seite: genau ein neuer Abruf.
+    setAnfrage((alt) => ({ ...alt }))
   }
 
   function blaettern(seite: number) {
@@ -201,15 +208,14 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
         {ergebnis?.art === 'ok' && `${ergebnis.daten.gesamt} Benutzer gefunden`}
       </p>
       {fehlgeschlagen && (
-        <p
+        <Fehlerzustand
           ref={alarmRef}
-          role="alert"
-          tabIndex={-1}
-          className="rounded-md text-destructive outline-none focus-visible:ring-3 focus-visible:ring-ring"
-        >
-          Benutzer konnten nicht geladen werden. Bitte später erneut versuchen.
-        </p>
+          fokussierbar
+          meldung="Benutzer konnten nicht geladen werden. Bitte später erneut versuchen."
+          onErneutVersuchen={erneutLaden}
+        />
       )}
+      {anzeige === null && laedt && <Ladeanzeige text="Benutzer werden geladen …" ansage={false} form="tabelle" />}
 
       {meldung?.art === 'erfolg' && (
         <p role="status" className="text-success">
@@ -222,7 +228,27 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
         </p>
       )}
 
-      {anzeige?.art === 'ok' && (
+      {anzeige?.art === 'ok' && anzeige.daten.gesamt === 0 && (
+        <Leerzustand
+          titelEbene={3}
+          titel={
+            anzeige === ergebnis && anfrage.suche.trim() !== '' ? 'Keine Benutzer gefunden.' : 'Noch keine Benutzer.'
+          }
+          beschreibung={
+            anzeige === ergebnis && anfrage.suche.trim() !== ''
+              ? 'Prüfen Sie die Schreibweise oder suchen Sie nach einem anderen Begriff.'
+              : undefined
+          }
+          aktion={
+            anfrage.suche.trim() !== '' ? (
+              <Button type="button" variant="outline" onClick={sucheEntfernen}>
+                Suche zurücksetzen
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
+      {anzeige?.art === 'ok' && anzeige.daten.gesamt > 0 && (
         <>
           <span id={hinweisId} className="sr-only">
             {HINWEIS_EIGENES_KONTO}
