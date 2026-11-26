@@ -6,7 +6,7 @@ import { Button } from '@/shared/ui/button'
 
 // Filterleiste (formulare-detailseiten, Abschnitt 4.7, ADR-0041 Punkt 4, AK-33): Filterbedienelemente, darunter die
 // aktiven Filter als Chips in <ul aria-label="Aktive Filter">. Je Chip ein Entfernen-Button (≥ 40 × 40 px), ab zwei
-// Chips „Alle Filter entfernen“. Nach dem Entfernen geht der Fokus auf den nächsten Chip, sonst auf das erste
+// Chips „Alle Filter entfernen“ (Text und Schwelle einstellbar, nacharbeiten-audit-filter 4.4). Nach dem Entfernen geht der Fokus auf den nächsten Chip, sonst auf das erste
 // Filterbedienelement – jeweils, sobald der Aufrufer den Chip entfernt hat.
 
 export interface FilterChip {
@@ -21,6 +21,10 @@ export interface FilterleisteProps {
   children: ReactNode
   chips: ReadonlyArray<FilterChip>
   onAlleEntfernen?: () => void
+  /** Text des Buttons zum Entfernen aller Filter (Standard „Alle Filter entfernen“). */
+  alleEntfernenText?: string
+  /** Ab so vielen Chips erscheint der Button (Standard 2). */
+  alleEntfernenAb?: number
   className?: string
 }
 
@@ -29,7 +33,14 @@ const FOKUSSIERBAR =
 
 type FokusZiel = { art: 'chip'; id: string; entfernt: string[] } | { art: 'bedienelement'; entfernt: string[] }
 
-export function Filterleiste({ children, chips, onAlleEntfernen, className }: FilterleisteProps) {
+export function Filterleiste({
+  children,
+  chips,
+  onAlleEntfernen,
+  alleEntfernenText = 'Alle Filter entfernen',
+  alleEntfernenAb = 2,
+  className,
+}: FilterleisteProps) {
   const bedienRef = useRef<HTMLDivElement>(null)
   const listeRef = useRef<HTMLUListElement>(null)
   const fokusZiel = useRef<FokusZiel | null>(null)
@@ -93,9 +104,9 @@ export function Filterleiste({ children, chips, onAlleEntfernen, className }: Fi
               </li>
             ))}
           </ul>
-          {chips.length >= 2 && onAlleEntfernen && (
+          {chips.length >= Math.max(1, alleEntfernenAb) && onAlleEntfernen && (
             <Button type="button" variant="ghost" onClick={alleEntfernen}>
-              Alle Filter entfernen
+              {alleEntfernenText}
             </Button>
           )}
         </div>

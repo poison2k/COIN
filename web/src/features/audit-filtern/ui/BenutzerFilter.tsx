@@ -25,15 +25,17 @@ export interface GefilterterBenutzer {
 export interface BenutzerFilterProps {
   wert: GefilterterBenutzer | null
   onWert: (benutzer: GefilterterBenutzer | null) => void
+  /** Feldfehler der API (`errors.benutzerId`). */
+  fehler?: string
   className?: string
 }
 
 /**
  * Benutzerfilter des Audit-Logs (startseite-listen-pruefung 4.4, F5 Variante A): Combobox „Benutzer“ für den geänderten
  * Benutzer. Suche über GET /api/benutzer?suche=…&groesse=20, 300 ms nach der letzten Eingabe; Treffer nur mit Namen.
- * Name und Id stehen nur im Zustand (nie in URL oder Storage).
+ * Der Name steht nur im Zustand, nie in URL oder Storage; in die URL kommt höchstens die Id (ADR-0045 Punkt 4).
  */
-export function BenutzerFilter({ wert, onWert, className }: BenutzerFilterProps) {
+export function BenutzerFilter({ wert, onWert, fehler, className }: BenutzerFilterProps) {
   const [eingabe, setEingabe] = useState(wert?.name ?? '')
   const [vorherigerWert, setVorherigerWert] = useState(wert)
   const [treffer, setTreffer] = useState<GefilterterBenutzer[]>([])
@@ -85,7 +87,7 @@ export function BenutzerFilter({ wert, onWert, className }: BenutzerFilterProps)
   }
 
   return (
-    <Formularfeld label="Benutzer" hilfetext={HILFETEXT} className={className}>
+    <Formularfeld label="Benutzer" hilfetext={HILFETEXT} fehler={fehler} className={className}>
       {(feld) => (
         <Combobox<GefilterterBenutzer>
           items={treffer}
@@ -106,6 +108,7 @@ export function BenutzerFilter({ wert, onWert, className }: BenutzerFilterProps)
           <ComboboxInput
             id={feld.id}
             aria-describedby={feld['aria-describedby']}
+            aria-invalid={feld['aria-invalid']}
             className="w-full min-w-0 sm:w-80"
             autoComplete="off"
           />

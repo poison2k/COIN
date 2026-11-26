@@ -1,3 +1,5 @@
+using Coin.Domain.Gemeinsam;
+
 namespace Coin.Domain.Ausgaben;
 
 /// <summary>

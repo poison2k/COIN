@@ -4,13 +4,14 @@ export interface AuditPerson {
   name: string
 }
 
-/** Eintrag des Audit-Logs (GET /api/audit, AK-14). `akteur` null = System (Bootstrap). */
+/** Eintrag des Audit-Logs (GET /api/audit, AK-14). `akteur` null = System (Ersteinrichtung). */
 export interface AuditEintrag {
   id: string
   zeitpunkt: string
   akteur: AuditPerson | null
   benutzer: AuditPerson
-  art: 'Rolle' | 'Status'
+  /** API-Wert der Aktion (Liste über GET /api/audit/aktionen). */
+  art: string
   /** Rolle (Administrator, Sachbearbeiter, Betrachter, keine) oder Status (aktiv, deaktiviert). */
   alt: string
   neu: string
@@ -27,4 +28,10 @@ export function wertAnzeige(wert: string): string {
   return WERT_ANZEIGE[wert] ?? wert
 }
 
-export const SYSTEM_ANZEIGE = 'System (Bootstrap)'
+export const SYSTEM_ANZEIGE = 'System (Ersteinrichtung)'
+
+/** Aktionstyp aus GET /api/audit/aktionen: API-Wert und deutscher Anzeigetext (nacharbeiten-audit-filter 4.2). */
+export interface AuditAktion {
+  wert: string
+  bezeichnung: string
+}

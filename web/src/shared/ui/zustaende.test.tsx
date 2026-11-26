@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { InboxIcon } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { Fehlerzustand, Ladeanzeige, Leerzustand } from './zustaende'
 
@@ -168,5 +169,159 @@ describe('Fehlerzustand (AK-21)', () => {
 
     const icons = [...screen.getByRole('alert').querySelectorAll('svg')]
     expect(icons.filter((icon) => !versteckt(icon))).toEqual([])
+  })
+})
+
+// Feature nacharbeiten-audit-filter, AK-28 (Abschnitt 4.9, ADR-0047 Punkt 2): Fokus nach „Erneut versuchen“. Vor dem
+// Aufruf von `onErneutVersuchen` fokussiert der Baustein die erste Überschrift (h1–h4, nicht im Fehlerzustand selbst)
+// des Ziels, sonst das Ziel selbst (tabIndex=-1 bei Bedarf). Ziel: Prop `fokusZiel`, sonst der nächste Vorfahre mit
+// `data-inhaltsbereich`, sonst `main#inhalt`.
+
+describe('Fokus nach „Erneut versuchen“ (nacharbeiten-audit-filter, AK-28)', () => {
+  const MELDUNG = 'Änderungsprotokoll konnte nicht geladen werden. Bitte später erneut versuchen.'
+
+  it('fokussiert die erste Überschrift im Vorfahren mit data-inhaltsbereich', async () => {
+    const user = userEvent.setup()
+    render(
+      <section data-inhaltsbereich="">
+        <h2>Änderungsprotokoll</h2>
+        <Fehlerzustand meldung={MELDUNG} onErneutVersuchen={() => {}} />
+      </section>,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
+
+    expect(screen.getByRole('heading', { name: 'Änderungsprotokoll' })).toHaveFocus()
+  })
+
+  it('setzt den Fokus, bevor onErneutVersuchen läuft', async () => {
+    const user = userEvent.setup()
+    let fokusBeimAufruf: Element | null = null
+    render(
+      <section data-inhaltsbereich="">
+        <h2>Änderungsprotokoll</h2>
+        <Fehlerzustand meldung={MELDUNG} onErneutVersuchen={() => (fokusBeimAufruf = document.activeElement)} />
+      </section>,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
+
+    expect(fokusBeimAufruf).toBe(screen.getByRole('heading', { name: 'Änderungsprotokoll' }))
+  })
+
+  it('gibt der Überschrift tabIndex=-1, wenn sie keinen hat', async () => {
+    const user = userEvent.setup()
+    render(
+      <section data-inhaltsbereich="">
+        <h3>Exemplare</h3>
+        <Fehlerzustand meldung={MELDUNG} onErneutVersuchen={() => {}} />
+      </section>,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
+
+    expect(screen.getByRole('heading', { name: 'Exemplare' })).toHaveAttribute('tabindex', '-1')
+  })
+
+  it('nimmt fokusZiel vor data-inhaltsbereich', async () => {
+    const user = userEvent.setup()
+    function MitZiel() {
+      const ziel = useRef<HTMLDivElement>(null)
+      return (
+        <section data-inhaltsbereich="">
+          <h2>Außen</h2>
+          <div ref={ziel}>
+            <h3>Innen</h3>
+          </div>
+          <Fehlerzustand meldung={MELDUNG} fokusZiel={ziel} onErneutVersuchen={() => {}} />
+        </section>
+      )
+    }
+    render(<MitZiel />)
+
+    await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
+
+    expect(screen.getByRole('heading', { name: 'Innen' })).toHaveFocus()
+  })
+
+  it('fokussiert ohne Überschrift das Ziel selbst', async () => {
+    const user = userEvent.setup()
+    render(
+      <div data-inhaltsbereich="" data-testid="ziel">
+        <Fehlerzustand meldung={MELDUNG} onErneutVersuchen={() => {}} />
+      </div>,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
+
+    expect(screen.getByTestId('ziel')).toHaveFocus()
+  })
+
+  it('fällt ohne fokusZiel und data-inhaltsbereich auf die h1 in main#inhalt zurück', async () => {
+    const user = userEvent.setup()
+    render(
+      <main id="inhalt">
+        <h1>Coin Beispiel</h1>
+        <div>
+          <Fehlerzustand meldung={MELDUNG} onErneutVersuchen={() => {}} />
+        </div>
+      </main>,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Coin Beispiel' })).toHaveFocus()
+  })
+
+  it('wählt keine Überschrift im Fehlerzustand selbst', async () => {
+    const user = userEvent.setup()
+    render(
+      <div data-inhaltsbereich="" data-testid="ziel">
+        <Fehlerzustand meldung={MELDUNG} aktion={<h4>Überschrift im Fehlerzustand</h4>} onErneutVersuchen={() => {}} />
+      </div>,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
+
+    expect(screen.getByTestId('ziel')).toHaveFocus()
+  })
+
+  it('lässt den Fokus nicht auf body fallen, wenn der Fehlerzustand danach verschwindet', async () => {
+    const user = userEvent.setup()
+    function Wechsel() {
+      const [fehler, setFehler] = useState(true)
+      return (
+        <section data-inhaltsbereich="">
+          <h2>Coins</h2>
+          {fehler ? (
+            <Fehlerzustand meldung={MELDUNG} onErneutVersuchen={() => setFehler(false)} />
+          ) : (
+            <p>Inhalt geladen</p>
+          )}
+        </section>
+      )
+    }
+    render(<Wechsel />)
+
+    await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
+
+    expect(await screen.findByText('Inhalt geladen')).toBeInTheDocument()
+    expect(document.activeElement).not.toBe(document.body)
+    expect(screen.getByRole('heading', { name: 'Coins' })).toHaveFocus()
+  })
+
+  it('wirkt auch per Enter auf „Erneut versuchen“', async () => {
+    const user = userEvent.setup()
+    render(
+      <section data-inhaltsbereich="">
+        <h2>Änderungsprotokoll</h2>
+        <Fehlerzustand meldung={MELDUNG} onErneutVersuchen={() => {}} />
+      </section>,
+    )
+    screen.getByRole('button', { name: 'Erneut versuchen' }).focus()
+
+    await user.keyboard('{Enter}')
+
+    expect(screen.getByRole('heading', { name: 'Änderungsprotokoll' })).toHaveFocus()
   })
 })

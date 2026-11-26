@@ -26,7 +26,7 @@ const ISO_WINTER = '2026-01-31T23:05:09+00:00'
 
 function zeitElement(iso: string): HTMLTimeElement {
   render(<AuditTabelle eintraege={[testAuditEintrag({ zeitpunkt: iso })]} />)
-  const tabelle = screen.getByRole('table', { name: 'Audit-Log' })
+  const tabelle = screen.getByRole('table', { name: 'Änderungsprotokoll' })
   const zeit = tabelle.querySelector('time')
   expect(zeit, 'kein <time> in der Tabelle').not.toBeNull()
   return zeit as HTMLTimeElement
@@ -56,7 +56,7 @@ describe('Zeitpunkte im Audit-Log (AK-30)', () => {
   it('zeigt den Zeitpunkt in der Zelle der Spalte „Zeitpunkt“', () => {
     render(<AuditTabelle eintraege={[testAuditEintrag({ zeitpunkt: ISO_SOMMER })]} />)
 
-    const zeile = within(screen.getByRole('table', { name: 'Audit-Log' })).getAllByRole('row')[1]
+    const zeile = within(screen.getByRole('table', { name: 'Änderungsprotokoll' })).getAllByRole('row')[1]
     // Erste Zelle der Zeile (Datenzelle oder Zeilenkopf).
     expect(zeile.firstElementChild).toHaveTextContent('05.10.2026, 14:34 Uhr')
   })

@@ -29,7 +29,7 @@ describe('Kartenansicht (AK-30)', () => {
     stubBreite(360)
     render(<AuditTabelle eintraege={[testAuditEintrag()]} />)
 
-    expect(screen.getByRole('list', { name: 'Audit-Log' })).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Änderungsprotokoll' })).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 })

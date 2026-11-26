@@ -6,7 +6,7 @@ import { AuditTabelle } from '../index'
 // Feature rollen-benutzerverwaltung, AK-31: Tabelle des Audit-Logs mit deutscher Anzeige der Werte.
 
 function zeile(index = 0): HTMLElement {
-  return within(screen.getByRole('table', { name: 'Audit-Log' })).getAllByRole('row')[index + 1]
+  return within(screen.getByRole('table', { name: 'Änderungsprotokoll' })).getAllByRole('row')[index + 1]
 }
 
 function zellen(index = 0): string[] {
@@ -19,7 +19,7 @@ describe('AuditTabelle', () => {
   it('hat die Beschriftung „Audit-Log“', () => {
     render(<AuditTabelle eintraege={[testAuditEintrag()]} />)
 
-    expect(screen.getByRole('table', { name: 'Audit-Log' })).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Änderungsprotokoll' })).toBeInTheDocument()
   })
 
   it('hat die Spalten Zeitpunkt, Geändert von, Benutzer, Änderung, Vorher, Nachher', () => {
@@ -59,10 +59,10 @@ describe('AuditTabelle', () => {
     expect(zellen().slice(1, 3)).toEqual(['Test Administrator', 'Test Betrachter'])
   })
 
-  it('zeigt akteur null als „System (Bootstrap)“', () => {
+  it('zeigt akteur null als „System (Ersteinrichtung)“', () => {
     render(<AuditTabelle eintraege={[testAuditEintrag({ akteur: null })]} />)
 
-    expect(zellen()[1]).toBe('System (Bootstrap)')
+    expect(zellen()[1]).toBe('System (Ersteinrichtung)')
   })
 
   it('zeigt eine Rollenänderung mit „Rolle“ und den Rollennamen, „keine“ als „Keine Rolle“', () => {

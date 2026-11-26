@@ -72,7 +72,7 @@ public static class KeinZugriff
         [Berechtigungen.IssuesRead] = "Ihr Benutzerkonto ist nicht berechtigt, Ausgaben einzusehen.",
         [Berechtigungen.IssuesWrite] = "Ihr Benutzerkonto ist nicht berechtigt, Ausgaben zu erfassen oder zu stornieren.",
         [Berechtigungen.UsersManage] = "Ihr Benutzerkonto ist nicht berechtigt, Benutzer zu verwalten.",
-        [Berechtigungen.AuditRead] = "Ihr Benutzerkonto ist nicht berechtigt, das Audit-Log einzusehen.",
+        [Berechtigungen.AuditRead] = "Ihr Benutzerkonto ist nicht berechtigt, das Änderungsprotokoll einzusehen.",
     };
 
     public static ProblemDetails Deaktiviert() => Erstellen(DetailDeaktiviert, KeinZugriffCodes.BenutzerDeaktiviert);

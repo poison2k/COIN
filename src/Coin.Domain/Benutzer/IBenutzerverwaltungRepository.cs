@@ -14,8 +14,8 @@ public interface IBenutzerverwaltungRepository
     /// <summary>Benutzer mit <paramref name="suche"/> (Teilstring, wörtlich, ohne Groß-/Kleinschreibung) in Name oder E-Mail.</summary>
     Task<Seite<Benutzer>> SuchenAsync(string? suche, int seite, int groesse, CancellationToken ct);
 
-    /// <summary>Audit-Einträge, neueste zuerst, optional nur für einen Zielbenutzer.</summary>
-    Task<Seite<AuditEintragAnsicht>> AuditSeiteAsync(Guid? benutzerId, int seite, int groesse, CancellationToken ct);
+    /// <summary>Audit-Einträge nach <paramref name="filter"/>, neueste zuerst; <c>gesamt</c> zählt die gefilterte Menge.</summary>
+    Task<Seite<AuditEintragAnsicht>> AuditSeiteAsync(AuditFilter filter, int seite, int groesse, CancellationToken ct);
 }
 
 /// <summary>Zugriffe innerhalb von <see cref="IBenutzerverwaltungRepository.InSperreAsync{T}"/>.</summary>

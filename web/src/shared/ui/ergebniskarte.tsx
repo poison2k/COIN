@@ -20,11 +20,18 @@ export interface ErgebniskarteProps {
   className?: string
 }
 
-const TON: Readonly<Record<ErgebnisTon, { rahmen: string; flaeche: string; text: string }>> = {
+// „neutral“ im Dunkelmodus (nacharbeiten-audit-filter 4.11): `--muted` gleicht dort `--card`. Die Kopffläche nutzt dann
+// `--accent`, der Titel `--foreground`; Icon-Kreis (`--card`) und Rahmen bleiben. Hell unverändert, keine neuen Tokens.
+const TON: Readonly<Record<ErgebnisTon, { rahmen: string; flaeche: string; text: string; titel?: string }>> = {
   erfolg: { rahmen: 'border-success', flaeche: 'bg-success-subtle', text: 'text-success' },
   gefahr: { rahmen: 'border-destructive', flaeche: 'bg-destructive-subtle', text: 'text-destructive' },
   warnung: { rahmen: 'border-warning', flaeche: 'bg-warning-subtle', text: 'text-warning' },
-  neutral: { rahmen: 'border-muted-foreground', flaeche: 'bg-muted', text: 'text-muted-foreground' },
+  neutral: {
+    rahmen: 'border-muted-foreground',
+    flaeche: 'bg-muted dark:bg-accent',
+    text: 'text-muted-foreground',
+    titel: 'text-muted-foreground dark:text-foreground',
+  },
 }
 
 export function Ergebniskarte({
@@ -45,7 +52,9 @@ export function Ergebniskarte({
           <Icon aria-hidden="true" className="size-8" />
         </span>
         <div className="grid min-w-0 gap-1">
-          <Ueberschrift className={cn('text-xl font-semibold md:text-2xl', farbe.text)}>{titel}</Ueberschrift>
+          <Ueberschrift className={cn('text-xl font-semibold md:text-2xl', farbe.titel ?? farbe.text)}>
+            {titel}
+          </Ueberschrift>
           {kopfzusatz && <div className="text-foreground">{kopfzusatz}</div>}
         </div>
       </div>
