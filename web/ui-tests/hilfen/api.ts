@@ -1,5 +1,6 @@
 import { expect, type Page, type Route } from '@playwright/test'
 import { standardStartseite } from '../startseite-mocks.js'
+import { AUDIT_AKTIONEN, filtereAudit } from './aenderungsprotokoll.js'
 
 // Gemeinsame Mocks für die UI-Tests des Features design-fundament (Abschnitt 11.1): angemeldet als Administrator,
 // Betrachter, ohne Rolle oder anonym; ein Coin mit Exemplaren, eine Ausgabe, Benutzer, Audit, Startseite und Prüfung.
@@ -322,7 +323,17 @@ export async function richteApiEin(page: Page, me: Me | null): Promise<ApiZustan
     (url) => url.pathname === '/api/audit',
     async (route) => {
       const url = merke(route)
-      return recht('audit.read') ? json(route, 200, seite(AUDIT, url)) : ohneRecht(route)
+      // nacharbeiten-audit-filter (K1): Filter von/bis/aktion/benutzerId wie die API.
+      return recht('audit.read')
+        ? json(route, 200, seite(filtereAudit(AUDIT, url.searchParams), url))
+        : ohneRecht(route)
+    },
+  )
+  await page.route(
+    (url) => url.pathname === '/api/audit/aktionen',
+    async (route) => {
+      merke(route)
+      return recht('audit.read') ? json(route, 200, AUDIT_AKTIONEN) : ohneRecht(route)
     },
   )
   await page.route(

@@ -137,3 +137,64 @@ describe('Deutsche Texte (AK-35)', () => {
     expect([document.body.textContent ?? '', ...attribute].join(' ')).not.toMatch(/\b(Remove|Clear|Active|Reset)\b/)
   })
 })
+
+// Feature nacharbeiten-audit-filter, AK-15 (Abschnitt 4.4 „Filter zurücksetzen“): optionale Props `alleEntfernenText`
+// (Standard „Alle Filter entfernen“) und `alleEntfernenAb` (Standard 2). Ohne die Props bleibt alles wie bisher.
+
+function TestMitText({ start, ab, text }: { start: Filter[]; ab?: number; text?: string }) {
+  const [filter, setFilter] = useState(start)
+  return (
+    <Filterleiste
+      chips={filter.map((f) => ({ ...f, onEntfernen: () => setFilter((alt) => alt.filter((x) => x.id !== f.id)) }))}
+      onAlleEntfernen={() => setFilter([])}
+      alleEntfernenText={text}
+      alleEntfernenAb={ab}
+    >
+      <label htmlFor="von">Von</label>
+      <input id="von" type="date" />
+    </Filterleiste>
+  )
+}
+
+describe('alleEntfernenText und alleEntfernenAb (nacharbeiten-audit-filter, AK-15)', () => {
+  it('beschriftet den Button mit alleEntfernenText', () => {
+    render(<TestMitText start={[STATUS, SUCHE]} text="Filter zurücksetzen" />)
+
+    expect(screen.getByRole('button', { name: 'Filter zurücksetzen' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Alle Filter entfernen' })).not.toBeInTheDocument()
+  })
+
+  it('zeigt den Button mit alleEntfernenAb=1 schon bei einem Chip', () => {
+    render(<TestMitText start={[STATUS]} ab={1} text="Filter zurücksetzen" />)
+
+    expect(screen.getByRole('button', { name: 'Filter zurücksetzen' })).toBeInTheDocument()
+  })
+
+  it('zeigt den Button auch mit alleEntfernenAb=1 ohne Chip nicht', () => {
+    render(<TestMitText start={[]} ab={1} text="Filter zurücksetzen" />)
+
+    expect(screen.queryByRole('button', { name: 'Filter zurücksetzen' })).not.toBeInTheDocument()
+  })
+
+  it('bleibt ohne alleEntfernenAb bei der Schwelle von zwei Chips', () => {
+    render(<TestMitText start={[STATUS]} text="Filter zurücksetzen" />)
+
+    expect(screen.queryByRole('button', { name: 'Filter zurücksetzen' })).not.toBeInTheDocument()
+  })
+
+  it('heißt ohne alleEntfernenText weiter „Alle Filter entfernen“', () => {
+    render(<TestMitText start={[STATUS]} ab={1} />)
+
+    expect(screen.getByRole('button', { name: 'Alle Filter entfernen' })).toBeInTheDocument()
+  })
+
+  it('entfernt mit einem Chip alle Filter und fokussiert das erste Filterbedienelement', async () => {
+    const user = userEvent.setup()
+    render(<TestMitText start={[STATUS]} ab={1} text="Filter zurücksetzen" />)
+
+    await user.click(screen.getByRole('button', { name: 'Filter zurücksetzen' }))
+
+    expect(screen.queryByRole('list', { name: 'Aktive Filter' })).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByLabelText('Von')).toHaveFocus())
+  })
+})

@@ -40,3 +40,11 @@ Die API liefert alle Listen außer den Vorlagenversionen seitenweise (25 Einträ
 ## Folgen
 - Serverseitige Sortierung kommt erst mit einer API-Erweiterung (eigener Lauf).
 - Katalog `/coins` und Startseiten-Listen übernehmen das Muster im nächsten Lauf. `CoinListe` nutzt schon jetzt `useZeilenklick`, ohne sichtbare Änderung.
+
+## Nachtrag (2026-11-16, nacharbeiten-audit-filter)
+- **Zu Punkt 8 und „Betrachtete Alternativen“:** Der Katalog `/coins` nutzt jetzt `DatenTabelle` mit
+  Karten unter 768 px ([ADR-0046](0046-katalogtabelle-als-datentabelle.md)). Die Ausnahme zu
+  design-fundament AK-15 gilt nur noch für das Bausteinbeispiel.
+- **Zu Punkt 4:** Die `Filterleiste` hat die optionalen Props `alleEntfernenText` (Standard „Alle Filter
+  entfernen“) und `alleEntfernenAb` (Standard 2). Das Änderungsprotokoll zeigt damit „Filter
+  zurücksetzen“ schon ab einem Chip ([ADR-0045](0045-filter-des-aenderungsprotokolls.md)).

@@ -1,13 +1,14 @@
 import { getRouteApi, Outlet, useLocation, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Ausgabe } from '@/entities/ausgabe'
 import type { Coin } from '@/entities/coin'
 import { hatBerechtigung } from '@/entities/benutzer'
 import type { ExemplarStatus } from '@/entities/exemplar'
+import { abfrageAusSuche, sucheAusAbfrage, type AuditAbfrage } from '@/features/audit-filtern'
 import { AusgabeDetailSeite } from '@/pages/ausgabe-detail'
 import { AusgabeErfassenSeite } from '@/pages/ausgabe-erfassen'
 import { RueckrufSeite } from '@/pages/anmeldung-rueckruf'
-import { BenutzerverwaltungSeite } from '@/pages/benutzerverwaltung'
+import { BenutzerverwaltungSeite, type BenutzerverwaltungReiter } from '@/pages/benutzerverwaltung'
 import { CoinAnlegenSeite } from '@/pages/coin-anlegen'
 import { CoinBearbeitenSeite } from '@/pages/coin-bearbeiten'
 import { CoinDetailSeite, type CoinDetailMeldung, type CoinDetailReiter } from '@/pages/coin-detail'
@@ -47,6 +48,7 @@ export function NichtGefundenInShell() {
 const katalogApi = getRouteApi('/shell/coins')
 const coinDetailApi = getRouteApi('/shell/coins/$coinId')
 const keinZugriffApi = getRouteApi('/shell/kein-zugriff')
+const benutzerverwaltungApi = getRouteApi('/shell/benutzerverwaltung')
 const ausgabeNeuApi = getRouteApi('/shell/coins/$coinId/ausgaben/neu')
 const ausgabeDetailApi = getRouteApi('/shell/coins/$coinId/ausgaben/$ausgabeId')
 const coinBearbeitenApi = getRouteApi('/shell/coins/$coinId/bearbeiten')
@@ -279,11 +281,45 @@ export function KeinZugriffRoute() {
   return benutzer && grund === 'berechtigung' ? <KeinZugriffSeite grund="keineBerechtigung" /> : null
 }
 
-/** Benutzerverwaltung mit der eigenen Id aus /api/me (AK-29). Ohne users.manage (z. B. nach Deaktivierung) leer. */
+/**
+ * Benutzerverwaltung mit der eigenen Id aus /api/me (AK-29). Ohne users.manage (z. B. nach Deaktivierung) leer.
+ * Übersetzt URL ↔ Props (nacharbeiten-audit-filter 4.4): Filter und Blättern legen einen Verlaufseintrag an, der
+ * Reiterwechsel ersetzt ihn und behält die Filter. In der URL steht vom Benutzer nur die GUID (F1).
+ */
 export function BenutzerverwaltungRoute() {
   const { benutzer } = useBenutzerKontext()
+  const { reiter, von, bis, aktion, benutzer: benutzerId, seite } = benutzerverwaltungApi.useSearch()
+  const routeNavigate = benutzerverwaltungApi.useNavigate()
+
+  const auditAbfrage = useMemo(
+    () => abfrageAusSuche({ von, bis, aktion, benutzer: benutzerId, seite }),
+    [von, bis, aktion, benutzerId, seite],
+  )
+  const onReiter = useCallback(
+    (neu: BenutzerverwaltungReiter) => {
+      void routeNavigate({
+        search: (alt) => ({ ...alt, reiter: neu === 'aenderungsprotokoll' ? neu : undefined }),
+        replace: true,
+        resetScroll: false,
+      })
+    },
+    [routeNavigate],
+  )
+  const onAuditAbfrage = useCallback(
+    (neu: AuditAbfrage) => {
+      void routeNavigate({ search: (alt) => ({ reiter: alt.reiter, ...sucheAusAbfrage(neu) }), resetScroll: false })
+    },
+    [routeNavigate],
+  )
+
   return benutzer && hatBerechtigung(benutzer, 'users.manage') ? (
-    <BenutzerverwaltungSeite aktuellerBenutzerId={benutzer.id} />
+    <BenutzerverwaltungSeite
+      aktuellerBenutzerId={benutzer.id}
+      reiter={reiter ?? 'benutzer'}
+      onReiter={onReiter}
+      auditAbfrage={auditAbfrage}
+      onAuditAbfrage={onAuditAbfrage}
+    />
   ) : null
 }
 

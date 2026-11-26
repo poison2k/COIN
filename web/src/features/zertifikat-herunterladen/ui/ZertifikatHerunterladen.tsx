@@ -4,6 +4,7 @@ import type { Ausgabe } from '@/entities/ausgabe'
 import type { ApiErgebnis, Datei } from '@/shared/api'
 import { speichereDatei } from '@/shared/lib/datei'
 import { cn } from '@/shared/lib/cn'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { Button } from '@/shared/ui/button'
 import { ladeZertifikat } from '../api/ladeZertifikat'
 import { zertifikatDateiname } from '../model/zertifikatDateiname'
@@ -110,11 +111,7 @@ export function ZertifikatHerunterladen({
           {TEXT_HINWEIS_STORNIERT}
         </p>
       )}
-      {alarm && (
-        <p role="alert" className="text-sm whitespace-normal text-destructive">
-          {alarm}
-        </p>
-      )}
+      <Aktionsmeldung meldung={alarm ? { art: 'fehler', text: alarm } : null} className="whitespace-normal" />
     </div>
   )
 }

@@ -15,7 +15,7 @@ import {
   testVorlagenVersion,
   type FakeApi,
 } from '../../../../test/fakeApi'
-import { meldungMit, seitentext } from '../../../../test/hilfen'
+import { meldungMit, seitentext, statusBannerMit } from '../../../../test/hilfen'
 import { ZertifikatsvorlageVerwalten } from '../index'
 
 // Feature zertifikatsvorlagen, AK-30, AK-32 und AK-33: Widget „Zertifikatsvorlage“ auf „Coin bearbeiten“. Lädt den
@@ -427,8 +427,9 @@ describe('Zurücksetzen', () => {
     await zuruecksetzen(user)
 
     const meldung = await waitFor(() => {
-      const el = meldungMit('Die Standardvorlage ist jetzt aktiv.')
-      expect(el?.getAttribute('role')).toBe('status')
+      // nacharbeiten-audit-filter K2: role="status" am Container, Fokus auf dem Banner darin (ADR-0047).
+      const el = statusBannerMit('Die Standardvorlage ist jetzt aktiv.')
+      expect(el).toBeDefined()
       return el as HTMLElement
     })
     await waitFor(() => expect(meldung).toHaveFocus())

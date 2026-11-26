@@ -57,10 +57,30 @@ internal sealed class BenutzerverwaltungRepository(CoinDbContext db) : IBenutzer
         return new Seite<Benutzer>([.. zeilen.Select(BenutzerAbbildung.ZuDomain)], gesamt, seite, groesse);
     }
 
-    public async Task<Seite<AuditEintragAnsicht>> AuditSeiteAsync(Guid? benutzerId, int seite, int groesse, CancellationToken ct)
+    /// <summary>
+    /// Filter nur als LINQ-Ausdrücke mit Parametern (ADR-0045 Punkt 5), kein <c>FromSql*</c>/<c>ExecuteSql*</c>.
+    /// </summary>
+    public async Task<Seite<AuditEintragAnsicht>> AuditSeiteAsync(AuditFilter filter, int seite, int groesse, CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(filter);
         var abfrage = db.BenutzerAudit.AsNoTracking();
-        if (benutzerId is { } id)
+        if (filter.AbUtc is { } ab)
+        {
+            abfrage = abfrage.Where(a => a.Zeitpunkt >= ab);
+        }
+
+        if (filter.VorUtc is { } vor)
+        {
+            abfrage = abfrage.Where(a => a.Zeitpunkt < vor);
+        }
+
+        if (filter.Arten.Count > 0)
+        {
+            var arten = filter.Arten.Order().Select(a => a.ToString()).ToList();
+            abfrage = abfrage.Where(a => arten.Contains(a.Art));
+        }
+
+        if (filter.BenutzerId is { } id)
         {
             abfrage = abfrage.Where(a => a.BenutzerId == id);
         }

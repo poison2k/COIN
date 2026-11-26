@@ -23,7 +23,7 @@ nicht verändern.
 | `issues.read` | Ausgaben mit Empfängerdaten lesen (Liste, Einzelansicht, Prüfergebnis mit Empfängerdaten) | ✓ | ✓ | – | – |
 | `issues.write` | Ausgaben erfassen und stornieren, Hologrammnummer ergänzen und korrigieren, Zertifikate herunterladen | ✓ | ✓ | – | – |
 | `users.manage` | Benutzer auflisten, Rolle und Status ändern | ✓ | – | – | – |
-| `audit.read` | Audit-Log lesen | ✓ | – | – | – |
+| `audit.read` | Änderungsprotokoll lesen | ✓ | – | – | – |
 | `startpage.manage` | Startseite konfigurieren: Blöcke, Reihenfolge, Texte, Logos | ✓ | – | – | – |
 <!-- rechtematrix:ende -->
 
@@ -54,6 +54,10 @@ Personendaten. Die übrigen Blöcke (`GET /api/startseite`: Infotext, Kennzahlen
 `coins.read`, die Konfiguration `startpage.manage` (nur Administrator). Die Startseite enthält keine
 Empfängerdaten.
 
+Änderungsprotokoll (Feature nacharbeiten-audit-filter, ADR-0045): `GET /api/audit` mit den Filtern
+`von`, `bis`, `aktion` und `benutzerId` sowie die Liste der Aktionen `GET /api/audit/aktionen`
+verlangen `audit.read` (nur Administrator), auch mit gültigen oder ungültigen Filterparametern.
+
 ## Endpunkte
 
 Zugriff ist einer von drei Werten:
@@ -79,7 +83,7 @@ Endpunkte ohne eigene Angabe fallen unter die Fallback-Policy (angemeldet und ak
 | `PUT /api/coins/{id}/ausgaben/{ausgabeId}/hologrammnummer` | `issues.write` |
 | `GET /api/me` | angemeldet |
 | `GET /api/benutzer`, `PUT /api/benutzer/{id}/rolle`, `PUT /api/benutzer/{id}/status` | `users.manage` |
-| `GET /api/audit` | `audit.read` |
+| `GET /api/audit`, `GET /api/audit/aktionen` | `audit.read` |
 | `GET /api/startseite/konfiguration`, `PUT /api/startseite/konfiguration` | `startpage.manage` |
 <!-- endpunkte:ende -->
 

@@ -73,9 +73,15 @@ Button ist hervorgehoben. Mit der Tastatur: **Tab** bis zum Button, dann **Einga
   - **Bild**: kleines Vorschaubild des Motivs oder „Kein Bild“.
   - **Auflage**: z. B. „1.000“, oder die Markierung „unbekannt“, wenn keine Auflage angegeben wurde.
   - **Erfasst am**: Datum der Erfassung, z. B. 05.10.2026.
-  - Auf schmalen Bildschirmen lässt sich die Tabelle seitlich verschieben.
-- **Karten**: je Coin eine Karte mit großem Motivbild (oder „Kein Bild“), Name, Herausgeber,
-  **Auflage** und **Erfasst am**; ohne Auflage zusätzlich die Markierung „Auflage unbekannt“.
+  - Auf schmalen Bildschirmen (unter 768 Pixel Breite) erscheinen die Coins statt als Tabelle als
+    schlichte Karten mit Name als Überschrift und den übrigen Angaben als Liste. Seitliches
+    Verschieben ist nicht nötig.
+- **Karten**: je Coin eine Karte mit Motivbild (oder „Kein Bild“), Name, Herausgeber,
+  **Auflage** und **Erfasst am**; ohne Auflage zusätzlich die Markierung „Auflage unbekannt“. Das
+  Bild wird nie beschnitten.
+  - Auf dem Handy (unter 640 Pixel Breite) ist die Karte kompakt: ein kleines Bild steht links neben
+    dem Text, so passen mehrere Coins auf einen Bildschirm.
+  - Auf breiteren Bildschirmen steht das Bild oben in einem Feld im Querformat (4:3).
 
 Ihre Wahl merkt sich der Browser (auch nach dem Neuladen und beim nächsten Besuch). Sie steht nicht in
 der Adresse; ein geteilter Link öffnet beim Empfänger dessen eigene Ansicht.

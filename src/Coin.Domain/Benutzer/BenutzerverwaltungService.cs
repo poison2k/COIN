@@ -48,16 +48,28 @@ public sealed class BenutzerverwaltungService(IBenutzerverwaltungRepository repo
         return Ergebnis<Seite<Benutzer>>.Erfolg(liste);
     }
 
-    /// <summary>Audit-Log (AK-14). Fehler je Feld: <c>seite</c>, <c>groesse</c>.</summary>
-    public async Task<Ergebnis<Seite<AuditEintragAnsicht>>> AuditLesenAsync(Guid? benutzerId, int? seite, int? groesse, CancellationToken ct)
+    /// <summary>
+    /// Audit-Log (AK-14) mit Filtern (nacharbeiten-audit-filter 4.1). <paramref name="von"/>, <paramref name="bis"/> und
+    /// <paramref name="aktion"/> sind die Rohwerte aus der Anfrage. Fehler je Feld (gesammelt): <c>von</c>, <c>bis</c>,
+    /// <c>aktion</c>, <c>seite</c>, <c>groesse</c>.
+    /// </summary>
+    public async Task<Ergebnis<Seite<AuditEintragAnsicht>>> AuditLesenAsync(
+        IReadOnlyList<string?>? von,
+        IReadOnlyList<string?>? bis,
+        IReadOnlyList<string?>? aktion,
+        Guid? benutzerId,
+        int? seite,
+        int? groesse,
+        CancellationToken ct)
     {
         var fehler = Seitenabfrage.SeiteFehler(seite, groesse);
-        if (fehler.Count > 0)
+        var filter = AuditFilterPruefung.Pruefen(von, bis, aktion, benutzerId, fehler);
+        if (fehler.Count > 0 || filter is null)
         {
             return Ergebnis<Seite<AuditEintragAnsicht>>.Fehlschlag(fehler);
         }
 
-        var liste = await repository.AuditSeiteAsync(benutzerId, seite ?? 1, groesse ?? Seitenabfrage.StandardGroesse, ct);
+        var liste = await repository.AuditSeiteAsync(filter, seite ?? 1, groesse ?? Seitenabfrage.StandardGroesse, ct);
         return Ergebnis<Seite<AuditEintragAnsicht>>.Erfolg(liste);
     }
 

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { ADMIN, richteApiEin, scrolltNichtHorizontal, SEITEN, type ApiZustand, type SeitenFall } from './hilfen/api.js'
 import { zuKleineKlickflaechen } from './hilfen/pruefungen.js'
+import { oeffneProtokollZustand, PROTOKOLL_ZUSTAENDE } from './hilfen/aenderungsprotokoll-zustaende.js'
 import { AUSGABE, COIN, richteFormularApiEin } from './hilfen/formulare.js'
 import {
   ansichtsKnopf,
@@ -130,7 +131,9 @@ test.describe('Seitenkopf (AK-23)', () => {
 
 test.describe('Tabellen (AK-15)', () => {
   // formulare-detailseiten K8: Benutzer erscheinen bei 360 px als Karten (ADR-0041); abgedeckt in tabellen.spec.ts.
-  for (const name of ['katalog', 'bausteine']) {
+  // nacharbeiten-audit-filter E5 (ADR-0046): der Katalog zeigt unter 768 px Karten statt einer Tabelle; Ersatz ist
+  // AK-31 in nacharbeiten-gestaltung.spec.ts.
+  for (const name of ['bausteine']) {
     test(`lässt Tabellen auf „${name}“ bei 360 px in ihrem Container scrollen`, async ({ page }) => {
       await oeffne(page, seite(name), 360)
 
@@ -356,7 +359,7 @@ test.describe('Startseite, Katalog, Prüfmaske und Audit-Log ohne horizontales S
         api = await richteApiEin(page, ADMIN)
         await mockeAudit(page, { leer })
         await oeffneAuditLog(page)
-        const panel = page.getByRole('tabpanel', { name: 'Audit-Log' })
+        const panel = page.getByRole('tabpanel', { name: 'Änderungsprotokoll' })
         if (leer) {
           await expect(panel.getByRole('heading', { level: 3, name: 'Noch keine Einträge.' })).toBeVisible()
         } else {
@@ -400,6 +403,31 @@ test.describe('Klickflächen ≥ 40 × 40 px auf Startseite, Katalog und Prüfma
       await pruefePerEnter(page, 'gueltig')
 
       expect(await zuKleineKlickflaechen(page.getByRole('main'))).toEqual([])
+    })
+  }
+})
+
+// Feature nacharbeiten-audit-filter, AK-33: kein horizontales Scrollen im Änderungsprotokoll (alle Filter aktiv, leer mit
+// Filter, 400-Feldfehler, Ladefehler) bei 360, 768 und 1280 px. Katalog, Startseite und Prüfmaske stehen oben.
+test.describe('Änderungsprotokoll ohne horizontales Scrollen (nacharbeiten AK-33)', () => {
+  for (const zustand of PROTOKOLL_ZUSTAENDE) {
+    for (const breite of BREITEN) {
+      test(`Änderungsprotokoll ${zustand} bei ${breite} px`, async ({ page }) => {
+        await oeffneProtokollZustand(page, zustand, { breite, onApi: (a) => (api = a) })
+
+        await scrolltNichtHorizontal(page)
+      })
+    }
+  }
+
+  for (const breite of BREITEN) {
+    test(`Klickflächen im Änderungsprotokoll mit allen Filtern bei ${breite} px`, async ({ page }) => {
+      await oeffneProtokollZustand(page, 'alleFilter', { breite, onApi: (a) => (api = a) })
+
+      const filter = page.getByRole('tabpanel', { name: 'Änderungsprotokoll' })
+      expect(await zuKleineKlickflaechen(filter.getByRole('group', { name: 'Zeitraum' }))).toEqual([])
+      expect(await zuKleineKlickflaechen(filter.getByRole('group', { name: /^Aktion/ }))).toEqual([])
+      expect(await zuKleineKlickflaechen(filter.getByRole('list', { name: 'Aktive Filter' }))).toEqual([])
     })
   }
 })

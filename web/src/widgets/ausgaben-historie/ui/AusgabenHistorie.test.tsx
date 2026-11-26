@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Ausgabe } from '@/entities/ausgabe'
 import { ausgabeKonfliktAntwort, erstelleFakeApi, testAusgabe, testCoin, type FakeApi } from '../../../../test/fakeApi'
-import { gibEin, meldungMit, seitentext } from '../../../../test/hilfen'
+import { gibEin, meldungMit, seitentext, statusBannerMit } from '../../../../test/hilfen'
 import { zeigeMitRouter } from '../../../../test/router'
 import { AusgabenHistorie } from '../index'
 
@@ -158,7 +158,8 @@ describe('„Stornieren“ (AK-24)', () => {
     await gibEin(user, within(dialog).getByLabelText(/^Grund/), 'Falsch erfasst')
     await user.click(within(dialog).getByRole('button', { name: 'Stornieren' }))
 
-    await waitFor(() => expect(meldungMit('Ausgabe von Exemplar Nr. 3 wurde storniert.')).toHaveFocus())
+    // nacharbeiten-audit-filter K2: Fokus auf dem Banner im Status-Container (ADR-0047).
+    await waitFor(() => expect(statusBannerMit('Ausgabe von Exemplar Nr. 3 wurde storniert.')).toHaveFocus())
   })
 
   it('lädt nach Erfolg die Historie neu und zeigt das Storno', async () => {

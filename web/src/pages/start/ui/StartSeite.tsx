@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import {
   KopfFlaeche,
   Kopfbereich,
@@ -59,9 +59,15 @@ function useLaden<T>(laden: () => Promise<{ art: string; daten?: T }>): [Laden<T
  * der Titel des aktiven Kopfbereichs bzw. „Willkommen bei C.O.I.N.“ das einzige h1. „Zum Katalog“ steht immer da.
  */
 export function StartSeite({ darfAnsehen = false, bereit = true }: StartSeiteProps) {
+  // Stabiles Fokusziel nach „Erneut versuchen“: Das h1 verschwindet beim Laden und wird danach ersetzt (ADR-0047).
+  const wurzelRef = useRef<HTMLDivElement>(null)
   return (
-    <div className="grid min-w-0 justify-items-stretch gap-6">
-      {!bereit ? <Laedt /> : darfAnsehen ? <MitLeserecht /> : <OhneLeserecht />}
+    <div
+      ref={wurzelRef}
+      tabIndex={-1}
+      className="grid min-w-0 justify-items-stretch gap-6 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring"
+    >
+      {!bereit ? <Laedt /> : darfAnsehen ? <MitLeserecht fokusZiel={wurzelRef} /> : <OhneLeserecht />}
       <div>
         <Link to={ROUTEN.coinListe} className={buttonVariants()}>
           Zum Katalog
@@ -76,14 +82,19 @@ function Laedt() {
 }
 
 /** Mit coins.read: Blöcke über das Widget; bei einem Fehler Begrüßung, Meldung und „Erneut versuchen“ (AK-8). */
-function MitLeserecht() {
+function MitLeserecht({ fokusZiel }: { fokusZiel: RefObject<HTMLDivElement | null> }) {
   const [zustand, neuLaden] = useLaden<StartseiteAnsicht>(ladeStartseite)
   if (zustand.art === 'laedt') return <Laedt />
   if (zustand.art === 'fehler') {
     return (
       <div className="grid gap-6">
         <h1 className="text-2xl font-semibold md:text-3xl">{BEGRUESSUNG}</h1>
-        <Fehlerzustand meldung={FEHLERTEXT} onErneutVersuchen={neuLaden} />
+        <Fehlerzustand
+          meldung={FEHLERTEXT}
+          onErneutVersuchen={neuLaden}
+          fokusZiel={fokusZiel}
+          fokusUeberschrift={false}
+        />
       </div>
     )
   }

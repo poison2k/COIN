@@ -40,7 +40,7 @@ const SPALTEN: ReadonlyArray<DatenSpalte<AuditEintrag>> = [
 export function AuditTabelle({ eintraege }: AuditTabelleProps) {
   return (
     <DatenTabelle
-      beschriftung="Audit-Log"
+      beschriftung="Änderungsprotokoll"
       zeilen={eintraege}
       schluessel={(eintrag) => eintrag.id}
       spalten={SPALTEN}

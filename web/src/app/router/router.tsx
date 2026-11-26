@@ -28,7 +28,7 @@ import {
   StartseiteVerwaltungRoute,
 } from './routen-komponenten'
 import { erfordertAnmeldung, erfordertBerechtigung, type SchutzKontext } from './schutz'
-import { coinDetailSuche, katalogSuche, keinZugriffSuche } from './suchparameter'
+import { benutzerverwaltungSuche, coinDetailSuche, katalogSuche, keinZugriffSuche } from './suchparameter'
 
 // Code-basierter Routenbaum (ADR-0010). Seiten bleiben frei von Router-Hooks; Anmelde- und Benutzerdaten
 // kommen als Props aus app (anmeldung-keycloak, Abschnitt 5.5).
@@ -132,6 +132,7 @@ const keinZugriffRoute = createRoute({
 const benutzerverwaltungRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: ROUTEN.benutzerverwaltung,
+  validateSearch: benutzerverwaltungSuche,
   beforeLoad: async ({ context, location }) => {
     erfordertBerechtigung('users.manage')(await context.schutz(), location.href)
   },

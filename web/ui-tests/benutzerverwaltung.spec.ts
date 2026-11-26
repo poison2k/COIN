@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page, type Request, type Route } from '@playwright/test'
+import { filtereAudit, mockeAuditAktionen } from './hilfen/aenderungsprotokoll.js'
 import { mockeStartseiteStandard } from './startseite-mocks.js'
 
 // Feature rollen-benutzerverwaltung, Abschnitt 6.4: Benutzerverwaltung im Browser, API und IdP vollständig gemockt.
@@ -223,9 +224,11 @@ async function mockeBenutzerApi(page: Page): Promise<void> {
       if (auditFehlerSeiten.includes(Number(query.get('seite') ?? '1'))) {
         return json(route, 500, { title: 'Interner Fehler', status: 500 }, 'application/problem+json')
       }
-      return json(route, 200, seite(audit, query))
+      // nacharbeiten-audit-filter (K1): Filter von/bis/aktion/benutzerId wie die API; dazu die Liste der Aktionen.
+      return json(route, 200, seite(filtereAudit(audit, query), query))
     },
   )
+  await mockeAuditAktionen(page)
 }
 
 function konflikt(code: 'letzter_administrator' | 'eigenes_konto') {
@@ -550,12 +553,12 @@ test('Audit-Tab: Pfeiltaste wechselt den Tab, Einträge werden angezeigt', async
 
   await tabBis(page, tabBenutzer)
   await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('tab', { name: 'Audit-Log' })).toBeFocused()
+  await expect(page.getByRole('tab', { name: 'Änderungsprotokoll' })).toBeFocused()
   await page.keyboard.press('Enter')
 
-  const tabelle = page.getByRole('table', { name: 'Audit-Log' })
+  const tabelle = page.getByRole('table', { name: 'Änderungsprotokoll' })
   await expect(tabelle).toBeVisible()
-  await expect(tabelle).toContainText('System (Bootstrap)')
+  await expect(tabelle).toContainText('System (Ersteinrichtung)')
   await expect(tabelle).toContainText('Keine Rolle')
 })
 
@@ -563,14 +566,14 @@ test('Audit-Tab: Blättern auf Seite 2', async ({ page }) => {
   audit = Array.from({ length: 30 }, (_, i) => auditEintrag(i + 1))
   await meldeAnAls(page, ADMIN)
   await page.goto('/benutzerverwaltung')
-  await page.getByRole('tab', { name: 'Audit-Log' }).click()
+  await page.getByRole('tab', { name: 'Änderungsprotokoll' }).click()
   await expect(page.getByText('Seite 1 von 2')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Vorherige Seite' })).toBeDisabled()
 
   await page.getByRole('button', { name: 'Nächste Seite' }).click()
 
   await expect(page.getByText('Seite 2 von 2')).toBeVisible()
-  await expect(page.getByRole('table', { name: 'Audit-Log' })).toContainText('Person 026')
+  await expect(page.getByRole('table', { name: 'Änderungsprotokoll' })).toContainText('Person 026')
   await expect(page.getByRole('button', { name: 'Nächste Seite' })).toBeDisabled()
 })
 
@@ -640,7 +643,7 @@ test('Audit: Enter auf „Nächste Seite“ mit verzögerter Antwort: Fokus blei
   audit = Array.from({ length: 60 }, (_, i) => auditEintrag(i + 1))
   await meldeAnAls(page, ADMIN)
   await page.goto('/benutzerverwaltung')
-  await page.getByRole('tab', { name: 'Audit-Log' }).click()
+  await page.getByRole('tab', { name: 'Änderungsprotokoll' }).click()
   await expect(page.getByText('Seite 1 von 3')).toBeVisible()
   const freigeben = sperreAudit()
   await page.getByRole('button', { name: 'Nächste Seite' }).focus()
@@ -662,7 +665,7 @@ test('Audit: Enter auf „Nächste Seite“ mit verzögerter Antwort: nach dem L
   audit = Array.from({ length: 60 }, (_, i) => auditEintrag(i + 1))
   await meldeAnAls(page, ADMIN)
   await page.goto('/benutzerverwaltung')
-  await page.getByRole('tab', { name: 'Audit-Log' }).click()
+  await page.getByRole('tab', { name: 'Änderungsprotokoll' }).click()
   await expect(page.getByText('Seite 1 von 3')).toBeVisible()
   const freigeben = sperreAudit()
   await page.getByRole('button', { name: 'Nächste Seite' }).focus()
@@ -682,7 +685,7 @@ test('Audit: Enter auf „Nächste Seite“ zur letzten Seite: Fokus bleibt im B
   audit = Array.from({ length: 30 }, (_, i) => auditEintrag(i + 1))
   await meldeAnAls(page, ADMIN)
   await page.goto('/benutzerverwaltung')
-  await page.getByRole('tab', { name: 'Audit-Log' }).click()
+  await page.getByRole('tab', { name: 'Änderungsprotokoll' }).click()
   await expect(page.getByText('Seite 1 von 2')).toBeVisible()
   await page.getByRole('button', { name: 'Nächste Seite' }).focus()
 
@@ -728,13 +731,15 @@ test('Audit: Ladefehler nach Enter auf „Nächste Seite“: der Fokus bleibt im
   auditFehlerSeiten = [2]
   await meldeAnAls(page, ADMIN)
   await page.goto('/benutzerverwaltung')
-  await page.getByRole('tab', { name: 'Audit-Log' }).click()
+  await page.getByRole('tab', { name: 'Änderungsprotokoll' }).click()
   await expect(page.getByText('Seite 1 von 3')).toBeVisible()
   await page.getByRole('button', { name: 'Nächste Seite' }).focus()
 
   await page.keyboard.press('Enter')
 
-  await expect(page.getByRole('alert').filter({ hasText: 'Audit-Log konnte nicht geladen werden.' })).toBeVisible()
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Änderungsprotokoll konnte nicht geladen werden.' }),
+  ).toBeVisible()
   await page.waitForTimeout(150)
   expect(await fokusBereich(page)).toBe('main')
 })
@@ -778,8 +783,8 @@ test('Benutzerverwaltung samt Dialogen und Audit-Tab enthält keine englischen T
   expect(await alleTexte(page)).not.toMatch(ENGLISCH)
   await page.getByRole('button', { name: 'Abbrechen' }).click()
 
-  await page.getByRole('tab', { name: 'Audit-Log' }).click()
-  await expect(page.getByRole('table', { name: 'Audit-Log' })).toBeVisible()
+  await page.getByRole('tab', { name: 'Änderungsprotokoll' }).click()
+  await expect(page.getByRole('table', { name: 'Änderungsprotokoll' })).toBeVisible()
   expect(await alleTexte(page)).not.toMatch(ENGLISCH)
 })
 
@@ -789,7 +794,7 @@ test('auf schmalem Bildschirm sind Überschrift, Tabs und Suche erreichbar', asy
   await page.goto('/benutzerverwaltung')
 
   await expect(page.getByRole('heading', { level: 1, name: 'Benutzerverwaltung' })).toBeInViewport()
-  await expect(page.getByRole('tab', { name: 'Audit-Log' })).toBeInViewport()
+  await expect(page.getByRole('tab', { name: 'Änderungsprotokoll' })).toBeInViewport()
   await expect(page.getByRole('searchbox', { name: 'Benutzer suchen' })).toBeVisible()
   // Die Seite selbst scrollt nicht waagerecht; breite Tabellen scrollen in ihrem Container.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)

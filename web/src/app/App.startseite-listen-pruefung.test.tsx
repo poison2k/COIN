@@ -157,8 +157,8 @@ const SEITEN: Seite[] = [
     pfad: '/benutzerverwaltung',
     bereit: async (user) => {
       await screen.findByRole('heading', { level: 1, name: 'Benutzerverwaltung' })
-      await user.click(screen.getByRole('tab', { name: 'Audit-Log' }))
-      await screen.findByRole('table', { name: 'Audit-Log' })
+      await user.click(screen.getByRole('tab', { name: 'Änderungsprotokoll' }))
+      await screen.findByRole('table', { name: 'Änderungsprotokoll' })
     },
   },
   {

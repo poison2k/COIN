@@ -9,10 +9,11 @@ import type { ApiErgebnis } from '@/shared/api'
 import { ROUTEN } from '@/shared/config'
 import { formatiereZahl } from '@/shared/lib/format'
 import { istGuid } from '@/shared/lib/guid'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { buttonVariants } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Seitenkopf } from '@/shared/ui/seitenkopf'
-import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
+import { Fehlerzustand, Inhaltsbereich, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
 
 export interface AusgabeDetailSeiteProps {
   /** Ids aus der URL; keine GUID → „Ausgabe nicht gefunden“ ohne API-Aufruf (AK-27). */
@@ -46,7 +47,7 @@ const ZURUECK = buttonVariants({ variant: 'outline', className: 'justify-self-st
  * 409 `ausgabe_storniert` lädt die Seite neu und zeigt bis dahin den bisherigen Stand (der Alarm am Button bleibt
  * sichtbar); nach einem Storno zeigt sie die Antwort ohne Neuladen. Ohne Router-Hooks, kein eigenes <main>.
  */
-export function AusgabeDetailSeite({
+function AusgabeDetailSeiteInhalt({
   coinId,
   ausgabeId,
   darfZertifikat,
@@ -59,7 +60,7 @@ export function AusgabeDetailSeite({
   // Laufende Anfragen je Schlüssel wiederverwenden (z. B. im StrictMode), damit es je genau einen Request gibt.
   const anfrage = useRef<{ schluessel: string; ergebnis: Promise<Geladen> } | null>(null)
   const [stornoMeldung, setStornoMeldung] = useState(false)
-  const meldungRef = useRef<HTMLParagraphElement>(null)
+  const meldungRef = useRef<HTMLDivElement>(null)
 
   // Nach dem Storno die Statusmeldung fokussieren („Stornieren“ entfällt, AK-28).
   useEffect(() => {
@@ -129,6 +130,8 @@ export function AusgabeDetailSeite({
         <Fehlerzustand
           meldung="Die Ausgabe konnte nicht geladen werden. Bitte später erneut versuchen."
           onErneutVersuchen={() => setNeuLaden((n) => n + 1)}
+          // Beim Neuladen zeigt die Seite nur die Ladeanzeige, das h1 wird ausgehängt; Ziel ist der Inhaltsbereich (ADR-0047).
+          fokusUeberschrift={false}
         />
         <Link to={ROUTEN.coinDetail} params={{ coinId }} className={ZURUECK}>
           Zurück zum Coin
@@ -187,14 +190,11 @@ export function AusgabeDetailSeite({
           }
           aktionen={aktionen || undefined}
         />
-        <p
+        <Aktionsmeldung
           ref={meldungRef}
-          role="status"
-          tabIndex={-1}
-          className="rounded-md text-success outline-none empty:sr-only focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {stornoMeldung ? 'Die Ausgabe wurde storniert.' : ''}
-        </p>
+          fokussierbar
+          meldung={stornoMeldung ? { art: 'erfolg', text: 'Die Ausgabe wurde storniert.' } : null}
+        />
       </div>
 
       <AusgabeDetails
@@ -224,5 +224,14 @@ export function AusgabeDetailSeite({
         Zurück zum Coin
       </Link>
     </div>
+  )
+}
+
+/** Seite in einem stabilen Inhaltsbereich: Fokusziel nach „Erneut versuchen“ mit sichtbarem Fokusring (ADR-0047). */
+export function AusgabeDetailSeite(props: AusgabeDetailSeiteProps) {
+  return (
+    <Inhaltsbereich>
+      <AusgabeDetailSeiteInhalt {...props} />
+    </Inhaltsbereich>
   )
 }

@@ -1,4 +1,5 @@
 using Coin.Domain.Ausgaben;
+using Coin.Domain.Gemeinsam;
 using Coin.Domain.Pruefung;
 
 namespace Coin.Api.Contracts;

@@ -11,7 +11,7 @@ import {
   testCoin,
   type FakeApi,
 } from '../../../../test/fakeApi'
-import { meldungMit } from '../../../../test/hilfen'
+import { statusBannerMit } from '../../../../test/hilfen'
 import { zeigeMitRouter } from '../../../../test/router'
 import { AusgabeDetailSeite } from '../index'
 
@@ -252,8 +252,9 @@ describe('Nach bestätigtem Storno (AK-28)', () => {
     await storniere(user)
 
     const meldung = await waitFor(() => {
-      const el = meldungMit('Die Ausgabe wurde storniert.')
-      expect(el?.getAttribute('role')).toBe('status')
+      // nacharbeiten-audit-filter K2: role="status" am Container, Fokus auf dem Banner darin (ADR-0047).
+      const el = statusBannerMit('Die Ausgabe wurde storniert.')
+      expect(el).toBeDefined()
       return el as HTMLElement
     })
     await waitFor(() => expect(meldung).toHaveFocus())

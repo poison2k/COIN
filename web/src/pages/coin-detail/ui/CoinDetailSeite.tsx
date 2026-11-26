@@ -10,6 +10,7 @@ import { ZertifikatsvorlageVerwalten } from '@/widgets/zertifikatsvorlage'
 import type { ApiErgebnis } from '@/shared/api'
 import { istGuid } from '@/shared/lib/guid'
 import { ROUTEN } from '@/shared/config'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { Badge } from '@/shared/ui/badge'
 import { buttonVariants } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
@@ -18,7 +19,7 @@ import { Seitenkopf } from '@/shared/ui/seitenkopf'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import { VerlassenWarnung } from '@/shared/ui/verlassen-warnung'
-import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
+import { Fehlerzustand, Inhaltsbereich, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
 
 /** Meldung nach dem Anlegen: mit gespeichertem (oder ohne gewähltes) Bild bzw. bewusst ohne Motivbild. */
 export type CoinAngelegtMeldung = 'mitBild' | 'ohneBild'
@@ -107,7 +108,7 @@ const NICHT_GEFUNDEN: ApiErgebnis<Coin> = { art: 'nichtGefunden' }
  * „Stammdaten“, „Exemplare“, „Ausgaben“, „Zertifikatsvorlage“ je nach Berechtigung. Ohne coins.read gibt es keine
  * Reiterleiste; Inhalte nicht gewählter Reiter sind nicht im DOM. Rendert kein eigenes <main>.
  */
-export function CoinDetailSeite({
+function CoinDetailSeiteInhalt({
   coinId,
   meldung,
   berechtigungen,
@@ -190,6 +191,8 @@ export function CoinDetailSeite({
       <Fehlerzustand
         meldung="Der Coin konnte nicht geladen werden. Bitte später erneut versuchen."
         onErneutVersuchen={() => setVersuch((n) => n + 1)}
+        // Beim Neuladen wird das h1 ausgehängt; Ziel ist der stabile Inhaltsbereich (ADR-0047).
+        fokusUeberschrift={false}
       />
     )
   }
@@ -315,10 +318,8 @@ export function CoinDetailSeite({
           beschreibung={chips || undefined}
           aktionen={aktionen || undefined}
         />
-        {/* Immer gerendert, damit Screenreader den später eingefügten Text als Änderung der Live-Region ansagen. */}
-        <p role="status" className="text-success empty:sr-only">
-          {statusText ?? ''}
-        </p>
+        {/* Der Status-Container bleibt immer gerendert, damit Screenreader den Text als Änderung ansagen. */}
+        <Aktionsmeldung meldung={statusText ? { art: 'erfolg', text: statusText } : null} />
       </div>
 
       {berechtigungen.exemplare && (kennzahlen !== null || exemplare.ergebnis === null) && (
@@ -377,5 +378,14 @@ export function CoinDetailSeite({
         Zurück zum Katalog
       </Link>
     </div>
+  )
+}
+
+/** Seite in einem stabilen Inhaltsbereich: Fokusziel nach „Erneut versuchen“ mit sichtbarem Fokusring (ADR-0047). */
+export function CoinDetailSeite(props: CoinDetailSeiteProps) {
+  return (
+    <Inhaltsbereich>
+      <CoinDetailSeiteInhalt {...props} />
+    </Inhaltsbereich>
   )
 }

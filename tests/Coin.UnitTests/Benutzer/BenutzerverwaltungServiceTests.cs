@@ -460,7 +460,7 @@ public class BenutzerverwaltungServiceTests
         public Task<Seite<DomainBenutzer>> SuchenAsync(string? suche, int seite, int groesse, CancellationToken ct) =>
             throw new NotSupportedException();
 
-        public Task<Seite<AuditEintragAnsicht>> AuditSeiteAsync(Guid? benutzerId, int seite, int groesse, CancellationToken ct) =>
+        public Task<Seite<AuditEintragAnsicht>> AuditSeiteAsync(AuditFilter filter, int seite, int groesse, CancellationToken ct) =>
             throw new NotSupportedException();
 
         private void PruefeSperre()

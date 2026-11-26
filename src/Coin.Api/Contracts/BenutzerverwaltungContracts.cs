@@ -56,3 +56,11 @@ public sealed record AuditEintragResponse(
         eintrag.Alt,
         eintrag.Neu);
 }
+
+/// <summary>Aktionstyp für den Filter des Audit-Logs (nacharbeiten-audit-filter 4.2): API-Wert und deutscher Text.</summary>
+public sealed record AuditAktionResponse(string Wert, string Bezeichnung)
+{
+    /// <summary>Alle Aktionstypen in Enum-Reihenfolge.</summary>
+    public static IReadOnlyList<AuditAktionResponse> Alle() =>
+        [.. Enum.GetValues<AuditArt>().Select(a => new AuditAktionResponse(a.ToString(), AuditArtText.Bezeichnung(a)))];
+}

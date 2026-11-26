@@ -25,14 +25,8 @@ function alarmAbsaetze(inhalt: string): string[] {
 }
 
 /** Ausnahmen: Meldungen zu einer Aktion des Benutzers (kein Ladefehler einer Seite oder Liste), mit Begründung. */
-const AUSNAHMEN_ALARM: Record<string, string> = {
-  '/src/widgets/benutzer-tabelle/ui/BenutzerTabelle.tsx: {meldung.text}':
-    'Fehler einer Rollen- oder Statusänderung (Aktionsmeldung an der Tabelle, rollen-benutzerverwaltung AK-29).',
-  '/src/widgets/zertifikatsvorlage/ui/ZertifikatsvorlageVerwalten.tsx: {downloadFehler}':
-    'Fehler eines Downloads (Aktionsmeldung, zertifikatsvorlagen AK-30).',
-  '/src/pages/kein-zugriff/ui/KeinZugriffSeite.tsx: {meldung.text}':
-    'Ergebnis der Aktion auf der Seite „Kein Zugriff“ (Aktionsmeldung, keine Ladeanzeige).',
-}
+// nacharbeiten-audit-filter E7 (ADR-0047): Aktionsmeldungen laufen über `Aktionsmeldung`, es bleibt keine Ausnahme.
+const AUSNAHMEN_ALARM: Record<string, string> = {}
 
 /** Typische Leertexte (bestehende Texte aus den Entwürfen). */
 const LEERTEXT =
@@ -145,5 +139,187 @@ describe('Ansprache (AK-36, R6)', () => {
       )
 
     expect(treffer).toEqual([])
+  })
+})
+
+// ---------- Feature nacharbeiten-audit-filter (Abschnitt 4.7, 4.8, 4.10, AK-13, AK-23 bis AK-25, AK-27, AK-29) ----------
+
+/** Quelltext ohne Kommentare (Block-, JSX- und Zeilenkommentare; URLs wie http:// bleiben). */
+function ohneKommentare(inhalt: string): string {
+  return inhalt.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:\\'"`])\/\/.*$/gm, '$1')
+}
+
+const produktivOhneKommentare = produktiv.map(([pfad, inhalt]) => [pfad, ohneKommentare(inhalt)] as const)
+
+describe('Begriff „Änderungsprotokoll“ (AK-23, AK-24)', () => {
+  it('entfernt Kommentare, aber keine Zeichenketten (Selbsttest)', () => {
+    expect(ohneKommentare("const a = 'x' // Audit-Log\n/* Audit-Log */ {/* Audit-Log */}")).not.toMatch(/Audit-Log/)
+    expect(ohneKommentare("const url = 'http://x/Audit-Log'")).toMatch(/Audit-Log/)
+  })
+
+  it('enthält „Audit-Log“ in keiner Zeichenkette und keinem JSX-Text in web/src (außer Tests)', () => {
+    const treffer = produktivOhneKommentare.filter(([, inhalt]) => inhalt.includes('Audit-Log')).map(([pfad]) => pfad)
+
+    expect(treffer).toEqual([])
+  })
+
+  it('enthält den alten Text für den Systemakteur nirgends mehr in web/src', () => {
+    const alt = 'System (Boot' + 'strap)'
+    const treffer = Object.entries(alle)
+      .filter(([pfad, inhalt]) => pfad !== '/src/app/konsistenz.test.ts' && inhalt.includes(alt))
+      .map(([pfad]) => pfad)
+
+    expect(treffer).toEqual([])
+  })
+
+  it('zeigt den Systemakteur als „System (Ersteinrichtung)“', () => {
+    expect(alle['/src/entities/audit/model/types.ts']).toContain("'System (Ersteinrichtung)'")
+  })
+})
+
+describe('Hilfetexte mit „z. B.“ bleiben unverändert (AK-25, F4)', () => {
+  it('behält „z. B. Truppenbesuch, Verabschiedung“', () => {
+    expect(alle['/src/features/ausgabe-erfassen/ui/AusgabeFormular.tsx']).toContain(
+      "'z. B. Truppenbesuch, Verabschiedung'",
+    )
+  })
+
+  it('behält den Hilfetext der Vorlage mit „z. B. {{Zertifikat.Nummer}}.“', () => {
+    expect(alle['/src/features/vorlage-hochladen/ui/VorlageHochladen.tsx']).toContain(
+      'Platzhalter haben die Form {{Gruppe.Feld}}, z. B. {{Zertifikat.Nummer}}. Die Liste aller Platzhalter steht in der Standardvorlage.',
+    )
+  })
+})
+
+const AUDIT_FILTER_DATEIEN = /^\/src\/(features\/audit-filtern|widgets\/audit-log)\//
+
+describe('Aktionsliste nicht fest kodiert (AK-13)', () => {
+  it('findet die Dateien des Filters (Selbsttest)', () => {
+    expect(produktiv.filter(([pfad]) => AUDIT_FILTER_DATEIEN.test(pfad)).length).toBeGreaterThanOrEqual(4)
+  })
+
+  it("enthält in features/audit-filtern und widgets/audit-log keine Literale 'Rolle' oder 'Status'", () => {
+    const treffer = produktivOhneKommentare
+      .filter(([pfad]) => AUDIT_FILTER_DATEIEN.test(pfad))
+      .filter(([, inhalt]) => /(['"`])(Rolle|Status)\1/.test(inhalt))
+      .map(([pfad]) => pfad)
+
+    expect(treffer).toEqual([])
+  })
+})
+
+/** Anzahl der Rollen-Attribute alert bzw. status im Code, z. B. role="alert" oder role={'status'}. */
+function rollen(inhalt: string, rolle: 'alert' | 'status'): number {
+  const muster = new RegExp(`\\brole=(?:"${rolle}"|'${rolle}'|\\{\\s*['"\`]${rolle}['"\`]\\s*\\})`, 'g')
+  return [...inhalt.matchAll(muster)].length
+}
+
+const schichtenDateien = produktivOhneKommentare.filter(
+  ([pfad]) => /^\/src\/(features|widgets|pages)\//.test(pfad) && pfad.endsWith('.tsx'),
+)
+
+/** Bausteinseite (nur Entwicklung): zeigt Bausteine mit ihren Rollen und ist ausgenommen (Abschnitt 4.8). */
+const BAUSTEINSEITE = /^\/src\/pages\/entwicklung-bausteine\//
+
+/** Stellen mit role="alert", die nach 4.8 bleiben (keine Meldung nach einer Aktion bzw. schon `Alert`). */
+const ALARM_BLEIBT: Readonly<Record<string, number>> = {
+  // PruefFormular nutzt schon `Alert` (4.8 „Nicht umgestellt“).
+  '/src/features/zertifikat-pruefen/ui/PruefFormular.tsx': 1,
+  // Kopfzeile: kein Formular, bleibt (4.8, Abschnitt 13).
+  '/src/widgets/app-shell/ui/Kopfzeile.tsx': 1,
+}
+
+/** Positivliste der reinen Statuszeilen aus 4.8 (Laden, Treffer, Ansage beim Verschieben) samt Prüfergebnis. */
+const STATUS_ZEILEN: Readonly<Record<string, number>> = {
+  '/src/widgets/audit-log/ui/AuditLog.tsx': 1,
+  '/src/widgets/coin-katalog/ui/CoinKatalog.tsx': 1,
+  '/src/widgets/benutzer-tabelle/ui/BenutzerTabelle.tsx': 1,
+  '/src/widgets/coin-exemplare/ui/CoinExemplare.tsx': 1,
+  // Ladezeile und Ansage beim Verschieben.
+  '/src/features/startseite-konfigurieren/ui/StartseiteFormular.tsx': 2,
+  // Der Ladetext bleibt eine eigene Statuszeile (4.8).
+  '/src/widgets/ausgaben-historie/ui/AusgabenHistorie.tsx': 1,
+  // Live-Region der Prüfung (PruefFormular nutzt schon `Alert`).
+  '/src/features/zertifikat-pruefen/ui/PruefFormular.tsx': 1,
+}
+
+/** Dateien aus 4.8, die ihre Meldungen nach Aktionen über `Aktionsmeldung` zeigen. */
+const MIT_AKTIONSMELDUNG = [
+  '/src/features/motivbild-hochladen/ui/MotivbildHochladen.tsx',
+  '/src/features/vorlage-hochladen/ui/VorlageHochladen.tsx',
+  '/src/features/coin-anlegen/ui/CoinFormular.tsx',
+  '/src/features/coin-bearbeiten/ui/CoinBearbeitenFormular.tsx',
+  '/src/features/auflage-aendern/ui/AuflageAendern.tsx',
+  '/src/features/hologrammnummer-aendern/ui/HologrammnummerAendern.tsx',
+  '/src/features/standardvorlage-herunterladen/ui/StandardvorlageHerunterladen.tsx',
+  '/src/features/zertifikat-herunterladen/ui/ZertifikatHerunterladen.tsx',
+  '/src/features/startseite-konfigurieren/ui/StartseiteFormular.tsx',
+  '/src/widgets/benutzer-tabelle/ui/BenutzerTabelle.tsx',
+  '/src/widgets/zertifikatsvorlage/ui/ZertifikatsvorlageVerwalten.tsx',
+  '/src/widgets/ausgaben-historie/ui/AusgabenHistorie.tsx',
+  '/src/pages/coin-detail/ui/CoinDetailSeite.tsx',
+  '/src/pages/ausgabe-detail/ui/AusgabeDetailSeite.tsx',
+  '/src/pages/kein-zugriff/ui/KeinZugriffSeite.tsx',
+  '/src/shared/ui/bestaetigungsdialog.tsx',
+]
+
+describe('Aktionsmeldungen über den Baustein (AK-27, ADR-0047)', () => {
+  it('erkennt Rollen-Attribute in allen Schreibweisen (Selbsttest)', () => {
+    expect(rollen(`<p role="alert"/><div role='alert'/><X role={'alert'} />`, 'alert')).toBe(3)
+    expect(rollen(ohneKommentare(`{/* role="status" */}`), 'status')).toBe(0)
+  })
+
+  it('hat in features, widgets und pages kein role="alert" außer den begründeten Stellen', () => {
+    const treffer = schichtenDateien
+      .filter(([pfad]) => !BAUSTEINSEITE.test(pfad))
+      .map(([pfad, inhalt]) => [pfad, rollen(inhalt, 'alert')] as const)
+      .filter(([pfad, anzahl]) => anzahl > (ALARM_BLEIBT[pfad] ?? 0))
+      .map(([pfad, anzahl]) => `${pfad}: ${anzahl}`)
+
+    expect(treffer).toEqual([])
+  })
+
+  it('hat role="status" in features, widgets und pages nur an den Statuszeilen der Positivliste', () => {
+    const treffer = schichtenDateien
+      .filter(([pfad]) => !BAUSTEINSEITE.test(pfad))
+      .map(([pfad, inhalt]) => [pfad, rollen(inhalt, 'status')] as const)
+      .filter(([pfad, anzahl]) => anzahl > (STATUS_ZEILEN[pfad] ?? 0))
+      .map(([pfad, anzahl]) => `${pfad}: ${anzahl}`)
+
+    expect(treffer).toEqual([])
+  })
+
+  it.each(MIT_AKTIONSMELDUNG)('zeigt in %s Meldungen über <Aktionsmeldung>', (pfad) => {
+    expect(ohneKommentare(alle[pfad] ?? '')).toMatch(/<Aktionsmeldung\b/)
+  })
+
+  it('stellt den Baustein in shared/ui/aktionsmeldung.tsx bereit', () => {
+    expect(alle['/src/shared/ui/aktionsmeldung.tsx']).toBeDefined()
+  })
+})
+
+const KATALOG_DATEIEN = /^\/src\/(entities\/coin|widgets\/coin-katalog)\//
+
+describe('Katalogtabelle über DatenTabelle (AK-29, ADR-0046)', () => {
+  const katalog = produktivOhneKommentare.filter(([pfad]) => KATALOG_DATEIEN.test(pfad))
+
+  it('findet die Dateien des Katalogs (Selbsttest)', () => {
+    expect(katalog.map(([pfad]) => pfad)).toContain('/src/entities/coin/ui/CoinListe.tsx')
+  })
+
+  it('importiert in entities/coin und widgets/coin-katalog nichts aus @/shared/ui/table', () => {
+    const treffer = katalog.filter(([, inhalt]) => /from\s+['"]@\/shared\/ui\/table['"]/.test(inhalt))
+
+    expect(treffer.map(([pfad]) => pfad)).toEqual([])
+  })
+
+  it('enthält in entities/coin und widgets/coin-katalog kein <table> und kein TableRow', () => {
+    const treffer = katalog.filter(([, inhalt]) => /<table\b|\bTableRow\b/.test(inhalt))
+
+    expect(treffer.map(([pfad]) => pfad)).toEqual([])
+  })
+
+  it('rendert in CoinListe die DatenTabelle', () => {
+    expect(alle['/src/entities/coin/ui/CoinListe.tsx']).toMatch(/<DatenTabelle\b/)
   })
 })

@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 import { richteApiEin, SEITEN, setzeTheme, type ApiZustand, type SeitenFall } from './hilfen/api.js'
 import { erwarteKeineAxeVerstoesse } from './hilfen/pruefungen.js'
+import { oeffneProtokollZustand, PROTOKOLL_ZUSTAENDE } from './hilfen/aenderungsprotokoll-zustaende.js'
 import { ADMIN, AUSGABE, COIN, richteFormularApiEin } from './hilfen/formulare.js'
 import {
   ansichtsKnopf,
@@ -362,7 +363,7 @@ for (const [name, leer] of [
       api = await richteApiEin(page, ADMIN)
       await mockeAudit(page, { leer })
       await oeffneAuditLog(page)
-      const panel = page.getByRole('tabpanel', { name: 'Audit-Log' })
+      const panel = page.getByRole('tabpanel', { name: 'Änderungsprotokoll' })
       if (leer) {
         await expect(panel.getByRole('heading', { level: 3, name: 'Noch keine Einträge.' })).toBeVisible()
       } else {
@@ -372,6 +373,22 @@ for (const [name, leer] of [
         await page.getByRole('option', { name: BETRACHTER.name }).click()
         await expect(panel.getByRole('list', { name: 'Aktive Filter' })).toBeVisible()
       }
+
+      await erwarteKeineAxeVerstoesse(page)
+    })
+  }
+}
+
+// Feature nacharbeiten-audit-filter, AK-32: Änderungsprotokoll mit allen Filtern aktiv, leer mit Filter, 400-Feldfehler
+// und Ladefehler, hell und dunkel bei 360 und 1280 px. Katalog (360 px mit DatenTabelle-Karten), Startseiten-Kopf und die
+// vier Prüfergebnisse stehen oben (KATALOG_ZUSTAENDE, STARTSEITEN_FAELLE, Prüfmaske).
+for (const zustand of PROTOKOLL_ZUSTAENDE) {
+  for (const [theme, breite] of THEMES_BREITEN) {
+    test(`axe (nacharbeiten AK-32): Änderungsprotokoll ${zustand} (${theme}, ${breite} px) ohne serious/critical`, async ({
+      page,
+    }) => {
+      test.slow()
+      await oeffneProtokollZustand(page, zustand, { breite, theme, onApi: (a) => (api = a) })
 
       await erwarteKeineAxeVerstoesse(page)
     })

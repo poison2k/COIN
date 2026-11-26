@@ -53,14 +53,14 @@ describe('Tabs', () => {
 
     const tabs = screen.getAllByRole('tab')
     expect(screen.getByRole('tablist')).toBeInTheDocument()
-    expect(tabs.map((t) => t.textContent?.trim())).toEqual(['Benutzer', 'Audit-Log'])
+    expect(tabs.map((t) => t.textContent?.trim())).toEqual(['Benutzer', 'Änderungsprotokoll'])
   })
 
   it('wählt anfangs „Benutzer“ aus', () => {
     zeige()
 
     expect(screen.getByRole('tab', { name: 'Benutzer' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: 'Audit-Log' })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('tab', { name: 'Änderungsprotokoll' })).toHaveAttribute('aria-selected', 'false')
   })
 
   it('zeigt anfangs die Benutzertabelle', async () => {
@@ -79,27 +79,27 @@ describe('Tabs', () => {
   it('zeigt nach Klick auf „Audit-Log“ die Audit-Tabelle', async () => {
     const { user } = zeige()
 
-    await user.click(screen.getByRole('tab', { name: 'Audit-Log' }))
+    await user.click(screen.getByRole('tab', { name: 'Änderungsprotokoll' }))
 
-    expect(await screen.findByRole('table', { name: 'Audit-Log' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Audit-Log' })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByRole('table', { name: 'Änderungsprotokoll' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Änderungsprotokoll' })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('ordnet den Tab seinem Panel zu (tabpanel mit Namen des Tabs)', async () => {
     const { user } = zeige()
 
-    await user.click(screen.getByRole('tab', { name: 'Audit-Log' }))
+    await user.click(screen.getByRole('tab', { name: 'Änderungsprotokoll' }))
 
-    expect(await screen.findByRole('tabpanel', { name: 'Audit-Log' })).toBeInTheDocument()
+    expect(await screen.findByRole('tabpanel', { name: 'Änderungsprotokoll' })).toBeInTheDocument()
   })
 
   it('lädt das Audit-Log bei jedem Aktivieren neu', async () => {
     const { user } = zeige()
-    await user.click(screen.getByRole('tab', { name: 'Audit-Log' }))
-    await screen.findByRole('table', { name: 'Audit-Log' })
+    await user.click(screen.getByRole('tab', { name: 'Änderungsprotokoll' }))
+    await screen.findByRole('table', { name: 'Änderungsprotokoll' })
 
     await user.click(screen.getByRole('tab', { name: 'Benutzer' }))
-    await user.click(screen.getByRole('tab', { name: 'Audit-Log' }))
+    await user.click(screen.getByRole('tab', { name: 'Änderungsprotokoll' }))
 
     await waitFor(() => expect(auditAbrufe()).toBe(2))
   })
@@ -110,7 +110,7 @@ describe('Tabs', () => {
 
     await user.keyboard('{ArrowRight}')
 
-    expect(screen.getByRole('tab', { name: 'Audit-Log' })).toHaveFocus()
+    expect(screen.getByRole('tab', { name: 'Änderungsprotokoll' })).toHaveFocus()
   })
 
   it('aktiviert den fokussierten Tab per Pfeiltaste und Enter', async () => {
@@ -119,12 +119,12 @@ describe('Tabs', () => {
 
     await user.keyboard('{ArrowRight}{Enter}')
 
-    expect(await screen.findByRole('table', { name: 'Audit-Log' })).toBeInTheDocument()
+    expect(await screen.findByRole('table', { name: 'Änderungsprotokoll' })).toBeInTheDocument()
   })
 
   it('kehrt per Pfeil links zu „Benutzer“ zurück', async () => {
     const { user } = zeige()
-    await user.click(screen.getByRole('tab', { name: 'Audit-Log' }))
+    await user.click(screen.getByRole('tab', { name: 'Änderungsprotokoll' }))
 
     await user.keyboard('{ArrowLeft}{Enter}')
 

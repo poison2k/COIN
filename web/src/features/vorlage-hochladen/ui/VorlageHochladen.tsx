@@ -3,6 +3,7 @@ import type { VorlagenStatus } from '@/entities/zertifikatsvorlage'
 import type { ApiErgebnis } from '@/shared/api'
 import { useFormular, useSendeSperre } from '@/shared/lib/formular'
 import { Aktionsleiste } from '@/shared/ui/aktionsleiste'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { Button } from '@/shared/ui/button'
 import { FormularAbschnitt } from '@/shared/ui/formular-abschnitt'
 import { Formularfeld } from '@/shared/ui/formularfeld'
@@ -118,22 +119,30 @@ export function VorlageHochladen({ coinId, onHochgeladen, onUploadBeginnt, onGea
 
   return (
     <form className="grid max-w-reading gap-4" onSubmit={absenden} noValidate>
-      {alarm && (
-        <div ref={alarmRef} role="alert" tabIndex={-1} className="grid gap-1 text-destructive outline-none">
-          {alarm.art === 'liste' ? (
-            <>
-              <p>{TEXT_ABGELEHNT}</p>
-              <ul className="list-disc pl-5">
-                {alarm.meldungen.map((meldung, index) => (
-                  <li key={index}>{meldung}</li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p>{alarm.text}</p>
-          )}
-        </div>
-      )}
+      <Aktionsmeldung
+        ref={alarmRef}
+        fokussierbar
+        meldung={
+          alarm
+            ? {
+                art: 'fehler',
+                text:
+                  alarm.art === 'liste' ? (
+                    <>
+                      <p>{TEXT_ABGELEHNT}</p>
+                      <ul className="list-disc pl-5">
+                        {alarm.meldungen.map((meldung, index) => (
+                          <li key={index}>{meldung}</li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <p>{alarm.text}</p>
+                  ),
+              }
+            : null
+        }
+      />
 
       <FormularAbschnitt titel="Neue Version hochladen" ebene={3}>
         <Formularfeld

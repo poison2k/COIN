@@ -6,6 +6,7 @@ import { ZertifikatHerunterladen } from '@/features/zertifikat-herunterladen'
 import type { ApiErgebnis, Seite } from '@/shared/api'
 import { ROUTEN } from '@/shared/config'
 import { useFokusBeiLadefehler } from '@/shared/lib/hooks'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { Blaettern, seitenAnzahl } from '@/shared/ui/blaettern'
 import { Filterleiste } from '@/shared/ui/filterleiste'
 import { Label } from '@/shared/ui/label'
@@ -53,7 +54,7 @@ export function AusgabenHistorie({ coinId, darfStornieren, darfZertifikat, onGea
   // Ausgabe, deren Storno-Dialog nach einem Fehler offen ist: Er bleibt nach dem Neuladen stehen, auch wenn sie
   // inzwischen storniert ist (sonst verschwände die Fehlermeldung mit dem Dialog).
   const [offenNachFehler, setOffenNachFehler] = useState<string | null>(null)
-  const meldungRef = useRef<HTMLParagraphElement>(null)
+  const meldungRef = useRef<HTMLDivElement>(null)
   const fokusAufMeldung = useRef(false)
   const anfrage = useRef<{ schluessel: string; ergebnis: Promise<ApiErgebnis<Seite<Ausgabe>>> } | null>(null)
   const basis = useId()
@@ -148,18 +149,14 @@ export function AusgabenHistorie({ coinId, darfStornieren, darfZertifikat, onGea
   }
 
   return (
-    <section aria-labelledby={ueberschriftId} className="grid min-w-0 gap-4">
+    <section data-inhaltsbereich="" aria-labelledby={ueberschriftId} className="grid min-w-0 gap-4">
       <h2 id={ueberschriftId} className="text-lg font-semibold">
         Ausgabehistorie
       </h2>
 
-      <p
-        ref={meldungRef}
-        role="status"
-        tabIndex={-1}
-        className="rounded-md text-sm outline-none empty:sr-only focus-visible:ring-3 focus-visible:ring-ring"
-      >
-        {meldung ?? (laedt && daten === null ? 'Ausgaben werden geladen …' : '')}
+      <Aktionsmeldung ref={meldungRef} fokussierbar meldung={meldung ? { art: 'erfolg', text: meldung } : null} />
+      <p role="status" className="text-sm empty:sr-only">
+        {meldung === null && laedt && daten === null ? 'Ausgaben werden geladen …' : ''}
       </p>
       {fehlgeschlagen && (
         <Fehlerzustand

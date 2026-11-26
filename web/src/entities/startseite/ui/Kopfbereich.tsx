@@ -13,8 +13,9 @@ export interface KopfbereichProps {
 }
 
 /**
- * Logo per `<img src>` (öffentliche URL oder Object-URL), höchstens 96 px hoch, auf heller Fläche (A4). Es verkleinert
- * sich mit seiner Spalte, damit der Titel neben beiden Logos Platz behält (AK-4).
+ * Logo per `<img src>` (öffentliche URL oder Object-URL) auf heller Fläche (A4). Feste Höhe je Breite (48/72/96 px,
+ * nacharbeiten-audit-filter 4.6), Breite aus dem Seitenverhältnis; nie verzerrt oder beschnitten (`object-contain`).
+ * Sehr breite Logos (über 2,5 : 1) werden auf die verfügbare Breite verkleinert.
  */
 function LogoBild({ logo, className }: { logo: Logo; className?: string }) {
   return (
@@ -24,7 +25,7 @@ function LogoBild({ logo, className }: { logo: Logo; className?: string }) {
         alt={logo.alternativtext}
         width={logo.breite}
         height={logo.hoehe}
-        className="h-auto max-h-24 w-auto max-w-full min-w-0 object-contain"
+        className="h-12 w-auto max-w-full min-w-0 object-contain md:h-18 lg:h-24"
       />
     </span>
   )
@@ -36,30 +37,39 @@ export function KopfFlaeche({ children }: { children: ReactNode }) {
 }
 
 /**
- * Kopfbereich (AK-20, AK-22, startseite-listen-pruefung AK-4): Logo des Bereitstellers links, Titel und Untertitel
- * mittig, Logo der Software rechts; unter 640 px untereinander und linksbündig. Alle Texte sind reiner Text (React
- * escaped sie, ADR-0031 Punkt 8).
+ * Kopfbereich (AK-20, AK-22, startseite-listen-pruefung AK-4, nacharbeiten-audit-filter 4.6 Variante A): unter 640 px
+ * untereinander und linksbündig; von 640 bis 1023 px beide Logos in einer Zeile über dem Titel (Bereitsteller links,
+ * Software rechts), Titel und Untertitel darunter über die volle Breite zentriert; ab 1024 px Logo | Titel | Logo. Die
+ * DOM-Reihenfolge bleibt, die Anordnung entsteht über die Rasterplätze. Alle Texte sind reiner Text (React escaped sie,
+ * ADR-0031 Punkt 8).
  */
 export function Kopfbereich({ titel, untertitel, logoBereitsteller, logoSoftware, ebene }: KopfbereichProps) {
   const mitLogos = logoBereitsteller !== null || logoSoftware !== null
   return (
     <KopfFlaeche>
-      {/* Ab 640 px drei Spalten (Logo | Titel | Logo, 1:3:1), die Logos schrumpfen mit ihrer Spalte; ohne Logos nur
-          der Titel. Darunter untereinander und linksbündig. */}
       <div
         className={cn(
           'flex flex-col items-start gap-4',
-          mitLogos && 'sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,3fr)_minmax(0,1fr)] sm:items-center sm:gap-6',
+          mitLogos && 'sm:grid sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-6',
         )}
       >
-        {logoBereitsteller ? <LogoBild logo={logoBereitsteller} className="sm:justify-self-start" /> : null}
-        <div className={cn('grid w-full min-w-0 gap-1', mitLogos && 'sm:col-start-2 sm:text-center')}>
+        {logoBereitsteller ? (
+          <LogoBild logo={logoBereitsteller} className="sm:col-start-1 sm:row-start-1 sm:justify-self-start" />
+        ) : null}
+        <div
+          className={cn(
+            'grid w-full min-w-0 gap-1',
+            mitLogos && 'sm:col-span-3 sm:row-start-2 sm:text-center lg:col-span-1 lg:col-start-2 lg:row-start-1',
+          )}
+        >
           <Ueberschrift ebene={ebene} className="min-w-0 text-2xl wrap-anywhere hyphens-auto lg:text-3xl">
             {titel}
           </Ueberschrift>
           {untertitel ? <p className="text-lg break-words text-muted-foreground">{untertitel}</p> : null}
         </div>
-        {logoSoftware ? <LogoBild logo={logoSoftware} className="sm:col-start-3 sm:justify-self-end" /> : null}
+        {logoSoftware ? (
+          <LogoBild logo={logoSoftware} className="sm:col-start-3 sm:row-start-1 sm:justify-self-end" />
+        ) : null}
       </div>
     </KopfFlaeche>
   )

@@ -34,3 +34,9 @@ Alle Seiten sollen auf einem gemeinsamen Gerüst aufbauen: gruppierte, einklappb
 ## Nachtrag (2026-11-15, startseite-listen-pruefung)
 - **Ausnahme zu Punkt 1:** `/pruefung` steht als einzige Seite in einer zentrierten Spalte `mx-auto max-w-reading` ([ADR-0043](0043-uebersichtsmuster-startseitenraster-katalog-pruefmaske.md) Punkt 3). Rand und Maximalbreite der Shell gelten dort weiter.
 - **Zu Punkt 5:** Die Zustände in Widgets nutzen jetzt ebenfalls `Ladeanzeige`, `Leerzustand` und `Fehlerzustand` mit „Erneut versuchen“ (Liste in [startseite-listen-pruefung](../features/startseite-listen-pruefung.md) Abschnitt 13).
+
+## Nachtrag (2026-11-16, nacharbeiten-audit-filter)
+- Neue Bausteine: `Aktionsmeldung` (`shared/ui/aktionsmeldung.tsx`) für Meldungen nach Aktionen und
+  `Inhaltsbereich` (`shared/ui/zustaende.tsx`) als stabiles Fokusziel nach „Erneut versuchen“
+  ([ADR-0047](0047-aktionsmeldungen-und-fokus-nach-erneut-versuchen.md)). Die Bausteinseite zeigt
+  `Aktionsmeldung` mit allen vier Arten; `Inhaltsbereich` hat dort kein eigenes Beispiel.

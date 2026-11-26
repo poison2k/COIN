@@ -103,12 +103,18 @@ test.describe('Filterleiste (AK-10)', () => {
 // ---------- AK-12: Ansichtsumschalter ----------
 
 test.describe('Ansichtsumschalter (AK-12)', () => {
+  // nacharbeiten-audit-filter E6 (ADR-0046): bei 360 px zeigt „Tabelle“ die Karten der DatenTabelle (Liste „Coins“).
   test('aktiviert ohne gespeicherte Wahl „Tabelle“ und zeigt die Tabelle (360 und 1280 px)', async ({ page }) => {
     for (const breite of [360, 1280]) {
       await oeffne(page, { breite })
       await expect(ansichtsKnopf(page, 'Tabelle')).toHaveAttribute('aria-pressed', 'true')
       await expect(ansichtsKnopf(page, 'Karten')).toHaveAttribute('aria-pressed', 'false')
-      await expect(tabelle(page)).toBeVisible()
+      if (breite === 360) {
+        await expect(kartenListe(page)).toBeVisible()
+        await expect(page.getByRole('table')).toHaveCount(0)
+      } else {
+        await expect(tabelle(page)).toBeVisible()
+      }
     }
   })
 

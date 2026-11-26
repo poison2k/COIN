@@ -245,6 +245,8 @@ public partial class EndpunktTabelleTests(PostgresFixture fixture) : Integration
     [InlineData("PUT /api/benutzer/{id}/rolle", "users.manage")]
     [InlineData("PUT /api/benutzer/{id}/status", "users.manage")]
     [InlineData("GET /api/audit", "audit.read")]
+    // nacharbeiten-audit-filter (Abschnitt 4.2, AK-8).
+    [InlineData("GET /api/audit/aktionen", "audit.read")]
     [InlineData("GET /api/me", Angemeldet)]
     [InlineData("GET /api/coins/{id}/exemplare", "coins.read")]
     [InlineData("GET /api/coins/{id}/ausgaben", "issues.read")]
@@ -332,14 +334,16 @@ public partial class EndpunktTabelleTests(PostgresFixture fixture) : Integration
     }
 
     [Fact]
-    public void Es_gibt_genau_einen_Audit_Endpunkt_GET_api_audit()
+    public void Es_gibt_genau_die_Audit_Endpunkte_GET_api_audit_und_GET_api_audit_aktionen()
     {
         var audit = Endpunkte()
             .Where(e => e.Name.Contains("audit", StringComparison.OrdinalIgnoreCase))
             .Select(e => e.Name)
             .Distinct()
+            .Order(StringComparer.Ordinal)
             .ToList();
 
-        Assert.Equal(["GET /api/audit"], audit);
+        // nacharbeiten-audit-filter (Abschnitt 4.2): bisher nur „GET /api/audit“.
+        Assert.Equal(["GET /api/audit", "GET /api/audit/aktionen"], audit);
     }
 }

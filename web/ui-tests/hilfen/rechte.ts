@@ -100,10 +100,10 @@ export async function erhebeBestand(
     regionen: await namen('region'),
   })
   const teile = [await erheben()]
-  const reiterAudit = page.getByRole('tab', { name: 'Audit-Log' })
+  const reiterAudit = page.getByRole('tab', { name: 'Änderungsprotokoll' })
   if (ort.pathname === '/benutzerverwaltung' && (await reiterAudit.count()) > 0) {
     await reiterAudit.click()
-    await expect(page.getByRole('tabpanel', { name: 'Audit-Log' }).getByRole('table')).toBeVisible()
+    await expect(page.getByRole('tabpanel', { name: 'Änderungsprotokoll' }).getByRole('table')).toBeVisible()
     teile.push(await erheben())
   }
   const vereint = (feld: keyof (typeof teile)[number]) => sortiert(teile.flatMap((t) => t[feld]))

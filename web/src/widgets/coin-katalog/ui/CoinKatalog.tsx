@@ -115,7 +115,7 @@ export function CoinKatalog({ suche, seite, onSuche, onSeite }: CoinKatalogProps
     suche.trim() === '' ? [] : [{ id: 'suche', text: `Suche: ${suche}`, onEntfernen: sucheZuruecksetzen }]
 
   return (
-    <div className="grid min-w-0 gap-4">
+    <div data-inhaltsbereich="" className="grid min-w-0 gap-4">
       <Filterleiste chips={chips}>
         <form
           role="search"
@@ -185,10 +185,16 @@ export function CoinKatalog({ suche, seite, onSuche, onSeite }: CoinKatalogProps
           <>
             {anzeige.daten.eintraege.length === 0 ? (
               <Leerzustand titel="Auf dieser Seite gibt es keine Coins." />
-            ) : ansicht === 'karten' ? (
-              <CoinKarten coins={anzeige.daten.eintraege} />
             ) : (
-              <CoinListe coins={anzeige.daten.eintraege} />
+              <>
+                {/* Gliederung für die Kartentitel (h3) unter dem h1 der Seite; Ebene wie die Leerzustände (axe heading-order). */}
+                <h2 className="sr-only">Ergebnisse</h2>
+                {ansicht === 'karten' ? (
+                  <CoinKarten coins={anzeige.daten.eintraege} />
+                ) : (
+                  <CoinListe coins={anzeige.daten.eintraege} />
+                )}
+              </>
             )}
             <div ref={blaetternRef}>
               <Blaettern

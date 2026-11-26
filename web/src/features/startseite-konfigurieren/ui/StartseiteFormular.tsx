@@ -11,6 +11,7 @@ import {
 import { pruefeNachZeigerklick } from '@/shared/lib/formular'
 import { formatiereZahl } from '@/shared/lib/format'
 import { Aktionsleiste } from '@/shared/ui/aktionsleiste'
+import { Aktionsmeldung, type AktionsmeldungInhalt } from '@/shared/ui/aktionsmeldung'
 import { Bestaetigungsdialog } from '@/shared/ui/bestaetigungsdialog'
 import { Button } from '@/shared/ui/button'
 import { Fehlerzusammenfassung, type Feldbefund } from '@/shared/ui/fehlerzusammenfassung'
@@ -112,7 +113,7 @@ export function StartseiteFormular({
   const [verwerfenOffen, setVerwerfenOffen] = useState(false)
   const sendetRef = useRef(false)
   const formRef = useRef<HTMLFormElement>(null)
-  const meldungRef = useRef<HTMLParagraphElement>(null)
+  const meldungRef = useRef<HTMLDivElement>(null)
   const buttons = useRef(new Map<string, HTMLButtonElement>())
   const fokus = useRef<Fokus | null>(neuGeladen ? { art: 'meldung' } : null)
   // Felder, die seit dem Laden geändert wurden: Nur sie werden beim Verlassen geprüft (ADR-0039).
@@ -518,42 +519,45 @@ function MeldungAnzeige({
   gesperrt,
 }: {
   meldung: Meldung | null
-  meldungRef: React.RefObject<HTMLParagraphElement | null>
+  meldungRef: React.RefObject<HTMLDivElement | null>
   onNeuLaden: () => void
   gesperrt: boolean
 }) {
-  if (!meldung) return null
-  switch (meldung.art) {
-    case 'gespeichert':
-    case 'neuGeladen':
-      return (
-        <p ref={meldungRef} role="status" tabIndex={-1} className="font-medium text-foreground outline-none">
-          {meldung.art === 'gespeichert' ? TEXT_GESPEICHERT : TEXT_NEU_GELADEN}
-        </p>
-      )
-    case 'pruefen':
-      // Die Zusammenfassung rendert das Formular selbst (Fehlerzusammenfassung oben).
-      return null
-    case 'konflikt':
-      return (
-        <div role="alert" className="flex flex-wrap items-center gap-3 text-destructive">
-          <p className="font-medium">{TEXT_KONFLIKT}</p>
+  if (meldung?.art === 'hinweis') {
+    return (
+      <p role="status" className="text-muted-foreground">
+        {meldung.text}
+      </p>
+    )
+  }
+  return (
+    <Aktionsmeldung
+      ref={meldungRef}
+      fokussierbar={meldung?.art === 'gespeichert' || meldung?.art === 'neuGeladen'}
+      meldung={aktionsmeldungFuer(meldung)}
+      aktion={
+        meldung?.art === 'konflikt' ? (
           <Button type="button" variant="outline" onClick={onNeuLaden} disabled={gesperrt} focusableWhenDisabled>
             Neu laden
           </Button>
-        </div>
-      )
-    case 'hinweis':
-      return (
-        <p role="status" className="text-muted-foreground">
-          {meldung.text}
-        </p>
-      )
+        ) : undefined
+      }
+    />
+  )
+}
+
+function aktionsmeldungFuer(meldung: Meldung | null): AktionsmeldungInhalt | null {
+  switch (meldung?.art) {
+    case 'gespeichert':
+      return { art: 'erfolg', text: TEXT_GESPEICHERT }
+    case 'neuGeladen':
+      return { art: 'erfolg', text: TEXT_NEU_GELADEN }
+    case 'konflikt':
+      return { art: 'fehler', text: TEXT_KONFLIKT }
     case 'fehler':
-      return (
-        <p role="alert" className="text-destructive">
-          {meldung.text}
-        </p>
-      )
+      return { art: 'fehler', text: meldung.text }
+    default:
+      // „pruefen“ zeigt die Fehlerzusammenfassung, „hinweis“ eine eigene Statuszeile.
+      return null
   }
 }

@@ -14,8 +14,8 @@ Webanwendung zur Verwaltung von Gedenk-Coins. Umgesetzt sind bisher:
   Berechtigungen (`coins.read`, `coins.write`, `issues.read`, `issues.write`, `users.manage`,
   `audit.read`, `startpage.manage`) aus einer festen Rechtematrix im Code
   ([docs/berechtigungen.md](docs/berechtigungen.md), ADR-0016, ADR-0021). Jede Rollen- und
-  Statusänderung steht unveränderlich im Audit-Log (ADR-0017). Der letzte aktive Administrator ist
-  geschützt (ADR-0018).
+  Statusänderung steht unveränderlich im Änderungsprotokoll (im Code „Audit-Log“, ADR-0017). Der
+  letzte aktive Administrator ist geschützt (ADR-0018).
 - **Exemplare und Ausgaben**: Jeder Coin mit Auflage hat die Exemplare 1 bis Auflage. Auf der
   Detailseite sehen angemeldete Benutzer mit Rolle Kennzahlen und Status der Exemplare;
   Sachbearbeiter und Administratoren erfassen Ausgaben (wer, wann, Gelegenheit, Begründung,
@@ -63,9 +63,17 @@ Webanwendung zur Verwaltung von Gedenk-Coins. Umgesetzt sind bisher:
 - **Startseite, Listen und Prüfmaske**: Startseite im Zeilenraster ohne Lücken (Kopffläche,
   Kennzahlkarten, Kacheln, Rangliste); Katalog mit Filterleiste, Suche als Chip und umschaltbarer
   Tabellen- oder Kartenansicht (Wahl im `localStorage`); Prüfmaske als zentrierte Arbeitsseite mit
-  Ergebniskarte, Fokus nach jeder Prüfung im Nummernfeld; Audit-Log mit Benutzerfilter und Zeitpunkten
+  Ergebniskarte, Fokus nach jeder Prüfung im Nummernfeld; Zeitpunkte des Änderungsprotokolls
   in Europe/Berlin; einheitliche Lade-, Leer- und Fehlerzustände (ADR-0043, ADR-0044,
   [docs/features/startseite-listen-pruefung.md](docs/features/startseite-listen-pruefung.md)).
+- **Nacharbeiten Design und Filter im Änderungsprotokoll**: Das Änderungsprotokoll (bisher
+  „Audit-Log“) lässt sich nach Zeitraum (ganze Tage Europe/Berlin, höchstens 366 Tage), Aktion
+  (`GET /api/audit/aktionen`) und geändertem Benutzer filtern, serverseitig in `GET /api/audit`;
+  Filter in der Adresszeile (nur GUID, nie Namen), Chips und „Filter zurücksetzen“. Dazu Katalogtabelle
+  auf `DatenTabelle` mit Karten unter 768 px, kompakte Katalogkarten unter 640 px, Logos mit festen
+  Höhen 48/72/96 px, Meldungen nach Aktionen über `Aktionsmeldung`, Fokus nach „Erneut versuchen“ im
+  Inhaltsbereich und „nicht gefunden“ im Dunkelmodus deutlicher (ADR-0045 bis ADR-0047,
+  [docs/features/nacharbeiten-audit-filter.md](docs/features/nacharbeiten-audit-filter.md)).
 
 Noch offen sind Signatur, PDF, QR-Code und öffentliche Prüfseite der Zertifikate.
 
@@ -188,10 +196,12 @@ angewendet. In Development ist das OpenAPI-Dokument unter `/openapi/v1.json` abr
 
 ### Hinweise für den Betrieb
 
-- **Audit-Log** (Tabelle `benutzer_audit`): Einträge sind unveränderlich. Der Trigger
+- **Änderungsprotokoll / Audit-Log** (Tabelle `benutzer_audit`): Einträge sind unveränderlich. Der Trigger
   `trg_benutzer_audit_unveraenderlich` bricht jedes `UPDATE` und `DELETE` ab; `TRUNCATE` ist
   bewusst nicht gesperrt (Tests, Betrieb). Die Einträge werden vorerst unbegrenzt aufbewahrt, ein
-  Löschkonzept folgt als eigenes Feature (ADR-0017).
+  Löschkonzept folgt als eigenes Feature (ADR-0017). Die Filter von `GET /api/audit` nutzen die
+  vorhandenen Indizes; bei 6.000 Einträgen lag der Median unter 13 ms, ein weiterer Index ist nicht
+  nötig (ADR-0045, Nachtrag).
 - **Ausgaben** (Tabellen `ausgabe`, `ausgabe_audit`, ADR-0020): Der Trigger `trg_ausgabe_nur_storno`
   verbietet `DELETE` und jedes `UPDATE` außer dem einmaligen Storno, `trg_ausgabe_audit_unveraenderlich`
   jedes `UPDATE` und `DELETE` im Audit; `TRUNCATE` bleibt möglich. Ausgaben samt Empfängerdaten und
@@ -349,7 +359,7 @@ Routen:
 | `/coins/$coinId/ausgaben/neu` | `issues.write` | Seite „Ausgabe erfassen“; danach `replace` auf die Detailseite |
 | `/coins/$coinId/ausgaben/$ausgabeId` | `issues.read` | Seite „Ausgabe“ (`ROUTEN.ausgabeDetail`): Status-Chip, Abschnitte „Zertifikat“, „Empfängerdaten“, „Ausgabedaten“ und „Verlauf“; „Hologrammnummer ergänzen/korrigieren“, „Zertifikat herunterladen“ und „Stornieren“ (nur aktive Ausgaben) mit `issues.write`; `coinId` oder `ausgabeId` keine GUID → „Ausgabe nicht gefunden“ ohne API-Aufruf |
 | `/pruefung` | `coins.read` | Seite „Zertifikat prüfen“ (`ROUTEN.pruefung`) in zentrierter Spalte (ADR-0043): Coin-Auswahl (optional), Hologrammnummer, Ergebniskarte; mit `issues.read` über `POST /api/pruefung/mit-empfaenger` samt Empfängerdaten. Nach jeder Prüfung Fokus im Nummernfeld, Inhalt markiert. Die Nummer steht nie in der URL |
-| `/benutzerverwaltung` | `users.manage` | Tabs „Benutzer“ und „Audit-Log“ (Karte „Änderungsprotokoll“ mit Benutzerfilter über `GET /api/benutzer?suche` und `GET /api/audit?benutzerId`; Filter nur im Zustand, nie in der URL) |
+| `/benutzerverwaltung` | `users.manage` | Tabs „Benutzer“ und „Änderungsprotokoll“; Suchparameter `reiter=aenderungsprotokoll` (Wechsel per `replace`), `von`, `bis` (JJJJ-MM-TT), `aktion` (kommagetrennt), `benutzer` (nur GUID, nie Name) und `seite` (Filteränderungen und Blättern per `push`, Zurück stellt den vorigen Filter her). Filter Zeitraum, Aktion (Liste aus `GET /api/audit/aktionen`) und Benutzer (Suche über `GET /api/benutzer?suche`), Chips, „Filter zurücksetzen“; ungültige Werte der URL entfallen, Regeln wie 366 Tage prüft nur die API (`400` am Feld) |
 | `/verwaltung/startseite` | `startpage.manage` | Seite „Startseite verwalten“ (`ROUTEN.startseiteVerwaltung`): Tabs „Bearbeiten“ und „Vorschau“; Verlassen mit ungespeicherten Änderungen fragt per Dialog nach (`VerlassenWarnung`), Neuladen/Schließen per `beforeunload` |
 | `/anmeldung/rueckruf` | öffentlich | Rückkehr vom Keycloak (ohne App-Shell) |
 | `/abgemeldet` | öffentlich | Bestätigung nach dem Abmelden |
@@ -392,7 +402,7 @@ Zugriffsklasse (`deaktiviert`, `ohneRolle`, `mitRolle`), laufen die Guards einma
    beim nächsten API-Aufruf. Ein Benutzer auf „Kein Zugriff“ kommt per „Erneut prüfen“ weiter; bei
    Benutzern, die schon eine Rolle haben, zeigt das Frontend den Wechsel erst nach dem Neuladen.
 
-Rollen und Status stehen in der Tabelle `benutzer`, das Audit-Log in `benutzer_audit` der
+Rollen und Status stehen in der Tabelle `benutzer`, das Änderungsprotokoll in `benutzer_audit` der
 Entwicklungs-DB.
 
 ### Struktur (Feature-Sliced Design, ADR-0008)
@@ -405,10 +415,13 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
 - Einziger Alias ist `@/` → `src/` (in `tsconfig.json`, `tsconfig.app.json`, `vite.config.ts`).
 - `shared/ui` enthält die Bausteine (ADR-0036): shadcn-Komponenten und eigene Zusammensetzungen
   `formularfeld.tsx` (`Formularfeld`), `seitenkopf.tsx` (`Seitenkopf`), `zustaende.tsx`
-  (`Ladeanzeige`, `Leerzustand`, `Fehlerzustand`) und `toast.tsx` (Base UI Toast, `useToast().zeige`,
+  (`Ladeanzeige`, `Leerzustand`, `Fehlerzustand` mit Fokusführung nach „Erneut versuchen“ über
+  `fokusZiel`/`fokusUeberschrift`, `Inhaltsbereich` als stabiles Fokusziel, ADR-0047),
+  `aktionsmeldung.tsx` (`Aktionsmeldung` für Meldungen nach Aktionen: Fehler/Warnung als `alert`,
+  Erfolg/Hinweis in dauerhaftem `status`-Container, ADR-0047) und `toast.tsx` (Base UI Toast, `useToast().zeige`,
   ADR-0038), dazu für Formulare und Detailseiten `formular-abschnitt.tsx`, `fehlerzusammenfassung.tsx`,
   `aktionsleiste.tsx` (ADR-0039), `verlassen-warnung.tsx` (ADR-0040), `bestaetigungsdialog.tsx`,
-  `daten-tabelle.tsx` und `filterleiste.tsx` (ADR-0041), `kennzahl-karte.tsx` (`KennzahlRaster` mit
+  `daten-tabelle.tsx` und `filterleiste.tsx` (ADR-0041; `alleEntfernenText`/`alleEntfernenAb`), `kennzahl-karte.tsx` (`KennzahlRaster` mit
   `spalten` 3/4, `KennzahlKarte` mit `groesse`), `progress.tsx` (shadcn, nachbearbeitet) und
   `zeitleiste.tsx` (ADR-0042), dazu `ansichtsumschalter.tsx`, `rangliste.tsx` und `ergebniskarte.tsx`
   (ADR-0043). Neue Seiten nutzen `Seitenkopf` und `Card` ohne eigenen Seitenrand und ohne eigene
@@ -435,7 +448,8 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
   ein anderer Aufruf `403 benutzer_deaktiviert`, wechselt `app` in den Zustand „deaktiviert“.
 - Katalog: `entities/coin` (API `ladeCoins`/`ladeCoin`/`legeCoinAn`/`aendereCoin`/`ladeBildHoch`/
   `aendereAuflage`, gemeinsame Feldprüfung `validiereStammdaten` und `validiereBild` für Anlegen und
-  Bearbeiten, `CoinListe` als Tabelle, `CoinKarten` als Kartenansicht, `CoinStammdaten`),
+  Bearbeiten, `CoinListe` als `DatenTabelle` mit Karten unter 768 px (ADR-0046), `CoinKarten` als
+  Kartenansicht (unter 640 px kompakt), `CoinStammdaten`),
   `features/coin-anlegen` (`CoinFormular`), `features/coin-bearbeiten` (`CoinBearbeitenFormular`),
   `features/motivbild-hochladen`, `widgets/coin-katalog` (Filterleiste mit Suche, Chip und
   Ansichtsumschalter, Statuszeile, Tabelle oder Karten, Zustände, Blättern), `pages/coin-liste`, `pages/coin-detail`,
@@ -467,11 +481,14 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
   `{ art: 'zuVieleAnfragen', wiederholenNachSekunden }` ab (`Retry-After`, sonst `null`).
   Seiten nutzen keine Router-Hooks; Suche, Seite, Parameter und Navigation reicht
   `app/router/routen-komponenten.tsx` als Props durch.
-- Benutzerverwaltung: `entities/audit` (`AuditTabelle`, `GET /api/audit`), `features/rolle-zuweisen`
-  und `features/benutzer-status-aendern` (je Auswahl bzw. Button mit Bestätigungsdialog),
-  `features/audit-filtern` (`BenutzerFilter`: Combobox „Benutzer“, Suche über `ladeBenutzerliste`, nur
-  Namen), `widgets/benutzer-tabelle`, `widgets/audit-log` (Benutzerfilter mit Chip),
-  `pages/benutzerverwaltung`.
+- Benutzerverwaltung: `entities/audit` (`AuditTabelle`, `ladeAuditLog` mit `von`/`bis`/`aktionen`,
+  `ladeAuditAktionen`), `features/rolle-zuweisen` und `features/benutzer-status-aendern` (je Auswahl
+  bzw. Button mit Bestätigungsdialog), `features/audit-filtern` (`ZeitraumFilter` mit nativen
+  Datumsfeldern, `AktionFilter` als Checkbox-Gruppe aus der API, `BenutzerFilter`: Combobox „Benutzer“,
+  Suche über `ladeBenutzerliste`, nur Namen; Modell `abfrage.ts` für URL ↔ Abfrage),
+  `widgets/benutzer-tabelle`, `widgets/audit-log` (Filter, Chips, Zustände; ohne Router-Props mit
+  eigenem Zustand), `pages/benutzerverwaltung` (Reiter und Abfrage als Props, die URL übersetzt
+  `app/router/routen-komponenten.tsx`).
 - Startseite: `entities/startseite` (Typen, Grenzen, `ladeStartseite`/`ladeKopf`/`ladeKonfiguration`,
   `useDateiUrl` für Object-URLs der Logo-Vorschau, Block-Komponenten `Kopfbereich`, `InfotextBlock`,
   `KennzahlenBlock`, `NeuesteCoinsBlock`, `MeistausgegebeneBlock`), `widgets/startseite`
@@ -485,7 +502,7 @@ Importe zeigen nur nach unten, nie nach oben und nie quer zwischen Slices dersel
   `ul`, `ol`, `li`, `a`; rohes HTML entfernt, Links nur `http`, `https`, `mailto` und `/…`;
   ADR-0031). `dangerouslySetInnerHTML` ist im Frontend verboten (Code-Test).
 - Das Blättern (`shared/ui/blaettern.tsx`) ist eine eigene Komponente, keine shadcn-Komponente;
-  Katalog, Benutzertabelle, Audit-Log, Exemplare und Ausgabehistorie nutzen sie gemeinsam
+  Katalog, Benutzertabelle, Änderungsprotokoll, Exemplare und Ausgabehistorie nutzen sie gemeinsam
   (Fokusregeln in ADR-0009).
 - Testhilfen (Fake-API, Setup) liegen außerhalb der Schichten in `web/test/`.
 - Steiger prüft die Regeln (`npm run lint:fsd`, Konfiguration `steiger.config.ts`).
@@ -526,7 +543,7 @@ nur, wenn Index und Arbeitsstand übereinstimmen.
 
 | | `web/ui-tests` (`npm run test:ui`) | `e2e/` (`npx playwright test`) |
 |---|---|---|
-| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen, Zertifikat-Download, Startseite (inkl. XSS-Nutzlasten im echten Chromium), Hologrammnummer und Prüfseite: Routing, Seitenleiste, Tastaturbedienung, Darstellung; dazu Barrierefreiheit mit axe (`barrierefreiheit.spec.ts`), 360/768/1280 px (`responsiv.spec.ts`), Tastatur (`tastatur.spec.ts`), Bausteinseite (`bausteine.spec.ts`), reduzierte Bewegung (`bewegung.spec.ts`), Formulare (`formulare.spec.ts`), Verlassen-Warnung (`verlassen-warnung.spec.ts`), Bestätigungsdialoge (`bestaetigungen.spec.ts`), Detailseite je Rolle (`coin-detail-rollen.spec.ts`), Tabellen (`tabellen.spec.ts`), Startseitenraster (`startseite-raster.spec.ts`), Katalogansichten (`katalog-ansicht.spec.ts`), Prüfmaske (`pruefmaske.spec.ts`), Verwaltungsseiten (`verwaltung.spec.ts`), unveränderte Rechte je Rolle (`rechte-unveraendert.spec.ts`) und Screenshots (`screenshots.spec.ts`, `screenshots-formulare.spec.ts`, `screenshots-uebersicht.spec.ts`, `vergleich-startseite.spec.ts`) | fachliche Abläufe über alle Schichten; `design-fundament.spec.ts` prüft die Hauptseiten mit echten Daten per axe und auf horizontales Scrollen bei 360 px, `formulare-detailseiten.spec.ts` Tastaturbedienung, Reiter und Storno auf der Ausgabe-Seite, `startseite-listen-pruefung.spec.ts` Startseite ohne Lücken, gemerkte Katalogansicht und Serienprüfung nur per Tastatur |
+| Zweck | App-Shell, Anmeldung, Benutzerverwaltung, Katalog-Seiten, Ausgaben, Zertifikatsvorlagen, Zertifikat-Download, Startseite (inkl. XSS-Nutzlasten im echten Chromium), Hologrammnummer und Prüfseite: Routing, Seitenleiste, Tastaturbedienung, Darstellung; dazu Barrierefreiheit mit axe (`barrierefreiheit.spec.ts`), 360/768/1280 px (`responsiv.spec.ts`), Tastatur (`tastatur.spec.ts`), Bausteinseite (`bausteine.spec.ts`), reduzierte Bewegung (`bewegung.spec.ts`), Formulare (`formulare.spec.ts`), Verlassen-Warnung (`verlassen-warnung.spec.ts`), Bestätigungsdialoge (`bestaetigungen.spec.ts`), Detailseite je Rolle (`coin-detail-rollen.spec.ts`), Tabellen (`tabellen.spec.ts`), Startseitenraster (`startseite-raster.spec.ts`), Katalogansichten (`katalog-ansicht.spec.ts`), Prüfmaske (`pruefmaske.spec.ts`), Verwaltungsseiten (`verwaltung.spec.ts`), unveränderte Rechte je Rolle (`rechte-unveraendert.spec.ts`), Filter des Änderungsprotokolls mit URL, Zurück und Tastatur (`aenderungsprotokoll-filter.spec.ts`), Logos, Katalogkarten, Ergebniskarte dunkel und Fokus nach „Erneut versuchen“ (`nacharbeiten-gestaltung.spec.ts`) und Screenshots (`screenshots.spec.ts`, `screenshots-formulare.spec.ts`, `screenshots-uebersicht.spec.ts`, `screenshots-nacharbeiten.spec.ts`, `vergleich-startseite.spec.ts`) | fachliche Abläufe über alle Schichten; `design-fundament.spec.ts` prüft die Hauptseiten mit echten Daten per axe und auf horizontales Scrollen bei 360 px, `formulare-detailseiten.spec.ts` Tastaturbedienung, Reiter und Storno auf der Ausgabe-Seite, `startseite-listen-pruefung.spec.ts` Startseite ohne Lücken, gemerkte Katalogansicht und Serienprüfung nur per Tastatur, `aenderungsprotokoll-filter.spec.ts` Filter nach heute und „Status“ mit Neuladen und Zurücksetzen sowie `403` für Betrachter |
 | API | gemockt per `page.route`; Proxy-Ziel absichtlich unerreichbar; jeder nicht gemockte `/api`-Aufruf lässt den Test scheitern | echte API (Release-Build) mit Wegwerf-PostgreSQL |
 | Anmeldung | Identitätsanbieter gemockt (`VITE_OIDC_AUTHORITY=http://127.0.0.1:9/realms/coin`) | echter Wegwerf-Keycloak |
 | Voraussetzungen | nur Node.js und Chromium | Docker, .NET 10 SDK, Node.js ≥ 22.18 |
@@ -561,8 +578,10 @@ Die Bilder liegen unter `web/test-results/screenshots-formulare/<ansicht>_<breit
 (per `.gitignore` ausgeschlossen). Playwright leert `test-results` zu Beginn jedes Laufs, also direkt
 danach ansehen. Ohne die Variable wird die Spec übersprungen. Ebenso nur lokal entstehen die Bilder von
 Startseite, Katalog, Prüfmaske und Verwaltung (`screenshots-uebersicht.spec.ts`, nach
-`web/test-results/screenshots-uebersicht/`); diese Spec einzeln aufrufen, sonst überschreibt
-`screenshots.spec.ts` die eingecheckten Bilder.
+`web/test-results/screenshots-uebersicht/`) sowie von Katalog, Startseiten-Kopf, Prüfergebnissen
+und Änderungsprotokoll (`screenshots-nacharbeiten.spec.ts`, nach
+`web/test-results/screenshots-nacharbeiten/`, mit `--workers=1`); diese Specs einzeln aufrufen,
+sonst überschreibt `screenshots.spec.ts` die eingecheckten Bilder.
 
 Eingecheckt ist der Vorher-Nachher-Vergleich der Startseite: 24 Bilder (6 Fälle × 1280/360 px, hell,
 je `vorher_` und `nachher_`) in `docs/design/vergleich-startseite/`. Erzeugt werden sie mit
@@ -649,7 +668,7 @@ Ablauf pro Lauf (ADR-0007, ADR-0015):
   `VITE_OIDC_AUTHORITY` → 5184).
 - Schreibende Tests melden sich über das echte Keycloak-Formular als `admin@test.local` an.
   `benutzerverwaltung.spec.ts` vergibt `betrachter@test.local` die Rolle Betrachter und prüft
-  Audit-Log und Sichtbarkeit, deaktiviert und reaktiviert ihn dann und prüft „Erneut prüfen“;
+  Änderungsprotokoll und Sichtbarkeit, deaktiviert und reaktiviert ihn dann und prüft „Erneut prüfen“;
   `neu@test.local` behält keine Rolle. `katalog-seiten.spec.ts` legt einen Coin an, findet ihn über
   die Suche und prüft als Betrachter und anonym, dass „Coin hinzufügen“ fehlt.
   `coin-ausgaben.spec.ts` vergibt `sachbearbeiter@test.local` und `betrachter@test.local` ihre Rollen,
@@ -672,6 +691,9 @@ Ablauf pro Lauf (ADR-0007, ADR-0015):
   hat. Am Ende stellt er die Standardwerte wieder her, damit spätere Specs „Willkommen bei C.O.I.N.“ sehen.
   `design-fundament.spec.ts` legt als Administrator einen Coin und eine Ausgabe an und prüft sieben
   Hauptseiten hell und dunkel bei 1280 und 360 px mit axe und auf horizontales Scrollen.
+  `aenderungsprotokoll-filter.spec.ts` erzeugt als Administrator Rollen- und Statuseinträge, filtert
+  nach heute (Europe/Berlin) und „Status“, lädt neu, setzt zurück, prüft den Leerzustand für gestern
+  sowie axe und 360 px und dass ein Betrachter für `GET /api/audit?aktion=Status` `403` erhält.
 - Die Tests laufen nacheinander (`workers: 1`): Die Specs teilen sich Datenbank und Testkonten,
   `benutzerverwaltung.spec.ts`, `katalog-seiten.spec.ts`, `coin-ausgaben.spec.ts`,
   `zertifikatsvorlagen.spec.ts`, `zertifikat-erzeugen.spec.ts` und `startseite.spec.ts` brauchen `betrachter@test.local`

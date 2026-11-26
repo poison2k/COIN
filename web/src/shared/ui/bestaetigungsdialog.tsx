@@ -1,4 +1,5 @@
 import { useRef, type ReactNode, type RefObject } from 'react'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -91,11 +92,8 @@ export function Bestaetigungsdialog({
           <AlertDialogDescription>{folge}</AlertDialogDescription>
         </AlertDialogHeader>
         {children && <div className="grid gap-4">{children}</div>}
-        {hatFehler && (
-          <p role="alert" className="text-sm text-destructive">
-            {fehler}
-          </p>
-        )}
+        {/* Im Dialog gibt es nur Fehler; die Meldung wird erst dann eingehängt, damit der Fortschritt in der Statuszeile darunter die einzige Status-Region bleibt. */}
+        {hatFehler && <Aktionsmeldung meldung={{ art: 'fehler', text: fehler }} />}
         <AlertDialogFooter>
           {ladeText !== undefined && (
             <p role="status" className="text-sm text-muted-foreground empty:sr-only sm:mr-auto sm:self-center">

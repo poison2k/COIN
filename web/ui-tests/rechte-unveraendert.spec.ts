@@ -301,9 +301,10 @@ const VORHER: Record<string, Bestand> = {
       'Test Neu reaktivieren',
       'Vorherige Seite',
     ],
-    reiter: ['Audit-Log', 'Benutzer'],
+    reiter: ['Änderungsprotokoll', 'Benutzer'],
     regionen: [],
-    endpunkte: ['GET /api/audit', 'GET /api/benutzer'],
+    // nacharbeiten-audit-filter E8: das Änderungsprotokoll lädt zusätzlich die Liste der Aktionen.
+    endpunkte: ['GET /api/audit', 'GET /api/audit/aktionen', 'GET /api/benutzer'],
   },
   'Administrator /verwaltung/startseite': {
     url: '/verwaltung/startseite',

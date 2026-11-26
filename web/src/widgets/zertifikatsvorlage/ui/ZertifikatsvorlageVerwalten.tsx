@@ -13,6 +13,7 @@ import { VorlageHochladen } from '@/features/vorlage-hochladen'
 import { VorlageZuruecksetzen } from '@/features/vorlage-zuruecksetzen'
 import type { ApiErgebnis, Datei } from '@/shared/api'
 import { speichereDatei } from '@/shared/lib/datei'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { Button } from '@/shared/ui/button'
 import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
 
@@ -87,7 +88,7 @@ export function ZertifikatsvorlageVerwalten({ coinId, onGeaendert }: Zertifikats
   const [geladen, setGeladen] = useState<{ coinId: string; ergebnis: ApiErgebnis<VorlagenStatus> } | null>(null)
   const [meldung, setMeldung] = useState<Meldung | null>(null)
   const [downloadFehler, setDownloadFehler] = useState<string | null>(null)
-  const meldungRef = useRef<HTMLParagraphElement>(null)
+  const meldungRef = useRef<HTMLDivElement>(null)
   const ueberschriftId = useId()
 
   // Zählt „Erneut versuchen“ nach einem Ladefehler; jede Erhöhung lädt den Stand genau einmal neu.
@@ -136,7 +137,7 @@ export function ZertifikatsvorlageVerwalten({ coinId, onGeaendert }: Zertifikats
   const downloadStart = () => setDownloadFehler(null)
 
   return (
-    <section aria-labelledby={ueberschriftId} className="grid gap-4">
+    <section data-inhaltsbereich="" aria-labelledby={ueberschriftId} className="grid gap-4">
       <h2 id={ueberschriftId} className="text-lg font-semibold">
         Zertifikatsvorlage
       </h2>
@@ -160,11 +161,11 @@ export function ZertifikatsvorlageVerwalten({ coinId, onGeaendert }: Zertifikats
               : `Aktiv: eigene Vorlage, Version ${status.aktiveVersion}`}
           </p>
 
-          {aktuelleMeldung && (
-            <p ref={meldungRef} role="status" tabIndex={-1} className="text-success outline-none">
-              {aktuelleMeldung.text}
-            </p>
-          )}
+          <Aktionsmeldung
+            ref={meldungRef}
+            fokussierbar
+            meldung={aktuelleMeldung ? { art: 'erfolg', text: aktuelleMeldung.text } : null}
+          />
 
           <div className="flex flex-wrap items-start gap-2">
             <DownloadKnopf
@@ -182,11 +183,7 @@ export function ZertifikatsvorlageVerwalten({ coinId, onGeaendert }: Zertifikats
             )}
           </div>
 
-          {downloadFehler && (
-            <p role="alert" className="text-sm text-destructive">
-              {downloadFehler}
-            </p>
-          )}
+          <Aktionsmeldung meldung={downloadFehler ? { art: 'fehler', text: downloadFehler } : null} />
 
           {status.versionen.length === 0 ? (
             <Leerzustand titelEbene={3} titel="Es wurde noch keine eigene Vorlage hochgeladen." />

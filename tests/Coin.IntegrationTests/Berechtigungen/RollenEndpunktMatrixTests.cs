@@ -22,10 +22,17 @@ public class RollenEndpunktMatrixTests(PostgresFixture fixture) : IntegrationTes
     private const string PutStatus = "PUT /api/benutzer/{id}/status";
     private const string GetAudit = "GET /api/audit";
 
+    // nacharbeiten-audit-filter (AK-8, Abschnitt 8): neuer Endpunkt und gefilterte Varianten von GET /api/audit.
+    private const string GetAuditAktionen = "GET /api/audit/aktionen";
+    private const string GetAuditGefiltert = "GET /api/audit?von&bis&aktion&benutzerId";
+    private const string GetAuditUngueltig = "GET /api/audit?von=ungueltig";
+    private const string AuditFilterQuery = "?von=2026-10-01&bis=2026-10-31&aktion=Rolle&aktion=Status";
+    private const string AuditUngueltigQuery = "?von=2026-13-01&bis=abc&aktion=rolle";
+
     private const string DetailDeaktiviert = "Ihr Benutzerkonto ist deaktiviert.";
     private const string DetailCoinsWrite = "Ihr Benutzerkonto ist nicht berechtigt, den Coin-Katalog zu ändern.";
     private const string DetailUsersManage = "Ihr Benutzerkonto ist nicht berechtigt, Benutzer zu verwalten.";
-    private const string DetailAuditRead = "Ihr Benutzerkonto ist nicht berechtigt, das Audit-Log einzusehen.";
+    private const string DetailAuditRead = "Ihr Benutzerkonto ist nicht berechtigt, das Änderungsprotokoll einzusehen.";
 
     /// <summary>Matrix aus AK-5: Admin, Sachbearbeiter, Betrachter, keine, deaktiviert, anonym.</summary>
     private static readonly (string Endpunkt, int[] Status)[] Matrix =
@@ -40,6 +47,9 @@ public class RollenEndpunktMatrixTests(PostgresFixture fixture) : IntegrationTes
         (PutRolle, [200, 403, 403, 403, 403, 401]),
         (PutStatus, [200, 403, 403, 403, 403, 401]),
         (GetAudit, [200, 403, 403, 403, 403, 401]),
+        (GetAuditAktionen, [200, 403, 403, 403, 403, 401]),
+        (GetAuditGefiltert, [200, 403, 403, 403, 403, 401]),
+        (GetAuditUngueltig, [400, 403, 403, 403, 403, 401]),
     ];
 
     public static TheoryData<string, int> Spalte(int index)
@@ -76,6 +86,9 @@ public class RollenEndpunktMatrixTests(PostgresFixture fixture) : IntegrationTes
         PutRolle => await PutRolleAsync(client, k.ZielId, "Betrachter"),
         PutStatus => await PutStatusAsync(client, k.ZielId, false),
         GetAudit => await client.GetAsync(AuditUrl),
+        GetAuditAktionen => await client.GetAsync($"{AuditUrl}/aktionen"),
+        GetAuditGefiltert => await client.GetAsync($"{AuditUrl}{AuditFilterQuery}&benutzerId={k.ZielId}"),
+        GetAuditUngueltig => await client.GetAsync($"{AuditUrl}{AuditUngueltigQuery}"),
         _ => throw new ArgumentOutOfRangeException(nameof(endpunkt), endpunkt, null),
     };
 
@@ -155,7 +168,8 @@ public class RollenEndpunktMatrixTests(PostgresFixture fixture) : IntegrationTes
 
     // ---------- AK-6: 403-Bodies ----------
 
-    public static TheoryData<string> GeschuetzteEndpunkte => [PostCoins, PutBild, GetMe, GetBenutzer, PutRolle, PutStatus, GetAudit];
+    public static TheoryData<string> GeschuetzteEndpunkte =>
+        [PostCoins, PutBild, GetMe, GetBenutzer, PutRolle, PutStatus, GetAudit, GetAuditAktionen, GetAuditGefiltert, GetAuditUngueltig];
 
     [Theory]
     [MemberData(nameof(GeschuetzteEndpunkte))]
@@ -176,6 +190,8 @@ public class RollenEndpunktMatrixTests(PostgresFixture fixture) : IntegrationTes
     [InlineData("Sachbearbeiter", GetBenutzer)]
     [InlineData("Betrachter", PutRolle)]
     [InlineData(null, GetAudit)]
+    [InlineData(null, GetAuditAktionen)]
+    [InlineData("Betrachter", GetAuditUngueltig)]
     public async Task Deaktiviert_geht_der_Berechtigungspruefung_vor(string? rolle, string endpunkt)
     {
         var k = await VorbereitenAsync();
@@ -194,6 +210,14 @@ public class RollenEndpunktMatrixTests(PostgresFixture fixture) : IntegrationTes
     [InlineData(null, PutStatus, DetailUsersManage)]
     [InlineData("Sachbearbeiter", GetAudit, DetailAuditRead)]
     [InlineData(null, GetAudit, DetailAuditRead)]
+    [InlineData("Betrachter", GetAudit, DetailAuditRead)]
+    [InlineData("Betrachter", GetAuditAktionen, DetailAuditRead)]
+    [InlineData("Sachbearbeiter", GetAuditAktionen, DetailAuditRead)]
+    [InlineData(null, GetAuditAktionen, DetailAuditRead)]
+    [InlineData("Betrachter", GetAuditGefiltert, DetailAuditRead)]
+    [InlineData("Sachbearbeiter", GetAuditGefiltert, DetailAuditRead)]
+    [InlineData("Betrachter", GetAuditUngueltig, DetailAuditRead)]
+    [InlineData("Sachbearbeiter", GetAuditUngueltig, DetailAuditRead)]
     public async Task Fehlende_Berechtigung_liefert_403_mit_code_keine_berechtigung_und_detail_je_Berechtigung(
         string? rolle, string endpunkt, string detail)
     {

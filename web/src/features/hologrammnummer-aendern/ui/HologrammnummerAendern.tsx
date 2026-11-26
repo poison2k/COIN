@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { HOLOGRAMMNUMMER_MAX, pruefeHologrammnummer, type Ausgabe } from '@/entities/ausgabe'
 import type { ApiErgebnis } from '@/shared/api'
 import { useFormular, useSendeSperre } from '@/shared/lib/formular'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { Fehlerzusammenfassung } from '@/shared/ui/fehlerzusammenfassung'
@@ -164,14 +165,9 @@ export function HologrammnummerAendern({ coinId, ausgabe, onGeaendert, onNeuLade
           {titel}
         </Button>
       )}
-      <p role="status" className="text-sm">
-        {status}
-      </p>
-      {alarm && (
-        <p role="alert" className="text-sm text-destructive">
-          {alarm}
-        </p>
-      )}
+      <Aktionsmeldung
+        meldung={alarm ? { art: 'fehler', text: alarm } : status ? { art: 'erfolg', text: status } : null}
+      />
       <Dialog
         open={offen}
         onOpenChange={(neu) => {
@@ -230,11 +226,7 @@ export function HologrammnummerAendern({ coinId, ausgabe, onGeaendert, onNeuLade
                 )}
               </Formularfeld>
             )}
-            {dialogAlarm && (
-              <p role="alert" className="text-sm text-destructive">
-                {dialogAlarm}
-              </p>
-            )}
+            {dialogAlarm && <Aktionsmeldung meldung={{ art: 'fehler', text: dialogAlarm }} />}
             <DialogFooter>
               <DialogClose render={<Button type="button" variant="outline" disabled={sendet} focusableWhenDisabled />}>
                 Abbrechen
