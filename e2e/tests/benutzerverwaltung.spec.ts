@@ -63,8 +63,8 @@ test("Admin weist betrachter@test.local die Rolle Betrachter zu; Audit-Log und R
   await expect(auswahl).toContainText("Betrachter");
 
   // 3. Das Audit-Log zeigt oben den neuen Eintrag.
-  await page.getByRole("tab", { name: "Audit-Log" }).click();
-  const tabelle = page.getByRole("table", { name: "Audit-Log" });
+  await page.getByRole("tab", { name: "Änderungsprotokoll" }).click();
+  const tabelle = page.getByRole("table", { name: "Änderungsprotokoll" });
   await expect(tabelle).toBeVisible();
   const ersteZeile = tabelle.getByRole("row").nth(1);
   const zellen = ersteZeile.getByRole("cell");

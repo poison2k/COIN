@@ -14,6 +14,7 @@ import {
 import type { ApiErgebnis, KeinZugriffGrund } from '@/shared/api'
 import { useFormular, useSendeSperre, type Formularfehler } from '@/shared/lib/formular'
 import { Aktionsleiste } from '@/shared/ui/aktionsleiste'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Fehlerzusammenfassung } from '@/shared/ui/fehlerzusammenfassung'
@@ -266,12 +267,11 @@ export function CoinFormular({ onAngelegt, abbrechen, onGeaendert }: CoinFormula
           fehler={formular.fehlerListe.map((f) => ({ feldId: f.feldId, label: LABEL[f.feld], text: f.text }))}
         />
       )}
-      {meldung?.art === 'erfolg' && (
-        <p role="status" className="text-success">
-          {meldung.text}
-        </p>
-      )}
-      {meldung?.art === 'hinweis' && <p role="status">{meldung.text}</p>}
+      <Aktionsmeldung
+        meldung={
+          meldung?.art === 'erfolg' || meldung?.art === 'hinweis' ? { art: meldung.art, text: meldung.text } : null
+        }
+      />
       {(meldung?.art === 'fehler' || meldung?.art === 'teilerfolg') && (
         <Alert variant="destructive">
           <AlertDescription className="grid justify-items-start gap-2">

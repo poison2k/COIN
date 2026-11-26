@@ -1147,8 +1147,11 @@ describe('Neu laden nach Konflikt (AK-30)', () => {
     await user.keyboard('{Enter}')
 
     const meldung = await waitFor(() => {
-      const treffer = statusMit('Die Konfiguration wurde neu geladen.')
-      expect(treffer).toBeDefined()
+      // nacharbeiten-audit-filter K2: Banner im Status-Container (ADR-0047).
+      const treffer = statusMit('Die Konfiguration wurde neu geladen.')?.querySelector<HTMLElement>(
+        '[data-slot="alert"]',
+      )
+      expect(treffer).toBeTruthy()
       return treffer as HTMLElement
     })
     await waitFor(() => expect(meldung).toHaveFocus())
@@ -1160,8 +1163,11 @@ describe('Neu laden nach Konflikt (AK-30)', () => {
     await user.click(neuLaden)
 
     const meldung = await waitFor(() => {
-      const treffer = statusMit('Die Konfiguration wurde neu geladen.')
-      expect(treffer).toBeDefined()
+      // nacharbeiten-audit-filter K2: Banner im Status-Container (ADR-0047).
+      const treffer = statusMit('Die Konfiguration wurde neu geladen.')?.querySelector<HTMLElement>(
+        '[data-slot="alert"]',
+      )
+      expect(treffer).toBeTruthy()
       return treffer as HTMLElement
     })
     expect(meldung).toHaveAttribute('tabindex', '-1')
@@ -1308,9 +1314,12 @@ describe('Speichern erfolgreich (AK-31)', () => {
     await speichern(user)
 
     const meldung = await waitFor(() => {
-      const treffer = screen
-        .getAllByRole('status')
-        .find((s) => s.textContent?.includes('Die Startseite wurde gespeichert.'))
+      // nacharbeiten-audit-filter K2: Banner im Status-Container (ADR-0047).
+      const treffer =
+        screen
+          .getAllByRole('status')
+          .find((s) => s.textContent?.includes('Die Startseite wurde gespeichert.'))
+          ?.querySelector<HTMLElement>('[data-slot="alert"]') ?? undefined
       expect(treffer).toBeDefined()
       return treffer as HTMLElement
     })

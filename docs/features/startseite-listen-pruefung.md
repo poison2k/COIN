@@ -432,31 +432,31 @@ Geänderte Stellen, nach Regel gruppiert. Pfade relativ zu `web/src`.
 6. **Dateinamen des Startseiten-Vergleichs:** `<fall>` trägt einen sprechenden Zusatz (z. B. `vorher_fall2-ohne-kennzahlen-infotext_1280.png`). Erzeugt werden die Bilder von `web/ui-tests/vergleich-startseite.spec.ts` mit `COIN_VERGLEICH=vorher` bzw. `nachher`.
 
 ### Offene Punkte
-- **Audit-Log: Filter nach Zeitraum und Aktion** (F5, Entscheidung des Auftraggebers): eigener Lauf mit API-Erweiterung von `GET /api/audit` (z. B. optionale Parameter `von`, `bis` mit Tagesgrenzen Europe/Berlin und `art` = Rolle/Status), Integrationstests, `docs/api.md` und eigenem ADR.
-- Filter „Geändert von“ (Ausführender) im Audit-Log: bräuchte ebenfalls eine API-Erweiterung, derzeit nicht vorgesehen.
-- Weitere Katalogfilter und Verfügbarkeits-Chips (F2, F3): erst mit API-Erweiterung.
+Stand nach [nacharbeiten-audit-filter](nacharbeiten-audit-filter.md) (2026-11-16):
+- **Erledigt:** Filter des Änderungsprotokolls nach Zeitraum und Aktion (F5): `GET /api/audit` mit `von`, `bis`, `aktion`, neuer Endpunkt `GET /api/audit/aktionen`, ADR-0045, Filter in der URL.
+- Offen: Filter „Geändert von“ (Ausführender) im Änderungsprotokoll: bräuchte eine API-Erweiterung, nicht beauftragt.
+- Offen: weitere Katalogfilter und Verfügbarkeits-Chips (F2, F3): erst mit API-Erweiterung, nicht beauftragt.
 
 ### Verbleibende Auffälligkeiten
-Texte, die Prüfinhalt bestehender Tests sind, blieben unverändert (AK-36, Abschnitt 12). Eine Änderung braucht einen eigenen Lauf mit Freigabe:
-- „z. B. Truppenbesuch, Verabschiedung“ (Platzhalter in `AusgabeFormular`);
-- „z. B. {{Zertifikat.Nummer}}“ (`VorlageHochladen`);
-- „System (Bootstrap)“ (Audit-Log, Spalte „Geändert von“);
-- Reiter und Tabellenname „Audit-Log“ neben der Panel-Überschrift „Änderungsprotokoll“ (zwei Begriffe für dieselbe Sache, R3).
+Texte, die Prüfinhalt bestehender Tests waren, blieben in diesem Lauf unverändert (AK-36, Abschnitt 12). Stand nach nacharbeiten-audit-filter:
+- Unverändert mit Begründung (nacharbeiten-audit-filter F4): „z. B. Truppenbesuch, Verabschiedung“ (`AusgabeFormular`) und „z. B. {{Zertifikat.Nummer}}“ (`VorlageHochladen`). Beide schreiben „z. B.“ gleich, mit normalem Leerzeichen; eine echte Uneinheitlichkeit gibt es nicht.
+- **Erledigt:** „System (Bootstrap)“ heißt jetzt „System (Ersteinrichtung)“.
+- **Erledigt:** Reiter, Caption, Lade- und Fehlertext heißen „Änderungsprotokoll“ statt „Audit-Log“ (ein Begriff, R3).
 
 Weitere Befunde aus Review und Umsetzung:
-- Aktionsmeldungen in `features/*` (z. B. Fehler nach Speichern) sind weiter `<p role="alert">`; AK-35 betrifft nur Ladefehler in `widgets`/`pages`.
-- `entities/coin/ui/CoinListe.tsx` enthält noch einen Leertext als `<p>` („Noch keine Coins erfasst.“); er ist nicht erreichbar, weil `CoinKatalog` vorher den `Leerzustand` zeigt.
-- `CoinListe` nutzt weiter die shadcn-`Table` statt `DatenTabelle` (keine Karten unter 768 px, die Tabelle scrollt im Container).
-- Nach „Erneut versuchen“ fällt der Fokus auf `body`, weil der Button mit dem Fehlerzustand verschwindet (WCAG 2.4.3, gering).
-- `Rangliste`: „Platz“ und die Zahl stehen in zwei getrennten sr-only-Spans; manche Screenreader lesen sie als getrennte Stücke.
+- **Erledigt:** Aktionsmeldungen in `features/*`, `widgets/*`, `pages/*` und im `Bestaetigungsdialog` laufen über den Baustein `Aktionsmeldung` (ADR-0047); `<p role="alert">` gibt es dort nicht mehr.
+- **Erledigt:** Der unerreichbare Leertext als `<p>` in `CoinListe` ist mit der Umstellung auf `DatenTabelle` entfallen.
+- **Erledigt:** `CoinListe` nutzt `DatenTabelle` mit Karten unter 768 px (ADR-0046).
+- **Erledigt:** Nach „Erneut versuchen“ liegt der Fokus im Inhaltsbereich statt auf `body` (ADR-0047 Punkt 2).
+- Offen: `Rangliste`: „Platz“ und die Zahl stehen in zwei getrennten sr-only-Spans; manche Screenreader lesen sie als getrennte Stücke. Nicht beauftragt.
 
 Aus der Sichtprüfung (Screenshots):
-- Logos im Kopfbereich bei 768 px sehr klein (etwa 54 px), weil sie mit ihrer Spalte schrumpfen.
-- Kartenansicht des Katalogs bei 360 px sehr lang wegen des Bildfelds 1:1; zu entscheiden ist, ob das Bildfeld kleiner wird.
-- Ansichtsumschalter bei 768 px in einer eigenen Zeile unter der Suche.
-- Prüfergebnis „nicht gefunden“ wirkt im Dunkelmodus flach (Fläche `muted`).
-- Gruppe „Ausgabe“ der Ergebniskarte: bei drei Gruppen bleibt neben ihr freier Platz im zweispaltigen Raster.
-- Seitenleiste endet in Ganzseiten-Screenshots auf Höhe des Viewports: Artefakt der Aufnahme, kein Fehler der Seite.
+- **Erledigt:** Logos im Kopfbereich haben feste Höhen 48/72/96 px; zwischen 640 und 1023 px stehen beide über dem Titel (nacharbeiten-audit-filter F3).
+- **Erledigt:** Kartenansicht des Katalogs unter 640 px kompakt mit 80-px-Bild neben dem Text, ab 640 px Bildfeld 4:3 (Variante B).
+- Offen: Ansichtsumschalter bei 768 px in einer eigenen Zeile unter der Suche. Nicht beauftragt.
+- **Erledigt:** Prüfergebnis „nicht gefunden“ hebt sich im Dunkelmodus ab (`dark:bg-accent`, `dark:text-foreground`, ohne neues Token).
+- Offen: Gruppe „Ausgabe“ der Ergebniskarte: bei drei Gruppen bleibt neben ihr freier Platz im zweispaltigen Raster. Nicht beauftragt.
+- Kein Fehler: Seitenleiste endet in Ganzseiten-Screenshots auf Höhe des Viewports (Artefakt der Aufnahme).
 
 ### Startseiten-Vergleich (F6)
 `docs/design/vergleich-startseite/` enthält je 12 Bilder `vorher_*` und `nachher_*` (6 Fälle aus 11.2 bei 1280 und 360 px, hell, 24 Dateien). Bei 1280 px:

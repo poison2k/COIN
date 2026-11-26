@@ -1,5 +1,6 @@
 import { crc32, deflateSync } from 'node:zlib'
 import { expect, type Locator, type Page, type Route } from '@playwright/test'
+import { filtereAudit } from './aenderungsprotokoll.js'
 import { ADMIN, BETRACHTER, COIN, richteApiEin, setzeTheme, type ApiZustand, type Me } from './api.js'
 
 // Gemeinsame Mocks und Messhilfen für die UI-Tests des Features startseite-listen-pruefung (Abschnitt 9, 11): die
@@ -571,15 +572,8 @@ export async function mockeAudit(
         offeneFehler--
         return problem(route, 500)
       }
-      const benutzerId = url.searchParams.get('benutzerId')
-      return json(
-        route,
-        200,
-        seite(
-          eintraege.filter((e) => !benutzerId || e.benutzer.id === benutzerId),
-          url,
-        ),
-      )
+      // nacharbeiten-audit-filter (K1): Filter von/bis/aktion/benutzerId wie die API.
+      return json(route, 200, seite(filtereAudit(eintraege, url.searchParams), url))
     },
   )
   await page.route(
@@ -624,8 +618,8 @@ export async function mockeAudit(
 export async function oeffneAuditLog(page: Page): Promise<void> {
   await page.goto('/benutzerverwaltung')
   await expect(page.getByRole('heading', { level: 1, name: 'Benutzerverwaltung' })).toBeVisible()
-  await page.getByRole('tab', { name: 'Audit-Log' }).click()
-  await expect(page.getByRole('tabpanel', { name: 'Audit-Log' })).toBeVisible()
+  await page.getByRole('tab', { name: 'Änderungsprotokoll' }).click()
+  await expect(page.getByRole('tabpanel', { name: 'Änderungsprotokoll' })).toBeVisible()
 }
 
 /** Kontrast der Textfarbe eines Elements zum Hintergrund des nächsten deckenden Vorfahren (WCAG). */

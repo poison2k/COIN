@@ -1,5 +1,5 @@
 # CLAUDE.md
-
+c
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 # C.O.I.N. – Certified Official Issue Numbering
@@ -31,6 +31,9 @@ Ein Mensch gibt Anforderungen vor und nimmt Ergebnisse ab.
 - **Block**: einer der fünf festen Bausteine der Startseite (`kopf`, `infotext`, `kennzahlen`,
   `neueste`, `meistausgegeben`); ein- und ausschaltbar, Reihenfolge per Hoch/Runter
 - **Logo-Platz**: `bereitsteller` oder `software` im Kopfbereich der Startseite, je mit Alternativtext
+- **Änderungsprotokoll**: sichtbare Bezeichnung des Protokolls der Rollen- und Statusänderungen
+  (`benutzer_audit`); im Code, in Routen, Policies (`audit.read`) und ADRs heißt es weiter Audit-Log.
+  Akteur `null` wird als „System (Ersteinrichtung)“ angezeigt.
 
 ## Technik
 - Backend: C# / .NET 10, ASP.NET Core Web API, EF Core, PostgreSQL
@@ -115,8 +118,14 @@ Startseite, Listen und Prüfmaske (`docs/features/startseite-listen-pruefung.md`
 Startseite als Zeilenraster ohne Lücken (`bildeZeilen`), Kennzahlkarten, Rangliste; Katalog mit
 Karten-/Tabellenansicht (`Ansichtsumschalter`, Wahl in `localStorage` `coin-katalog-ansicht`);
 Prüfmaske als zentrierte Seite mit `Ergebniskarte`, Fokus bleibt nach der Prüfung im Feld;
-Audit-Log mit Benutzerfilter (Zeitraum/Aktion offen); Zeitpunkte nur über `shared/lib/format.ts`
-(Europe/Berlin, „Uhr“). Noch nicht vorhanden: Signatur, PDF, QR-Code,
+Zeitpunkte nur über `shared/lib/format.ts` (Europe/Berlin, „Uhr“).
+Nacharbeiten und Filter im Änderungsprotokoll (`docs/features/nacharbeiten-audit-filter.md`,
+ADR-0045–0047): `GET /api/audit` mit `von`/`bis` (JJJJ-MM-TT, ganze Tage Europe/Berlin, höchstens
+366 Tage) und `aktion` (mehrfach), kombinierbar mit `benutzerId`; `GET /api/audit/aktionen`;
+Filter in der URL von `/benutzerverwaltung` (`reiter=aenderungsprotokoll`, `von`, `bis`, `aktion`,
+`benutzer` nur als GUID, `seite`; Filter per push, Reiter per replace); kein Index nötig (Messung
+in ADR-0045); `CoinListe` auf `DatenTabelle` (ADR-0046), Katalogkarten unter 640 px kompakt;
+Logos 48/72/96 px. Noch nicht vorhanden: Signatur, PDF, QR-Code,
 öffentliche Prüfseite,
 Löschkonzept für Audit, Empfängerdaten und Vorlagenversionen.
 Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup im `README.md`.
@@ -161,7 +170,7 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
 - Bausteine aus `shared/ui` verwenden (Button, Formularfeld, Card, Badge, Hinweisbanner,
   Seitenkopf, Ladeanzeige/Leerzustand/Fehlerzustand, Toast, Bestätigungsdialog, Datentabelle,
   Filterleiste, Kennzahlkarte, Zeitleiste, Fortschrittsbalken, Ansichtsumschalter, Rangliste,
-  Ergebniskarte; Übersicht unter `/entwicklung/bausteine`, nur in Entwicklung). Neue Seiten:
+  Ergebniskarte, Aktionsmeldung, Inhaltsbereich; Übersicht unter `/entwicklung/bausteine`, nur in Entwicklung). Neue Seiten:
   `Seitenkopf` + `Card`, kein eigener Seitenrand und keine eigene Maximalbreite (Shell, ADR-0036);
   einzige Ausnahme ist die zentrierte Spalte von `/pruefung` (ADR-0043). Am Combobox-Trigger
   „Vorschläge anzeigen“ muss `tabIndex={-1}` auch nach `npx shadcn add` erhalten bleiben.
@@ -181,10 +190,16 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
   nie eigenes `<p role="alert">` für Ladefehler; Datum/Uhrzeit nie mit eigenem `Intl.DateTimeFormat`
   (geprüft in `web/src/app/konsistenz.test.ts`). `localStorage` nur über `useLokaleWahl` mit
   Schlüssel aus `shared/config/speicher.ts` und Positivliste (ADR-0044), nie für Fachdaten.
+- Meldungen nach Aktionen nur über `Aktionsmeldung` (ADR-0047); kein eigenes `role="alert"`/
+  `role="status"` in `features`/`widgets`/`pages` außer den Positivlisten in `konsistenz.test.ts`.
+  „Erneut versuchen“ braucht ein stabiles Fokusziel: Widgets setzen `data-inhaltsbereich` an der
+  Wurzel, Seiten nutzen `Inhaltsbereich` (mit `fokusUeberschrift={false}`, wenn das h1 beim
+  Neuladen verschwindet) oder `fokusZiel`; der Fokus landet nie auf `body`.
 - Screenshots zur Sichtprüfung: `COIN_SCREENSHOTS=1` mit `web/ui-tests/screenshots.spec.ts`
   nach `docs/design/ablage/`; `web/ui-tests/screenshots-formulare.spec.ts` schreibt nur lokal nach
   `web/test-results/screenshots-formulare/` (nicht einchecken); ebenso
-  `screenshots-uebersicht.spec.ts` nach `web/test-results/screenshots-uebersicht/`. Ausnahme:
+  `screenshots-uebersicht.spec.ts` und `screenshots-nacharbeiten.spec.ts` nach
+  `web/test-results/screenshots-*/`. Ausnahme:
   `COIN_VERGLEICH=vorher|nachher` mit `vergleich-startseite.spec.ts` schreibt eingecheckte
   Vergleichsbilder nach `docs/design/vergleich-startseite/`.
 
@@ -228,6 +243,8 @@ Feature-Entwürfe liegen in `docs/features/`, Endpunkte in `docs/api.md`, Setup 
   „falscher Coin“ und „nicht gefunden“ unterscheiden sich nur im Ergebniswert. Storno-Gründe
   erscheinen nie in Prüfantworten. Prüf-Endpunkte ohne `issues.read` liefern DTOs ohne Felder für
   Empfängerdaten (zwei Endpunkte, kein Feldfilter je Rolle; ADR-0021/0034).
+- Filter des Änderungsprotokolls nur typisiert und per LINQ mit Parametern (kein `FromSql*`),
+  ohne Freitextsuche; in der URL nie Namen, nur die Benutzer-GUID (ADR-0045).
 - Audit-Einträge sind unveränderlich (nur INSERT/SELECT, DB-Trigger); Änderungen an Rolle oder Status
   nur über `BenutzerverwaltungService` (Sperre plus Audit in derselben Transaktion).
 - Request-Logs schreibt nur `AnfrageProtokoll` (Methode, Routen-Template, Status, Dauer; ADR-0019).

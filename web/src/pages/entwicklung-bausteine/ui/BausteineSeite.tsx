@@ -1,5 +1,6 @@
 import { InboxIcon, PlusIcon, SaveIcon, SearchIcon, Trash2Icon, CircleCheckIcon } from 'lucide-react'
 import { useId } from 'react'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Badge } from '@/shared/ui/badge'
 import {
@@ -455,6 +456,18 @@ export function BausteineSeite() {
             <AlertTitle>Neutral</AlertTitle>
             <AlertDescription>Ein statischer Hinweis ohne Status.</AlertDescription>
           </Alert>
+        </div>
+      </Abschnitt>
+
+      <Abschnitt
+        titel="Aktionsmeldung"
+        beschreibung="Meldung nach einer Aktion: Fehler und Warnung als Alarm, Erfolg und Hinweis als Status."
+      >
+        <div className="grid gap-3">
+          <Aktionsmeldung meldung={{ art: 'fehler', text: 'Die Ausgabe konnte nicht gespeichert werden.' }} />
+          <Aktionsmeldung meldung={{ art: 'warnung', text: 'Die Auflage ist fast erreicht.' }} />
+          <Aktionsmeldung meldung={{ art: 'erfolg', text: 'Die Änderungen wurden gespeichert.' }} />
+          <Aktionsmeldung meldung={{ art: 'hinweis', text: 'Neue Vorlagen gelten erst für künftige Ausgaben.' }} />
         </div>
       </Abschnitt>
 

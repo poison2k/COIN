@@ -291,6 +291,24 @@ export function seiteAntwort<T>(eintraege: T[], teil: { gesamt?: number; seite?:
   return { eintraege, gesamt: teil.gesamt ?? eintraege.length, seite: teil.seite ?? 1, groesse: teil.groesse ?? 25 }
 }
 
+/** Aktionen des Änderungsprotokolls wie GET /api/audit/aktionen (nacharbeiten-audit-filter, AK-7). */
+export const TEST_AUDIT_AKTIONEN = [
+  { wert: 'Rolle', bezeichnung: 'Rolle' },
+  { wert: 'Status', bezeichnung: 'Status' },
+]
+
+const BERLINER_TAG = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Berlin',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+/** Kalendertag `JJJJ-MM-TT` eines Zeitpunkts in Europe/Berlin (Tagesgrenzen wie in der API, ADR-0045 Punkt 2). */
+export function berlinerTag(zeitpunkt: string): string {
+  return BERLINER_TAG.format(new Date(zeitpunkt))
+}
+
 function seiteVon<T>(alle: T[], query: URLSearchParams) {
   const seite = Number(query.get('seite') ?? '1')
   const groesse = Number(query.get('groesse') ?? '25')
@@ -485,9 +503,25 @@ export function erstelleFakeApi(
       })
       return jsonAntwort(200, neu)
     }
+    // nacharbeiten-audit-filter (K1, Abschnitt 4.2): Liste der Aktionen in Enum-Reihenfolge.
+    if (anfrage.methode === 'GET' && anfrage.pfad === '/api/audit/aktionen') {
+      return jsonAntwort(200, structuredClone(TEST_AUDIT_AKTIONEN))
+    }
     if (anfrage.methode === 'GET' && anfrage.pfad === '/api/audit') {
+      // nacharbeiten-audit-filter (K1, Abschnitt 4.1): von/bis als Berliner Kalendertag, aktion mehrfach (ODER).
       const benutzerId = anfrage.query.get('benutzerId')
-      const treffer = audit.filter((a) => !benutzerId || a.benutzer.id === benutzerId)
+      const von = anfrage.query.get('von')
+      const bis = anfrage.query.get('bis')
+      const aktionen = anfrage.query.getAll('aktion').filter((a) => a !== '')
+      const treffer = audit.filter((a) => {
+        const tag = berlinerTag(a.zeitpunkt)
+        return (
+          (!benutzerId || a.benutzer.id === benutzerId) &&
+          (!von || tag >= von) &&
+          (!bis || tag <= bis) &&
+          (aktionen.length === 0 || aktionen.includes(a.art))
+        )
+      })
       return jsonAntwort(200, seiteVon(treffer, anfrage.query))
     }
     if (anfrage.methode === 'GET' && anfrage.pfad === '/api/coins') {

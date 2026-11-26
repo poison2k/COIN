@@ -80,9 +80,9 @@ der Startseiten-Verwaltung.
 
 ## Tabellen
 
-Das gilt für Exemplare, Ausgabehistorie, Benutzer, Audit-Log und die Versionen der
-Zertifikatsvorlage. Der Katalog `/coins` ist im [Coin-Katalog](coin-katalog.md#katalog-ansehen)
-beschrieben.
+Das gilt für Exemplare, Ausgabehistorie, Benutzer, Änderungsprotokoll, die Versionen der
+Zertifikatsvorlage und die Tabellenansicht des Katalogs. Weiteres zum Katalog `/coins` steht im
+[Coin-Katalog](coin-katalog.md#katalog-ansehen).
 
 ### Sortieren
 
@@ -90,16 +90,18 @@ Nur die Tabelle der **Vorlagenversionen** lässt sich sortieren: Ein Klick auf d
 **Version**, **Hochgeladen am** oder **Größe** sortiert danach, ein zweiter Klick kehrt die
 Reihenfolge um. Ein Pfeil zeigt die Richtung. Voreingestellt ist die neueste Version zuerst.
 
-Die übrigen Tabellen haben eine feste Reihenfolge: Exemplare nach Nummer, Ausgaben und Audit-Log
-neueste zuerst, Benutzer nach Name.
+Die übrigen Tabellen haben eine feste Reihenfolge: Exemplare nach Nummer, Ausgaben und
+Änderungsprotokoll neueste zuerst, Benutzer und Coins nach Name.
 
 ### Filter-Chips
 
 Ist ein Filter aktiv (Status bei Exemplaren und Ausgaben, Suche im Katalog und in der
-Benutzerverwaltung, Benutzer im Audit-Log), steht er unter der Filterauswahl als Chip, z. B.
-„Status: Ausgegeben“, „Suche: Muster“ oder „Benutzer: Testperson A“. Das Kreuz im
-Chip entfernt den Filter. Die Liste beginnt dann wieder auf Seite 1. Bei mehreren Chips entfernt
-**Alle Filter entfernen** alle auf einmal.
+Benutzerverwaltung, Zeitraum, Aktion und Benutzer im Änderungsprotokoll), steht er unter der
+Filterauswahl als Chip, z. B. „Status: Ausgegeben“, „Suche: Muster“ oder „Benutzer: Testperson A“.
+Das Kreuz im Chip entfernt den Filter. Die Liste beginnt dann wieder auf Seite 1. Bei mehreren Chips
+entfernt **Alle Filter entfernen** alle auf einmal; im Änderungsprotokoll heißt der Button **Filter
+zurücksetzen** und erscheint schon ab einem Chip (siehe
+[Benutzerverwaltung](benutzerverwaltung.md#filtern)).
 
 ### Blättern
 
@@ -117,7 +119,15 @@ nichts.
 
 Auf schmalen Bildschirmen erscheinen die Einträge als Karten statt als Tabelle: oben der Titel
 (z. B. die Nummer), darunter die übrigen Spalten als Liste und die Buttons. Das gilt unter 768 Pixel
-Breite, bei der Ausgabehistorie mit ihren vielen Spalten schon unter 1024 Pixel. Sie müssen so nie
-seitlich scrollen. Ausnahme ist die Tabellenansicht des Katalogs: Sie lässt sich auf schmalen
-Bildschirmen seitlich verschieben; alternativ wählen Sie dort die Ansicht **Karten** (siehe
-[Coin-Katalog](coin-katalog.md#ansicht-wählen-tabelle-oder-karten)).
+Breite, bei der Ausgabehistorie mit ihren vielen Spalten schon unter 1024 Pixel. Das gilt auch für
+die Tabellenansicht des Katalogs. Sie müssen so nie seitlich scrollen.
+
+## Meldungen und „Erneut versuchen“
+
+Meldungen nach einer Aktion (z. B. „gespeichert“ oder „konnte nicht gespeichert werden“) erscheinen
+als farbiger Hinweiskasten mit Symbol, je nach Art (Fehler, Warnung, Erfolg, Hinweis) in eigener
+Farbe. Die Bedeutung steht immer auch im Text. Screenreader lesen die Meldung automatisch vor.
+
+Konnte eine Seite oder Liste nicht geladen werden, erscheint ein Fehlerkasten mit **Erneut
+versuchen**. Nach dem Klick bleibt der Tastaturfokus im Inhalt (auf der Überschrift des Bereichs
+bzw. am Anfang des Inhalts), Sie müssen also nicht von oben neu mit der Tab-Taste beginnen.

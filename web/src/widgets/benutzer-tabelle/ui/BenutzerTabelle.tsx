@@ -5,6 +5,7 @@ import { StatusAendern } from '@/features/benutzer-status-aendern'
 import { RolleZuweisen } from '@/features/rolle-zuweisen'
 import type { ApiErgebnis } from '@/shared/api'
 import { useFokusBeiLadefehler } from '@/shared/lib/hooks'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { Blaettern, seitenAnzahl } from '@/shared/ui/blaettern'
 import { Button } from '@/shared/ui/button'
 import { DatenTabelle, type DatenSpalte } from '@/shared/ui/daten-tabelle'
@@ -174,7 +175,7 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
   ]
 
   return (
-    <div className="grid min-w-0 gap-4">
+    <div data-inhaltsbereich="" className="grid min-w-0 gap-4">
       <Filterleiste
         chips={
           anfrage.suche.trim() === ''
@@ -217,16 +218,7 @@ export function BenutzerTabelle({ aktuellerBenutzerId }: BenutzerTabelleProps) {
       )}
       {anzeige === null && laedt && <Ladeanzeige text="Benutzer werden geladen …" ansage={false} form="tabelle" />}
 
-      {meldung?.art === 'erfolg' && (
-        <p role="status" className="text-success">
-          {meldung.text}
-        </p>
-      )}
-      {meldung?.art === 'fehler' && (
-        <p role="alert" className="text-destructive">
-          {meldung.text}
-        </p>
-      )}
+      <Aktionsmeldung meldung={meldung ? { art: meldung.art, text: meldung.text } : null} />
 
       {anzeige?.art === 'ok' && anzeige.daten.gesamt === 0 && (
         <Leerzustand

@@ -37,11 +37,11 @@ const TABELLEN: TabellenFall[] = [
   { name: 'Ausgabehistorie', pfad: `${DETAIL}?reiter=ausgaben`, kartenUnter: 1024 },
   { name: 'Benutzer', pfad: '/benutzerverwaltung', kartenUnter: 768 },
   {
-    name: 'Audit-Log',
+    name: 'Änderungsprotokoll',
     pfad: '/benutzerverwaltung',
     kartenUnter: 768,
     vorbereiten: async (page) => {
-      await page.getByRole('tab', { name: 'Audit-Log' }).click()
+      await page.getByRole('tab', { name: 'Änderungsprotokoll' }).click()
     },
   },
   { name: 'Versionen der Zertifikatsvorlage', pfad: `${DETAIL}?reiter=vorlage`, kartenUnter: 768, eigeneVorlage: true },

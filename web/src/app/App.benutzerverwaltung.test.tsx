@@ -451,8 +451,8 @@ describe('deutsche Texte', () => {
     const { user } = zeigeApp('/benutzerverwaltung')
     await screen.findByRole('table', { name: 'Benutzer' })
 
-    await user.click(screen.getByRole('tab', { name: 'Audit-Log' }))
-    await screen.findByRole('table', { name: 'Audit-Log' })
+    await user.click(screen.getByRole('tab', { name: 'Änderungsprotokoll' }))
+    await screen.findByRole('table', { name: 'Änderungsprotokoll' })
 
     expect(alleTexte()).not.toMatch(ENGLISCH)
   })

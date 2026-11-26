@@ -23,10 +23,11 @@ export function CoinKarten({ coins }: CoinKartenProps) {
         {coins.map((coin) => (
           <li
             key={coin.id}
-            className="flex min-w-0 cursor-pointer flex-col overflow-hidden rounded-xl border bg-card text-sm text-card-foreground shadow-xs"
+            className="flex min-w-0 cursor-pointer flex-row overflow-hidden rounded-xl border bg-card text-sm text-card-foreground shadow-xs sm:flex-col"
             onClick={zeileGeklickt}
           >
-            <div className="flex aspect-square items-center justify-center border-b bg-muted p-4">
+            {/* Unter 640 px kompakt (80 px neben dem Text), ab 640 px Bildfeld 4:3; nie beschnitten (4.5, Variante B). */}
+            <div className="m-4 mr-0 flex size-20 min-h-0 shrink-0 items-center justify-center rounded-md bg-muted p-1 text-xs sm:m-0 sm:aspect-4/3 sm:size-auto sm:rounded-none sm:border-b sm:p-4 sm:text-sm">
               {coin.bildUrl ? (
                 <img
                   className="size-full object-contain"
@@ -37,13 +38,13 @@ export function CoinKarten({ coins }: CoinKartenProps) {
                   height={256}
                 />
               ) : (
-                <span className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <ImageOffIcon aria-hidden="true" className="size-8" />
+                <span className="flex flex-col items-center gap-1 text-center text-muted-foreground sm:gap-2">
+                  <ImageOffIcon aria-hidden="true" className="size-5 sm:size-8" />
                   Kein Bild
                 </span>
               )}
             </div>
-            <div className="grid min-w-0 gap-2 p-4">
+            <div className="grid min-w-0 flex-1 content-start gap-2 p-4">
               <h3 className="text-base font-semibold break-words">
                 <Link
                   to={ROUTEN.coinDetail}

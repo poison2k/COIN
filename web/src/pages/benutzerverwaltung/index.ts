@@ -1,1 +1,5 @@
-export { BenutzerverwaltungSeite, type BenutzerverwaltungSeiteProps } from './ui/BenutzerverwaltungSeite'
+export {
+  BenutzerverwaltungSeite,
+  type BenutzerverwaltungReiter,
+  type BenutzerverwaltungSeiteProps,
+} from './ui/BenutzerverwaltungSeite'

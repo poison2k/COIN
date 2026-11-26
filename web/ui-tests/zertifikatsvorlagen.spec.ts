@@ -501,7 +501,11 @@ test('Zurücksetzen auf die Standardvorlage per Tastatur mit Dialog', async ({ p
   expect(await hatSichtbarenFokus(bestaetigen)).toBe(true)
   await page.keyboard.press('Enter')
 
-  const meldung = page.getByRole('status').filter({ hasText: 'Die Standardvorlage ist jetzt aktiv.' })
+  // nacharbeiten-audit-filter K2: role="status" am Container, fokussiert wird das Banner darin (ADR-0047).
+  const meldung = page
+    .getByRole('status')
+    .filter({ hasText: 'Die Standardvorlage ist jetzt aktiv.' })
+    .locator('[data-slot="alert"]')
   await expect(meldung).toBeVisible()
   await expect(meldung).toBeFocused()
   await expect(page.getByText('Aktiv: Standardvorlage')).toBeVisible()

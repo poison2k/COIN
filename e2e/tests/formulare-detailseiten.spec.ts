@@ -150,7 +150,11 @@ test('Formulare und Detailseiten: Anlegen per Tastatur, Erfassen, Storno mit Dia
     await dialog.getByRole('button', { name: 'Stornieren', exact: true }).click()
 
     await expect(dialog).toHaveCount(0)
-    const meldung = page.getByRole('status').filter({ hasText: 'Die Ausgabe wurde storniert.' })
+    // nacharbeiten-audit-filter K2: role="status" am Container, fokussiert wird das Banner darin (ADR-0047).
+    const meldung = page
+      .getByRole('status')
+      .filter({ hasText: 'Die Ausgabe wurde storniert.' })
+      .locator('[data-slot="alert"]')
     await expect(meldung).toBeVisible()
     await expect(meldung).toBeFocused()
     await expect(page.getByRole('listitem').filter({ hasText: 'Ausgabe storniert' })).toContainText(

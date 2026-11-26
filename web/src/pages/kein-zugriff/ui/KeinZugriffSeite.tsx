@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import type { Benutzer } from '@/entities/benutzer'
 import { AbmeldenButton } from '@/features/anmeldung'
 import { ROUTEN } from '@/shared/config'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { Button, buttonVariants } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
 
@@ -99,14 +100,9 @@ export function KeinZugriffSeite(props: KeinZugriffSeiteProps) {
             )}
             <AbmeldenButton />
           </div>
-          <p role="status" className="empty:sr-only">
-            {meldung?.art === 'status' ? meldung.text : ''}
-          </p>
-          {meldung?.art === 'alert' && (
-            <p role="alert" className="text-destructive">
-              {meldung.text}
-            </p>
-          )}
+          <Aktionsmeldung
+            meldung={meldung ? { art: meldung.art === 'alert' ? 'fehler' : 'hinweis', text: meldung.text } : null}
+          />
         </CardContent>
       </Card>
     </div>

@@ -108,7 +108,7 @@ export function CoinExemplare({
   }
 
   return (
-    <section aria-labelledby={ueberschriftId} className="grid min-w-0 gap-4">
+    <section data-inhaltsbereich="" aria-labelledby={ueberschriftId} className="grid min-w-0 gap-4">
       <h2 id={ueberschriftId} className="text-lg font-semibold">
         Exemplare
       </h2>

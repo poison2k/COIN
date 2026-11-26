@@ -53,7 +53,7 @@ describe('Seitenkopf (AK-28)', () => {
   it('behält die Reiter „Benutzer“ und „Audit-Log“', () => {
     zeige()
 
-    expect(screen.getAllByRole('tab').map((t) => t.textContent?.trim())).toEqual(['Benutzer', 'Audit-Log'])
+    expect(screen.getAllByRole('tab').map((t) => t.textContent?.trim())).toEqual(['Benutzer', 'Änderungsprotokoll'])
   })
 })
 
@@ -69,9 +69,9 @@ describe('Panels (AK-28)', () => {
   it('gibt dem Panel „Audit-Log“ die h2 „Änderungsprotokoll“ und die Beschreibung aus 4.4', async () => {
     const { user } = zeige()
 
-    await user.click(screen.getByRole('tab', { name: 'Audit-Log' }))
+    await user.click(screen.getByRole('tab', { name: 'Änderungsprotokoll' }))
 
-    const panel = await screen.findByRole('tabpanel', { name: 'Audit-Log' })
+    const panel = await screen.findByRole('tabpanel', { name: 'Änderungsprotokoll' })
     expect(within(panel).getByRole('heading', { level: 2, name: 'Änderungsprotokoll' })).toBeInTheDocument()
     expect(within(panel).getByText(BESCHREIBUNG_AUDIT)).toBeInTheDocument()
   })
@@ -89,8 +89,8 @@ describe('Panels (AK-28)', () => {
   it('lässt keine h3 direkt auf die h1 folgen (Reiter „Audit-Log“)', async () => {
     const { user } = zeige()
 
-    await user.click(screen.getByRole('tab', { name: 'Audit-Log' }))
-    await screen.findByRole('table', { name: 'Audit-Log' })
+    await user.click(screen.getByRole('tab', { name: 'Änderungsprotokoll' }))
+    await screen.findByRole('table', { name: 'Änderungsprotokoll' })
 
     pruefeUeberschriften()
   })

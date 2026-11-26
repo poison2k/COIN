@@ -7,7 +7,7 @@ welcher Reihenfolge erscheinen, legen Administratoren auf der Seite **Startseite
 
 | Block | Inhalt |
 |---|---|
-| **Kopfbereich** | hervorgehobene Fläche: links das Logo des Bereitstellers, in der Mitte Titel und Untertitel, rechts das Logo der Software; auf schmalen Bildschirmen untereinander |
+| **Kopfbereich** | hervorgehobene Fläche: auf breiten Bildschirmen (ab 1024 Pixel) links das Logo des Bereitstellers, in der Mitte Titel und Untertitel, rechts das Logo der Software; bei mittlerer Breite (640 bis 1023 Pixel) beide Logos nebeneinander über dem Titel; auf dem Handy alles untereinander |
 | **Infotext** | ein Text mit einfacher Formatierung |
 | **Kennzahlen** | vier Karten mit großen Zahlen: **Coins** (Anzahl im Katalog), **Exemplare gesamt** (Summe der Auflagen), **Ausgegeben** (nicht stornierte Ausgaben), **Verfügbar** (Exemplare minus Ausgegeben) |
 | **Neueste Coins** | die zuletzt angelegten Coins als Kacheln mit Motivbild, Name (Link zur Detailseite) und Herausgeber |
@@ -90,7 +90,10 @@ Anforderungen an die Datei:
 - **Bitte nur Bilder ohne personenbezogene Metadaten hochladen.** C.O.I.N. entfernt eingebettete
   Angaben wie EXIF (z. B. Aufnahmeort, Kamera, Autor) nicht. Entfernen Sie sie vorher, z. B. durch
   „Exportieren“ als neue PNG-Datei.
-- Logos erscheinen höchstens 96 Pixel hoch und auch im dunklen Farbschema auf hellem Hintergrund.
+- Logos erscheinen in fester Höhe je Bildschirmbreite: 48 Pixel auf dem Handy, 72 Pixel ab 768 und
+  96 Pixel ab 1024 Pixel Breite, auch im dunklen Farbschema auf hellem Hintergrund. Sie werden nie
+  verzerrt oder beschnitten. Sehr breite Logos (breiter als 2,5-mal so hoch) können kleiner
+  erscheinen; am besten wirken eher quadratische oder leicht breite Logos.
 
 ### Infotext
 

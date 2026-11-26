@@ -12,7 +12,7 @@ import { buttonVariants } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
 import { Seitenkopf } from '@/shared/ui/seitenkopf'
 import { VerlassenWarnung } from '@/shared/ui/verlassen-warnung'
-import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
+import { Fehlerzustand, Inhaltsbereich, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
 
 const TEXT_AUFLAGE_UNBEKANNT =
   'Für diesen Coin ist keine Auflage erfasst. Ausgaben sind erst nach dem Festlegen der Auflage möglich.'
@@ -36,7 +36,7 @@ interface Geladen {
  * zeigt das Formular oder den Grund, warum keine Ausgabe möglich ist. Ungespeicherte Eingaben sichern das Verlassen ab
  * (formulare-detailseiten AK-13). Kein eigenes <main>.
  */
-export function AusgabeErfassenSeite({ coinId, onErfasst }: AusgabeErfassenSeiteProps) {
+function AusgabeErfassenSeiteInhalt({ coinId, onErfasst }: AusgabeErfassenSeiteProps) {
   const gueltig = istGuid(coinId)
   const [geladen, setGeladen] = useState<Geladen | null>(null)
   // „Erneut versuchen“ lädt mit neuem Versuch genau einmal neu; Schlüssel = Coin-Id und Versuch.
@@ -97,6 +97,8 @@ export function AusgabeErfassenSeite({ coinId, onErfasst }: AusgabeErfassenSeite
         <Fehlerzustand
           meldung="Der Coin konnte nicht geladen werden. Bitte später erneut versuchen."
           onErneutVersuchen={() => setVersuch((n) => n + 1)}
+          // Beim Neuladen zeigt die Seite nur die Ladeanzeige, das h1 wird ausgehängt; Ziel ist der Inhaltsbereich (ADR-0047).
+          fokusUeberschrift={false}
         />
         <Link {...zurueck} className={buttonVariants({ variant: 'outline', className: 'justify-self-start' })}>
           Zurück zum Coin
@@ -154,5 +156,14 @@ export function AusgabeErfassenSeite({ coinId, onErfasst }: AusgabeErfassenSeite
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+/** Seite in einem stabilen Inhaltsbereich: Fokusziel nach „Erneut versuchen“ mit sichtbarem Fokusring (ADR-0047). */
+export function AusgabeErfassenSeite(props: AusgabeErfassenSeiteProps) {
+  return (
+    <Inhaltsbereich>
+      <AusgabeErfassenSeiteInhalt {...props} />
+    </Inhaltsbereich>
   )
 }

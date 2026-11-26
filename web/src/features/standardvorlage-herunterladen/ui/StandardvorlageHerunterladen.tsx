@@ -2,6 +2,7 @@ import { DownloadIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { dateinameAusAntwort, ladeStandardvorlage } from '@/entities/zertifikatsvorlage'
 import { speichereDatei } from '@/shared/lib/datei'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { Button } from '@/shared/ui/button'
 
 const TEXT_FEHLER = 'Die Vorlage konnte nicht heruntergeladen werden. Bitte später erneut versuchen.'
@@ -37,11 +38,7 @@ export function StandardvorlageHerunterladen() {
         <DownloadIcon aria-hidden="true" />
         Standardvorlage herunterladen
       </Button>
-      {fehler && (
-        <p role="alert" className="text-sm text-destructive">
-          {TEXT_FEHLER}
-        </p>
-      )}
+      <Aktionsmeldung meldung={fehler ? { art: 'fehler', text: TEXT_FEHLER } : null} />
     </div>
   )
 }

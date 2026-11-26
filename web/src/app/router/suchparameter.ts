@@ -1,3 +1,5 @@
+import { istGuid } from '@/shared/lib/guid'
+
 /** Höchstlänge des Suchbegriffs wie in der API (katalog-seiten, AK-4). */
 const SUCHE_MAX_LAENGE = 100
 /** Höchste Seite, die die API annimmt (int32); größere Werte gelten als Seite 1. */
@@ -51,6 +53,41 @@ export function coinDetailSuche(roh: Record<string, unknown>): CoinDetailSuche {
     status: roh.status === 'verfuegbar' || roh.status === 'ausgegeben' ? roh.status : undefined,
     seite: typeof zahl === 'number' && Number.isInteger(zahl) && zahl > 1 && zahl <= SEITE_MAX ? zahl : undefined,
     reiter,
+  }
+}
+
+/** Suchparameter von /benutzerverwaltung (nacharbeiten-audit-filter 4.4, ADR-0045 Punkt 4). */
+export interface BenutzerverwaltungSuche {
+  reiter?: 'aenderungsprotokoll'
+  /** Kalendertag JJJJ-MM-TT; die Gültigkeit prüft die API. */
+  von?: string
+  bis?: string
+  /** Aktionen kommagetrennt, nur Buchstaben, ohne Doppelte. */
+  aktion?: string
+  /** GUID des geänderten Benutzers, nie der Name (F1). */
+  benutzer?: string
+  seite?: number
+}
+
+const DATUM = /^\d{4}-\d{2}-\d{2}$/
+const AKTION = /^[A-Za-z]+$/
+
+/**
+ * Reiter und Filter des Änderungsprotokolls aus der URL; ungültige Werte entfallen, wirft nie. Ob ein Datum gültig ist,
+ * ob `von` ≤ `bis` gilt und ob eine Aktion bekannt ist, prüft die API (A4).
+ */
+export function benutzerverwaltungSuche(roh: Record<string, unknown>): BenutzerverwaltungSuche {
+  const datum = (wert: unknown) => (typeof wert === 'string' && DATUM.test(wert) ? wert : undefined)
+  const aktionen =
+    typeof roh.aktion === 'string' ? [...new Set(roh.aktion.split(',').filter((wert) => AKTION.test(wert)))] : []
+  const zahl = typeof roh.seite === 'string' && /^\d+$/.test(roh.seite) ? Number(roh.seite) : roh.seite
+  return {
+    reiter: roh.reiter === 'aenderungsprotokoll' ? 'aenderungsprotokoll' : undefined,
+    von: datum(roh.von),
+    bis: datum(roh.bis),
+    aktion: aktionen.length > 0 ? aktionen.join(',') : undefined,
+    benutzer: typeof roh.benutzer === 'string' && istGuid(roh.benutzer) ? roh.benutzer : undefined,
+    seite: typeof zahl === 'number' && Number.isInteger(zahl) && zahl > 1 && zahl <= SEITE_MAX ? zahl : undefined,
   }
 }
 

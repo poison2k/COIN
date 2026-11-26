@@ -156,7 +156,8 @@ async function kopfMasse(page: Page) {
   return { titel, bereitsteller, software }
 }
 
-for (const breite of [1280, 768]) {
+// nacharbeiten-audit-filter E9 (F3, Variante A): 768 px aus der Schleife genommen, dort stehen die Logos über dem Titel.
+for (const breite of [1280]) {
   test(`stellt bei ${breite} px das Logo des Bereitstellers links und das der Software rechts neben den Titel`, async ({
     page,
   }) => {
@@ -172,6 +173,16 @@ for (const breite of [1280, 768]) {
     }
   })
 }
+
+test('stellt bei 768 px beide Logos oberhalb des Titels, Bereitsteller links von Software', async ({ page }) => {
+  api = await oeffneStartseitenFall(page, fall('fall1'), { breite: 768 })
+
+  const { titel, bereitsteller, software } = await kopfMasse(page)
+  for (const logo of [bereitsteller, software]) {
+    expect(logo.y + logo.height).toBeLessThanOrEqual(titel.y + TOLERANZ)
+  }
+  expect(bereitsteller.x + bereitsteller.width).toBeLessThanOrEqual(software.x + TOLERANZ)
+})
 
 test('stellt bei 360 px Logos und Titel untereinander (Bereitsteller, Titel, Software)', async ({ page }) => {
   api = await oeffneStartseitenFall(page, fall('fall1'), { breite: 360 })

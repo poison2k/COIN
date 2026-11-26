@@ -77,7 +77,7 @@ const NORMAL: Ansicht[] = [
     mocks: (page) => mockeAudit(page),
     zustand: async (page) => {
       await oeffneAuditLog(page)
-      await expect(page.getByRole('tabpanel', { name: 'Audit-Log' }).getByRole('table')).toBeVisible()
+      await expect(page.getByRole('tabpanel', { name: 'Änderungsprotokoll' }).getByRole('table')).toBeVisible()
     },
   },
   {
@@ -207,7 +207,7 @@ const AUDIT: Ansicht[] = [
     mocks: (page) => mockeAudit(page),
     zustand: async (page) => {
       await oeffneAuditLog(page)
-      const panel = page.getByRole('tabpanel', { name: 'Audit-Log' })
+      const panel = page.getByRole('tabpanel', { name: 'Änderungsprotokoll' })
       const feld = panel.getByRole('combobox', { name: /^Benutzer/ })
       await feld.click()
       await feld.pressSequentially('Betr')
@@ -232,7 +232,7 @@ const AUDIT: Ansicht[] = [
     mocks: (page) => mockeAudit(page, { fehler: 5 }),
     zustand: async (page) => {
       await oeffneAuditLog(page)
-      await expect(page.getByRole('tabpanel', { name: 'Audit-Log' }).getByRole('alert')).toBeVisible()
+      await expect(page.getByRole('tabpanel', { name: 'Änderungsprotokoll' }).getByRole('alert')).toBeVisible()
     },
   },
 ]

@@ -17,8 +17,8 @@ import { AuditLog } from '../index'
 // AuditTabelle (Anzeige-Mapping). Daten synthetisch.
 
 const TEXTE = {
-  laden: 'Audit-Log wird geladen …',
-  fehlerPraefix: 'Audit-Log konnte nicht geladen werden.',
+  laden: 'Änderungsprotokoll wird geladen …',
+  fehlerPraefix: 'Änderungsprotokoll konnte nicht geladen werden.',
   leer: 'Noch keine Einträge.',
 } as const
 
@@ -72,7 +72,7 @@ describe('Laden', () => {
 
   it('lädt die erste Seite mit 25 Einträgen ohne Benutzerfilter', async () => {
     zeige()
-    await screen.findByRole('table', { name: 'Audit-Log' })
+    await screen.findByRole('table', { name: 'Änderungsprotokoll' })
 
     const query = auditAbrufe()[0].query
     expect(query.get('seite')).toBe('1')
@@ -92,7 +92,7 @@ describe('Laden', () => {
     zeige()
 
     await waitFor(() => expect(meldungMit(TEXTE.fehlerPraefix)).toBeDefined())
-    expect(screen.queryByRole('table', { name: 'Audit-Log' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: 'Änderungsprotokoll' })).not.toBeInTheDocument()
   })
 
   it('zeigt bei einer leeren Liste „Noch keine Einträge.“', async () => {
@@ -107,31 +107,31 @@ describe('Anzeige', () => {
   it('zeigt die Einträge in einer Tabelle „Audit-Log“', async () => {
     zeige()
 
-    const tabelle = await screen.findByRole('table', { name: 'Audit-Log' })
+    const tabelle = await screen.findByRole('table', { name: 'Änderungsprotokoll' })
     expect(within(tabelle).getAllByRole('row')).toHaveLength(3)
   })
 
-  it('zeigt akteur null als „System (Bootstrap)“', async () => {
+  it('zeigt akteur null als „System (Ersteinrichtung)“', async () => {
     zeige()
 
-    const tabelle = await screen.findByRole('table', { name: 'Audit-Log' })
-    expect(within(tabelle).getByText('System (Bootstrap)')).toBeInTheDocument()
+    const tabelle = await screen.findByRole('table', { name: 'Änderungsprotokoll' })
+    expect(within(tabelle).getByText('System (Ersteinrichtung)')).toBeInTheDocument()
   })
 
   it('zeigt „keine“ als „Keine Rolle“', async () => {
     zeige()
 
-    const tabelle = await screen.findByRole('table', { name: 'Audit-Log' })
+    const tabelle = await screen.findByRole('table', { name: 'Änderungsprotokoll' })
     expect(within(tabelle).getByText('Keine Rolle')).toBeInTheDocument()
   })
 
   it('zeigt die Einträge in der Reihenfolge der API (neueste zuerst)', async () => {
     zeige()
 
-    const tabelle = await screen.findByRole('table', { name: 'Audit-Log' })
+    const tabelle = await screen.findByRole('table', { name: 'Änderungsprotokoll' })
     const zeilen = within(tabelle).getAllByRole('row').slice(1)
     expect(zeilen[0]).toHaveTextContent('Sachbearbeiter')
-    expect(zeilen[1]).toHaveTextContent('System (Bootstrap)')
+    expect(zeilen[1]).toHaveTextContent('System (Ersteinrichtung)')
   })
 })
 
@@ -182,7 +182,7 @@ describe('deutsche Texte', () => {
 
   it('enthält mit Einträgen keine englischen Texte', async () => {
     zeige()
-    await screen.findByRole('table', { name: 'Audit-Log' })
+    await screen.findByRole('table', { name: 'Änderungsprotokoll' })
 
     expect(alleTexte()).not.toMatch(ENGLISCH)
   })

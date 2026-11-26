@@ -66,7 +66,7 @@ const suchAbrufe = () => api.anfragenMit('GET', BENUTZER)
 const filterFeld = () => screen.getByRole('combobox', { name: /^Benutzer/ })
 
 async function geladen() {
-  await screen.findByRole('table', { name: 'Audit-Log' })
+  await screen.findByRole('table', { name: 'Änderungsprotokoll' })
 }
 
 async function waehle(user: ReturnType<typeof userEvent.setup>, suche: string, name: string) {
@@ -177,9 +177,13 @@ describe('Benutzerfilter (AK-29)', () => {
     await waehle(user, 'Bernd', 'Testperson Bernd')
 
     await waitFor(() =>
-      expect(within(screen.getByRole('table', { name: 'Audit-Log' })).queryByText('Testperson Anna')).toBeNull(),
+      expect(
+        within(screen.getByRole('table', { name: 'Änderungsprotokoll' })).queryByText('Testperson Anna'),
+      ).toBeNull(),
     )
-    expect(within(screen.getByRole('table', { name: 'Audit-Log' })).getByText('Testperson Bernd')).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('table', { name: 'Änderungsprotokoll' })).getByText('Testperson Bernd'),
+    ).toBeInTheDocument()
   })
 
   it('lädt nach dem Entfernen des Chips ohne benutzerId ab Seite 1', async () => {
@@ -247,17 +251,6 @@ describe('Kein Zeitraum- und kein Aktionsfilter (AK-32)', () => {
     const parameter = new Set(auditAbrufe().flatMap((a) => [...a.query.keys()]))
     expect([...parameter].every((p) => ['benutzerId', 'seite', 'groesse'].includes(p))).toBe(true)
   })
-
-  it('bietet keine Bedienelemente für Zeitraum oder Aktion', async () => {
-    zeige()
-    await geladen()
-
-    for (const name of [/Zeitraum/, /^Von/, /^Bis/, /Aktion/, /^Art/, /Änderung/]) {
-      expect(screen.queryByRole('combobox', { name })).not.toBeInTheDocument()
-      expect(screen.queryByRole('textbox', { name })).not.toBeInTheDocument()
-      expect(screen.queryByRole('group', { name })).not.toBeInTheDocument()
-    }
-  })
 })
 
 describe('Zustände (AK-31)', () => {
@@ -266,7 +259,7 @@ describe('Zustände (AK-31)', () => {
     api.einmal('GET', AUDIT, offen.promise)
     zeige()
 
-    const text = await screen.findByText('Audit-Log wird geladen …')
+    const text = await screen.findByText('Änderungsprotokoll wird geladen …')
 
     expect(text.closest('[role="status"]')).not.toBeNull()
     offen.aufloesen(jsonAntwort(200, { eintraege: [], gesamt: 0, seite: 1, groesse: 25 }))
@@ -278,7 +271,7 @@ describe('Zustände (AK-31)', () => {
 
     const alarm = await screen.findByRole('alert')
 
-    expect(alarm).toHaveTextContent('Audit-Log konnte nicht geladen werden. Bitte später erneut versuchen.')
+    expect(alarm).toHaveTextContent('Änderungsprotokoll konnte nicht geladen werden. Bitte später erneut versuchen.')
     expect(within(alarm).getByRole('button', { name: 'Erneut versuchen' })).toBeInTheDocument()
   })
 
@@ -301,7 +294,9 @@ describe('Zustände (AK-31)', () => {
     expect(await screen.findByRole('heading', { level: 3, name: 'Noch keine Einträge.' })).toBeInTheDocument()
   })
 
-  it('zeigt mit Filter ohne Einträge h3 „Keine Einträge für diesen Benutzer.“ mit „Filter entfernen“', async () => {
+  // nacharbeiten-audit-filter E4 (A9): „Keine Einträge für diese Filter.“ mit „Filter zurücksetzen“. Den Button gibt es
+  // dann zweimal (Filterleiste ab einem Chip und Leerzustand); der Leerzustand steht im DOM nach der Filterleiste.
+  it('zeigt mit Filter ohne Einträge h3 „Keine Einträge für diese Filter.“ mit „Filter zurücksetzen“', async () => {
     starte([testAuditEintrag({ benutzer: { id: PERSON_A.id, name: PERSON_A.name } })])
     const { user } = zeige()
     await geladen()
@@ -309,19 +304,19 @@ describe('Zustände (AK-31)', () => {
     await waehle(user, 'Bernd', 'Testperson Bernd')
 
     expect(
-      await screen.findByRole('heading', { level: 3, name: 'Keine Einträge für diesen Benutzer.' }),
+      await screen.findByRole('heading', { level: 3, name: 'Keine Einträge für diese Filter.' }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Filter entfernen' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Filter zurücksetzen' }).at(-1)).toBeInTheDocument()
   })
 
-  it('lädt per „Filter entfernen“ ohne benutzerId ab Seite 1', async () => {
+  it('lädt per „Filter zurücksetzen“ ohne benutzerId ab Seite 1', async () => {
     starte([testAuditEintrag({ benutzer: { id: PERSON_A.id, name: PERSON_A.name } })])
     const { user } = zeige()
     await geladen()
     await waehle(user, 'Bernd', 'Testperson Bernd')
-    await screen.findByRole('heading', { level: 3, name: 'Keine Einträge für diesen Benutzer.' })
+    await screen.findByRole('heading', { level: 3, name: 'Keine Einträge für diese Filter.' })
 
-    await user.click(screen.getByRole('button', { name: 'Filter entfernen' }))
+    await user.click(screen.getAllByRole('button', { name: 'Filter zurücksetzen' }).at(-1)!)
 
     await geladen()
     expect(auditAbrufe().at(-1)?.query.has('benutzerId')).toBe(false)

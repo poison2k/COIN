@@ -10,7 +10,7 @@ import { buttonVariants } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
 import { Seitenkopf } from '@/shared/ui/seitenkopf'
 import { VerlassenWarnung } from '@/shared/ui/verlassen-warnung'
-import { Fehlerzustand, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
+import { Fehlerzustand, Inhaltsbereich, Ladeanzeige, Leerzustand } from '@/shared/ui/zustaende'
 
 export interface CoinBearbeitenSeiteProps {
   /** Id aus der URL; keine GUID → „Coin nicht gefunden“ ohne API-Aufruf. */
@@ -33,7 +33,7 @@ const TEXT_VERLASSEN_MOTIVBILD =
  * Stammdaten oder ein gewähltes, nicht hochgeladenes Motivbild sichern das Verlassen ab (AK-13). Rendert kein eigenes
  * <main>.
  */
-export function CoinBearbeitenSeite({ coinId, onGespeichert }: CoinBearbeitenSeiteProps) {
+function CoinBearbeitenSeiteInhalt({ coinId, onGespeichert }: CoinBearbeitenSeiteProps) {
   const gueltig = istGuid(coinId)
   const [geladen, setGeladen] = useState<{ id: string; ergebnis: ApiErgebnis<Coin> } | null>(null)
   // „Erneut versuchen“ lädt mit neuem Versuch genau einmal neu; Schlüssel = Coin-Id und Versuch.
@@ -87,6 +87,8 @@ export function CoinBearbeitenSeite({ coinId, onGespeichert }: CoinBearbeitenSei
       <Fehlerzustand
         meldung="Der Coin konnte nicht geladen werden. Bitte später erneut versuchen."
         onErneutVersuchen={() => setVersuch((n) => n + 1)}
+        // Beim Neuladen wird das h1 ausgehängt; Ziel ist der stabile Inhaltsbereich (ADR-0047).
+        fokusUeberschrift={false}
       />
     )
   }
@@ -142,5 +144,14 @@ export function CoinBearbeitenSeite({ coinId, onGespeichert }: CoinBearbeitenSei
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+/** Seite in einem stabilen Inhaltsbereich: Fokusziel nach „Erneut versuchen“ mit sichtbarem Fokusring (ADR-0047). */
+export function CoinBearbeitenSeite(props: CoinBearbeitenSeiteProps) {
+  return (
+    <Inhaltsbereich>
+      <CoinBearbeitenSeiteInhalt {...props} />
+    </Inhaltsbereich>
   )
 }

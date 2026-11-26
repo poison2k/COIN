@@ -211,7 +211,11 @@ test.describe('Ausgabe-Seite nach dem Storno (AK-28)', () => {
 
     await dialog.getByRole('button', { name: 'Stornieren', exact: true }).click()
 
-    const meldung = page.getByRole('status').filter({ hasText: 'Die Ausgabe wurde storniert.' })
+    // nacharbeiten-audit-filter K2: role="status" am Container, fokussiert wird das Banner darin (ADR-0047).
+    const meldung = page
+      .getByRole('status')
+      .filter({ hasText: 'Die Ausgabe wurde storniert.' })
+      .locator('[data-slot="alert"]')
     await expect(meldung).toBeVisible()
     await expect(meldung).toBeFocused()
     await expect(page.getByRole('main').getByRole('button', { name: /stornieren/i })).toHaveCount(0)

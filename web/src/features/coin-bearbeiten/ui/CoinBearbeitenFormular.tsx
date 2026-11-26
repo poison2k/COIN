@@ -9,6 +9,7 @@ import {
 } from '@/entities/coin'
 import { useFormular, useSendeSperre, type Formularfehler } from '@/shared/lib/formular'
 import { Aktionsleiste } from '@/shared/ui/aktionsleiste'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { Alert, AlertDescription } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Fehlerzusammenfassung } from '@/shared/ui/fehlerzusammenfassung'
@@ -140,7 +141,7 @@ export function CoinBearbeitenFormular({ coin, onGespeichert, abbrechen, onGeaen
           fehler={formular.fehlerListe.map((f) => ({ feldId: f.feldId, label: labels[f.feld], text: f.text }))}
         />
       )}
-      {meldung?.art === 'hinweis' && <p role="status">{meldung.text}</p>}
+      <Aktionsmeldung meldung={meldung?.art === 'hinweis' ? { art: 'hinweis', text: meldung.text } : null} />
       {meldung?.art === 'fehler' && (
         <Alert variant="destructive">
           <AlertDescription>{meldung.text}</AlertDescription>

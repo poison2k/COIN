@@ -35,7 +35,7 @@ async function ebenen(page: Page): Promise<number[]> {
     )
 }
 
-const panel = (page: Page) => page.getByRole('tabpanel', { name: 'Audit-Log' })
+const panel = (page: Page) => page.getByRole('tabpanel', { name: 'Änderungsprotokoll' })
 const filterFeld = (page: Page) => panel(page).getByRole('combobox', { name: /^Benutzer/ })
 
 // ---------- AK-28: Aufbau ----------
@@ -48,7 +48,7 @@ test.describe('Aufbau Benutzerverwaltung (AK-28)', () => {
     await expect(beschreibung).toBeVisible()
     const reiter = (await page.getByRole('tablist').boundingBox())!
     expect((await beschreibung.boundingBox())!.y).toBeLessThan(reiter.y)
-    await expect(page.getByRole('tab')).toHaveText(['Benutzer', 'Audit-Log'])
+    await expect(page.getByRole('tab')).toHaveText(['Benutzer', 'Änderungsprotokoll'])
   })
 
   test('gibt dem Panel „Benutzer“ die h2 „Benutzer“', async ({ page }) => {
@@ -64,7 +64,7 @@ test.describe('Aufbau Benutzerverwaltung (AK-28)', () => {
   test('gibt dem Panel „Audit-Log“ die h2 „Änderungsprotokoll“', async ({ page }) => {
     await oeffne(page, '/benutzerverwaltung')
 
-    await page.getByRole('tab', { name: 'Audit-Log' }).click()
+    await page.getByRole('tab', { name: 'Änderungsprotokoll' }).click()
 
     await expect(panel(page).getByRole('heading', { level: 2, name: 'Änderungsprotokoll' })).toBeVisible()
   })
@@ -202,7 +202,8 @@ test.describe('Audit-Log: Benutzerfilter (AK-29)', () => {
     expect([...letzter.searchParams.keys()].sort()).toEqual(['benutzerId', 'groesse', 'seite'])
   })
 
-  test('setzt weder Namen noch Id des Benutzers in die URL', async ({ page }) => {
+  // nacharbeiten-audit-filter E3 (F1): nur die GUID steht als `benutzer` in der URL, nie der Name.
+  test('setzt nur die Id, nie den Namen des Benutzers in die URL', async ({ page }) => {
     await oeffne(page, '/benutzerverwaltung')
     await oeffneAuditLog(page)
 
@@ -212,7 +213,7 @@ test.describe('Audit-Log: Benutzerfilter (AK-29)', () => {
     await expect(panel(page).getByRole('list', { name: 'Aktive Filter' })).toBeVisible()
 
     expect(decodeURIComponent(page.url())).not.toContain(BETRACHTER.name)
-    expect(page.url()).not.toContain(BETRACHTER.id)
+    await expect.poll(() => new URL(page.url()).searchParams.get('benutzer')).toBe(BETRACHTER.id)
   })
 
   test('lädt nach dem Entfernen des Chips ohne benutzerId ab Seite 1', async ({ page }) => {
@@ -228,16 +229,6 @@ test.describe('Audit-Log: Benutzerfilter (AK-29)', () => {
     await expect(panel(page).getByRole('list', { name: 'Aktive Filter' })).toHaveCount(0)
     await expect.poll(() => audit.abrufe.at(-1)?.searchParams.has('benutzerId')).toBe(false)
     expect(audit.abrufe.at(-1)?.searchParams.get('seite')).toBe('1')
-  })
-
-  test('bietet keinen Filter nach Zeitraum oder Aktion', async ({ page }) => {
-    await oeffne(page, '/benutzerverwaltung')
-    await oeffneAuditLog(page)
-
-    for (const name of [/Zeitraum/, /^Von\b/, /^Bis\b/, /Aktion/]) {
-      await expect(panel(page).getByRole('combobox', { name })).toHaveCount(0)
-      await expect(panel(page).getByRole('textbox', { name })).toHaveCount(0)
-    }
   })
 })
 
@@ -269,12 +260,12 @@ test.describe('Audit-Log und Benutzer: Zustände (AK-31)', () => {
     await oeffne(page, '/benutzerverwaltung', { fehler: 99 })
     await oeffneAuditLog(page)
     const alarm = panel(page).getByRole('alert')
-    await expect(alarm).toContainText('Audit-Log konnte nicht geladen werden. Bitte später erneut versuchen.')
+    await expect(alarm).toContainText('Änderungsprotokoll konnte nicht geladen werden. Bitte später erneut versuchen.')
 
     audit.fehlerBeheben()
     await alarm.getByRole('button', { name: 'Erneut versuchen' }).click()
 
-    await expect(panel(page).getByRole('table', { name: 'Audit-Log' })).toBeVisible()
+    await expect(panel(page).getByRole('table', { name: 'Änderungsprotokoll' })).toBeVisible()
   })
 
   test('Audit-Log: leer ohne Filter zeigt h3 „Noch keine Einträge.“', async ({ page }) => {
@@ -284,7 +275,8 @@ test.describe('Audit-Log und Benutzer: Zustände (AK-31)', () => {
     await expect(panel(page).getByRole('heading', { level: 3, name: 'Noch keine Einträge.' })).toBeVisible()
   })
 
-  test('Audit-Log: leer mit Filter zeigt h3 „Keine Einträge für diesen Benutzer.“ und „Filter entfernen“', async ({
+  // nacharbeiten-audit-filter E4 (A9): Leerzustand „Keine Einträge für diese Filter.“ mit „Filter zurücksetzen“.
+  test('Audit-Log: leer mit Filter zeigt h3 „Keine Einträge für diese Filter.“ und „Filter zurücksetzen“', async ({
     page,
   }) => {
     await oeffne(page, '/benutzerverwaltung')
@@ -294,11 +286,10 @@ test.describe('Audit-Log und Benutzer: Zustände (AK-31)', () => {
 
     await page.getByRole('option', { name: 'Testperson A' }).click()
 
-    await expect(
-      panel(page).getByRole('heading', { level: 3, name: 'Keine Einträge für diesen Benutzer.' }),
-    ).toBeVisible()
-    await panel(page).getByRole('button', { name: 'Filter entfernen' }).click()
-    await expect(panel(page).getByRole('table', { name: 'Audit-Log' })).toBeVisible()
+    await expect(panel(page).getByRole('heading', { level: 3, name: 'Keine Einträge für diese Filter.' })).toBeVisible()
+    // Den Button gibt es zweimal (Filterleiste ab einem Chip und Leerzustand); der Leerzustand steht im DOM danach.
+    await panel(page).getByRole('button', { name: 'Filter zurücksetzen' }).last().click()
+    await expect(panel(page).getByRole('table', { name: 'Änderungsprotokoll' })).toBeVisible()
   })
 
   test('Benutzer: Fehler mit „Erneut versuchen“ lädt neu und zeigt die Tabelle', async ({ page }) => {

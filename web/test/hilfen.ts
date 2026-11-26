@@ -61,6 +61,15 @@ export function meldungMit(text: string): HTMLElement | undefined {
   return kandidaten.find((el) => el.textContent?.includes(text))
 }
 
+/**
+ * Banner einer Erfolgs- oder Hinweismeldung (`Aktionsmeldung`, ADR-0047): role="status" sitzt am dauerhaften Container,
+ * fokussiert wird das Banner darin (`[data-slot="alert"]`). Liefert das Banner im Status-Container mit dem Text.
+ */
+export function statusBannerMit(text: string): HTMLElement | undefined {
+  const container = screen.queryAllByRole('status').find((el) => el.textContent?.includes(text))
+  return container?.querySelector<HTMLElement>('[data-slot="alert"]') ?? undefined
+}
+
 /** Gesamter sichtbarer Text der Seite. */
 export function seitentext(): string {
   return document.body.textContent ?? ''

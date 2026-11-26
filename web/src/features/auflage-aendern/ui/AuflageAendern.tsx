@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { aendereAuflage, type Coin } from '@/entities/coin'
 import type { ApiErgebnis } from '@/shared/api'
 import { useFormular, useSendeSperre } from '@/shared/lib/formular'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { Button } from '@/shared/ui/button'
 import {
   Dialog,
@@ -135,11 +136,7 @@ export function AuflageAendern({ coinId, auflage, onGeaendert }: AuflageAendernP
                 />
               )}
             </Formularfeld>
-            {alarm && (
-              <p role="alert" className="text-sm text-destructive">
-                {alarm}
-              </p>
-            )}
+            {alarm && <Aktionsmeldung meldung={{ art: 'fehler', text: alarm }} />}
             <DialogFooter>
               <DialogClose render={<Button type="button" variant="outline" disabled={sendet} focusableWhenDisabled />}>
                 Abbrechen

@@ -505,7 +505,11 @@ test('Storno per Tastatur: Dialog mit Grund und Datenschutz-Hinweis, danach Meld
   await page.keyboard.press('Enter')
 
   await expect(dialog).toHaveCount(0)
-  const meldung = page.getByRole('status').filter({ hasText: 'Ausgabe von Exemplar Nr. 2 wurde storniert.' })
+  // nacharbeiten-audit-filter K2: role="status" am Container, fokussiert wird das Banner darin (ADR-0047).
+  const meldung = page
+    .getByRole('status')
+    .filter({ hasText: 'Ausgabe von Exemplar Nr. 2 wurde storniert.' })
+    .locator('[data-slot="alert"]')
   await expect(meldung).toBeVisible()
   await expect(meldung).toBeFocused()
   expect(stornos).toEqual([{ grund: 'Falsches Exemplar erfasst' }])

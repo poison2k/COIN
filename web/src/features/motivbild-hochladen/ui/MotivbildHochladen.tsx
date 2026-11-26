@@ -12,6 +12,7 @@ import {
 import type { ApiErgebnis } from '@/shared/api'
 import { useFormular, useSendeSperre } from '@/shared/lib/formular'
 import { Aktionsleiste } from '@/shared/ui/aktionsleiste'
+import { Aktionsmeldung } from '@/shared/ui/aktionsmeldung'
 import { Button } from '@/shared/ui/button'
 import { Formularfeld } from '@/shared/ui/formularfeld'
 
@@ -74,7 +75,7 @@ export interface MotivbildHochladenProps {
 export function MotivbildHochladen({ coin, onGespeichert, onGeaendert }: MotivbildHochladenProps) {
   const [erfolg, setErfolg] = useState(false)
   const [alarm, setAlarm] = useState<string | null>(null)
-  const alarmRef = useRef<HTMLParagraphElement>(null)
+  const alarmRef = useRef<HTMLDivElement>(null)
   const { sendet, mitSperre } = useSendeSperre()
   const feldRef = useRef<HTMLInputElement>(null)
   const formular = useFormular<Werte>({
@@ -123,11 +124,7 @@ export function MotivbildHochladen({ coin, onGespeichert, onGeaendert }: Motivbi
 
   return (
     <form className="grid max-w-reading gap-4" onSubmit={absenden} noValidate>
-      {alarm && (
-        <p ref={alarmRef} role="alert" tabIndex={-1} className="text-destructive outline-none">
-          {alarm}
-        </p>
-      )}
+      <Aktionsmeldung ref={alarmRef} fokussierbar meldung={alarm ? { art: 'fehler', text: alarm } : null} />
 
       <Formularfeld
         label="Neues Motivbild"
@@ -159,9 +156,7 @@ export function MotivbildHochladen({ coin, onGespeichert, onGeaendert }: Motivbi
         </Button>
       </Aktionsleiste>
 
-      <p role="status" className="text-success empty:sr-only">
-        {erfolg ? TEXT_ERFOLG : ''}
-      </p>
+      <Aktionsmeldung meldung={erfolg ? { art: 'erfolg', text: TEXT_ERFOLG } : null} />
     </form>
   )
 }

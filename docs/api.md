@@ -31,7 +31,8 @@ In der Umgebung `Development` liefert `GET /openapi/v1.json` das OpenAPI-Dokumen
 | `GET` | `/api/benutzer` | Benutzer suchen und auflisten | `users.manage` |
 | `PUT` | `/api/benutzer/{id}/rolle` | Rolle zuweisen oder entziehen | `users.manage` |
 | `PUT` | `/api/benutzer/{id}/status` | Benutzer deaktivieren oder reaktivieren | `users.manage` |
-| `GET` | `/api/audit` | Audit-Log der Rollen- und Statusänderungen | `audit.read` |
+| `GET` | `/api/audit` | Änderungsprotokoll der Rollen- und Statusänderungen (filterbar) | `audit.read` |
+| `GET` | `/api/audit/aktionen` | Aktionstypen für den Filter des Änderungsprotokolls | `audit.read` |
 | `GET` | `/api/startseite/kopf` | Kopfbereich der Startseite (Titel, Untertitel, Logos) | öffentlich |
 | `GET` | `/api/startseite/logos/{platz}` | Logo des Kopfbereichs abrufen | öffentlich |
 | `GET` | `/api/startseite` | Startseite mit allen aktiven Blöcken | `coins.read` |
@@ -87,7 +88,7 @@ Grundlage: [ADR-0012](adr/0012-anmeldung-keycloak-oidc.md), [ADR-0013](adr/0013-
 | `issues.read` | „Ihr Benutzerkonto ist nicht berechtigt, Ausgaben einzusehen.“ |
 | `issues.write` | „Ihr Benutzerkonto ist nicht berechtigt, Ausgaben zu erfassen oder zu stornieren.“ |
 | `users.manage` | „Ihr Benutzerkonto ist nicht berechtigt, Benutzer zu verwalten.“ |
-| `audit.read` | „Ihr Benutzerkonto ist nicht berechtigt, das Audit-Log einzusehen.“ |
+| `audit.read` | „Ihr Benutzerkonto ist nicht berechtigt, das Änderungsprotokoll einzusehen.“ |
 | `startpage.manage` | „Ihr Benutzerkonto ist für diese Aktion nicht berechtigt.“ (allgemeiner Text) |
 
 Der Text zu `coins.read` erscheint auch bei `GET /api/startseite` und `POST /api/pruefung`, der zu
@@ -273,11 +274,35 @@ nichts gespeichert.
 
 ### GET /api/audit
 
-`GET /api/audit?benutzerId=<guid>&seite=1&groesse=25` (alle Parameter optional)
+`GET /api/audit?von=2026-10-01&bis=2026-10-31&aktion=Rolle&aktion=Status&benutzerId=<guid>&seite=1&groesse=25`
+(alle Parameter optional)
 
-Liefert das Audit-Log der Rollen- und Statusänderungen, neueste zuerst (`zeitpunkt` absteigend, dann
-`id` absteigend). `benutzerId` filtert auf den geänderten Benutzer; eine unbekannte Id liefert eine
-leere Liste, eine ungültige GUID `400` (`errors.benutzerId`). Paging wie oben.
+Liefert das Änderungsprotokoll der Rollen- und Statusänderungen, neueste zuerst (`zeitpunkt`
+absteigend, dann `id` absteigend). Grundlage: [ADR-0045](adr/0045-filter-des-aenderungsprotokolls.md),
+Feature [nacharbeiten-audit-filter](features/nacharbeiten-audit-filter.md).
+
+Filter (alle optional, untereinander per UND; mehrere `aktion` per ODER; ohne Filter alle Einträge):
+
+| Parameter | Format und Regel | Fehler (`400`, Schlüssel: Meldung) |
+|---|---|---|
+| `von` | genau `JJJJ-MM-TT`, gültiger Kalendertag 2000-01-01 bis 2999-12-31; ab Beginn dieses Tages (00:00 Europe/Berlin, inklusive). Leer = nicht angegeben, mehrfach angegeben = ungültig | `von`: „Bitte ein gültiges Datum im Format JJJJ-MM-TT angeben.“ |
+| `bis` | wie `von`; bis einschließlich dieses Tages (intern: vor 00:00 Berlin des Folgetags) | `bis`: dieselbe Meldung |
+| `von` + `bis` | `von` ≤ `bis` | `bis`: „Das Datum „bis“ darf nicht vor dem Datum „von“ liegen.“ |
+| `von` + `bis` | höchstens 366 Tage einschließlich (`bis` − `von` + 1); gilt nur, wenn beide angegeben sind | `bis`: „Der Zeitraum darf höchstens 366 Tage umfassen.“ |
+| `aktion` (mehrfach) | `Rolle` oder `Status`, Groß-/Kleinschreibung zählt; doppelte Werte zählen einfach, leere gelten als nicht angegeben | `aktion`: „Unbekannte Aktion. Erlaubt sind: Rolle, Status.“ |
+| `benutzerId` | GUID des geänderten Benutzers; unbekannte Id = leere Liste | ungültige GUID: `benutzerId` |
+
+- Tage zählen nach deutscher Zeit (Europe/Berlin): Der 29.03.2026 umfasst 23 Stunden, der
+  25.10.2026 25 Stunden.
+- Alle Feldfehler kommen gemeinsam (auch zusammen mit `seite`/`groesse`). Meldungen enthalten nie den
+  Eingabewert.
+- `401`/`403` gehen `400` vor: Ohne `audit.read` gibt es auch bei ungültigen Filtern `403`.
+- `gesamt` zählt die gefilterte Menge, Blättern läuft über die gefilterte Menge (Paging wie oben).
+- Gefiltert wird nur mit parametrisierten Abfragen (LINQ); es gibt keine Freitextsuche.
+
+```powershell
+curl.exe -H "Authorization: Bearer <access-token>" "http://localhost:5172/api/audit?von=2026-10-01&bis=2026-10-31&aktion=Status"
+```
 
 ```json
 {
@@ -301,18 +326,52 @@ leere Liste, eine ungültige GUID `400` (`errors.benutzerId`). Paging wie oben.
 | Feld | Bedeutung |
 |---|---|
 | `zeitpunkt` | UTC, Genauigkeit Mikrosekunden |
-| `akteur` | wer geändert hat (`id`, `name`); `null` = System (Bootstrap-Administrator beim ersten Aufruf) |
+| `akteur` | wer geändert hat (`id`, `name`); `null` = System (erster Administrator per `Bootstrap:AdminEmails`; die Oberfläche zeigt „System (Ersteinrichtung)“) |
 | `benutzer` | wessen Konto geändert wurde (`id`, `name`) |
 | `art` | `"Rolle"` oder `"Status"` |
 | `alt`, `neu` | bei `Rolle`: `"Administrator"`, `"Sachbearbeiter"`, `"Betrachter"`, `"keine"`; bei `Status`: `"aktiv"`, `"deaktiviert"` |
 
 Namen kommen beim Lesen aus der Benutzertabelle (aktueller Anzeigename), E-Mails enthält das
-Audit-Log nicht. Einträge sind unveränderlich; es gibt keinen Endpunkt zum Ändern oder Löschen.
+Änderungsprotokoll nicht. Einträge sind unveränderlich; es gibt keinen Endpunkt zum Ändern oder
+Löschen. Das Lesen schreibt nichts.
 
 | Status | Wann | Body |
 |---|---|---|
-| `200 OK` | gültige Parameter | Seite mit Audit-Einträgen |
-| `400 Bad Request` | `benutzerId`, `seite` oder `groesse` ungültig | ValidationProblemDetails |
+| `200 OK` | gültige Parameter | Seite mit Einträgen |
+| `400 Bad Request` | `von`, `bis`, `aktion`, `benutzerId`, `seite` oder `groesse` ungültig | ValidationProblemDetails |
+| `401` / `403` | wie oben (`audit.read`) | ProblemDetails |
+
+Beispiel `400` für `?von=2026-02-30&aktion=rolle`:
+
+```json
+{
+  "title": "Eingaben ungültig",
+  "status": 400,
+  "errors": {
+    "von": ["Bitte ein gültiges Datum im Format JJJJ-MM-TT angeben."],
+    "aktion": ["Unbekannte Aktion. Erlaubt sind: Rolle, Status."]
+  },
+  "traceId": "00-..."
+}
+```
+
+### GET /api/audit/aktionen
+
+Liefert die Aktionstypen für den Filter `aktion` in fester Reihenfolge. Keine Parameter,
+`Cache-Control: no-store`.
+
+```json
+[
+  { "wert": "Rolle", "bezeichnung": "Rolle" },
+  { "wert": "Status", "bezeichnung": "Status" }
+]
+```
+
+`wert` ist der Wert für `aktion` und für das Feld `art`, `bezeichnung` der deutsche Anzeigetext.
+
+| Status | Wann | Body |
+|---|---|---|
+| `200 OK` | immer mit `audit.read` | Liste der Aktionstypen |
 | `401` / `403` | wie oben (`audit.read`) | ProblemDetails |
 
 ## Datenformat Coin
@@ -361,9 +420,9 @@ Objekt `errors` (Schlüssel → Liste deutscher Meldungen). Mehrere ungültige F
 | `anfrage` | alle Endpunkte mit JSON-Body: Body ist syntaktisch kein gültiges JSON (z. B. abgeschnitten) oder der Fehler lässt sich keinem Feld zuordnen. Dann gibt es nur diesen Schlüssel, Meldung „Die Anfrage enthält kein gültiges JSON.“ |
 | `datei` | Bild- und Vorlagen-Upload: Formular fehlerhaft, keine/mehrere Dateien, leere Datei; beim Vorlagen-Upload zusätzlich alle Befunde der Inhaltsprüfung (siehe [Meldungen der Vorlagenprüfung](#meldungen-der-vorlagenprüfung)) |
 | `rolle`, `aktiv` | Benutzerverwaltung: Body-Feld fehlt oder ungültig |
-| `suche`, `seite`, `groesse` | Coin-Liste, Benutzerliste, Audit-Log (ohne `suche`), Exemplare und Ausgaben (ohne `suche`): Query-Parameter ungültig |
+| `suche`, `seite`, `groesse` | Coin-Liste, Benutzerliste, Änderungsprotokoll (ohne `suche`), Exemplare und Ausgaben (ohne `suche`): Query-Parameter ungültig |
 | `status` | Exemplare und Ausgaben: unbekannter Filterwert |
-| `benutzerId` | Audit-Log: Query-Parameter ungültig |
+| `von`, `bis`, `aktion`, `benutzerId` | Änderungsprotokoll: Query-Parameter ungültig (siehe [GET /api/audit](#get-apiaudit)) |
 | `exemplarNummer`, `empfaengerName`, `empfaengerDienstgrad`, `empfaengerDienststelle`, `datum`, `gelegenheit`, `begruendung`, `ausgebendeStelle`, `hologrammnummer` | Ausgabe erfassen |
 | `grund` | Storno |
 | `hologrammnummer`, `grund` | Hologrammnummer ergänzen oder korrigieren |

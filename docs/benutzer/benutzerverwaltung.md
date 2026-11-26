@@ -1,7 +1,7 @@
 # Benutzerverwaltung – Anleitung für Administratoren
 
 In der Benutzerverwaltung vergeben Sie Rollen, deaktivieren oder reaktivieren Benutzer und sehen im
-Audit-Log, wer wann was geändert hat. Die Seite steht nur Administratoren zur Verfügung.
+Änderungsprotokoll, wer wann was geändert hat. Die Seite steht nur Administratoren zur Verfügung.
 
 ## Seite öffnen
 
@@ -11,13 +11,14 @@ Ohne Rolle, mit deaktiviertem Konto oder mit einer anderen Rolle als Administrat
 Seite **Kein Zugriff** (mit einer anderen Rolle mit dem Text „Ihr Benutzerkonto ist für diese Seite
 nicht berechtigt. …“, siehe [Anmeldung](anmeldung.md#keine-berechtigung-für-eine-seite)).
 
-Die Seite hat zwei Reiter: **Benutzer** und **Audit-Log**. Zwischen den Reitern wechseln Sie per
-Klick oder mit den Pfeiltasten, wenn ein Reiter den Fokus hat. Der Reiter **Benutzer** enthält die
-Karte „Benutzer“, der Reiter **Audit-Log** die Karte „Änderungsprotokoll“.
+Die Seite hat zwei Reiter: **Benutzer** und **Änderungsprotokoll**. Zwischen den Reitern wechseln
+Sie per Klick oder mit den Pfeiltasten, wenn ein Reiter den Fokus hat. Der Reiter **Benutzer**
+enthält die Karte „Benutzer“, der Reiter **Änderungsprotokoll** die gleichnamige Karte. Der gewählte
+Reiter steht in der Adresszeile; nach dem Neuladen bleibt er geöffnet.
 
 ## Rollen und Rechte
 
-| Rolle | Coin-Katalog ansehen | Exemplare und Kennzahlen | Coins hinzufügen und bearbeiten, Auflage ändern, Zertifikatsvorlagen | Ausgaben sehen, erfassen, stornieren | Benutzerverwaltung und Audit-Log |
+| Rolle | Coin-Katalog ansehen | Exemplare und Kennzahlen | Coins hinzufügen und bearbeiten, Auflage ändern, Zertifikatsvorlagen | Ausgaben sehen, erfassen, stornieren | Benutzerverwaltung und Änderungsprotokoll |
 |---|---|---|---|---|---|
 | Administrator | ja | ja | ja | ja | ja |
 | Sachbearbeiter | ja | ja | ja | ja | nein |
@@ -98,38 +99,73 @@ sich seine Ansicht (z. B. Menüeinträge) erst an, wenn er die Seite neu lädt o
 | „Ihr Benutzerkonto ist deaktiviert.“ | Ihr eigenes Konto wurde deaktiviert. |
 | „Die Änderung konnte nicht gespeichert werden. Bitte später erneut versuchen.“ | Technisches Problem, z. B. keine Verbindung zum Server. |
 | „Benutzer konnten nicht geladen werden. Bitte später erneut versuchen.“ | Die Liste konnte nicht geladen werden. **Erneut versuchen** lädt sie neu. |
-| „Audit-Log konnte nicht geladen werden. Bitte später erneut versuchen.“ | Das Audit-Log konnte nicht geladen werden. **Erneut versuchen** lädt es neu. |
+| „Änderungsprotokoll konnte nicht geladen werden. Bitte später erneut versuchen.“ | Das Änderungsprotokoll konnte nicht geladen werden. **Erneut versuchen** lädt es neu; der Fokus springt dabei an den Anfang des Änderungsprotokolls. |
 
 Nach einer Fehlermeldung zeigt die Zeile wieder den gespeicherten Stand.
 
-## Audit-Log
+## Änderungsprotokoll
 
-Der Reiter **Audit-Log** zeigt im **Änderungsprotokoll** jede Änderung an Rollen und Status, die
-neueste zuerst, 25 Einträge pro Seite. Er wird bei jedem Öffnen neu geladen. Geblättert wird wie in
-der Benutzerliste.
+Der Reiter **Änderungsprotokoll** zeigt jede Änderung an Rollen und Status, die neueste zuerst,
+25 Einträge pro Seite. Er wird bei jedem Öffnen neu geladen. Geblättert wird wie in der
+Benutzerliste.
 
-### Nach Benutzer filtern
+### Filtern
 
-Im Feld **Benutzer** über der Tabelle wählen Sie ein Benutzerkonto, um nur die Änderungen **an
-diesem Konto** zu sehen (nicht die Änderungen, die dieser Benutzer selbst vorgenommen hat).
+Über der Tabelle stehen drei Filter. Sie lassen sich beliebig kombinieren; es erscheinen nur
+Einträge, die zu allen gesetzten Filtern passen. Jede Änderung wirkt sofort, ohne Button, und die
+Liste beginnt wieder auf Seite 1.
 
-1. Tippen Sie einen Teil des Namens. Nach einem kurzen Moment erscheinen passende Benutzer (nur mit
-   Namen). Gibt es keinen, steht dort „Keine Benutzer gefunden“.
-2. Wählen Sie den Benutzer per Klick oder mit Pfeiltasten und **Eingabetaste**.
+- **Zeitraum** mit den Datumsfeldern **Von** und **Bis**: Es zählen ganze Tage nach deutscher Zeit,
+  beide Tage eingeschlossen. Sie können auch nur eines der Felder ausfüllen („ab“ bzw. „bis
+  einschließlich“). Der Zeitraum darf höchstens 366 Tage umfassen. Erst ein vollständiges Datum
+  zwischen dem Jahr 2000 und 2999 wird übernommen.
+- **Aktion** mit je einem Kästchen für „Rolle“ und „Status“: Wählen Sie eines oder beide (beide
+  zeigen Rollen- und Statusänderungen). Konnte die Liste der Aktionen nicht geladen werden, steht dort
+  „Aktionen konnten nicht geladen werden.“; die übrigen Filter funktionieren trotzdem.
+- **Benutzer**: Wählen Sie ein Benutzerkonto, um nur die Änderungen **an diesem Konto** zu sehen
+  (nicht die Änderungen, die dieser Benutzer selbst vorgenommen hat).
+  1. Tippen Sie einen Teil des Namens. Nach einem kurzen Moment erscheinen passende Benutzer (nur mit
+     Namen). Gibt es keinen, steht dort „Keine Benutzer gefunden“.
+  2. Wählen Sie den Benutzer per Klick oder mit Pfeiltasten und **Eingabetaste**.
 
-Das Audit-Log beginnt dann wieder auf Seite 1, und über der Tabelle steht der Chip „Benutzer: {Name}“.
-Das Kreuz im Chip hebt den Filter auf. Gibt es zu dem Benutzer keine Einträge, steht dort „Keine
-Einträge für diesen Benutzer.“ mit dem Button **Filter entfernen**. Der Filter steht nicht in der
-Adresse und wird beim Verlassen des Reiters vergessen. Nach Zeitraum oder Art der Änderung lässt sich
-noch nicht filtern.
+Jeder aktive Filter steht als Chip über der Tabelle, z. B. „Von: 01.10.2026“, „Bis: 31.10.2026“,
+„Aktion: Status“ oder „Benutzer: {Name}“. Das Kreuz im Chip hebt nur diesen Filter auf.
+**Filter zurücksetzen** hebt alle Filter auf und setzt den Fokus in das Feld **Von**.
+
+Passt kein Eintrag zu den Filtern, steht dort „Keine Einträge für diese Filter.“ mit dem Button
+**Filter zurücksetzen**. Ist ein Filter ungültig (z. B. „Bis“ vor „Von“ oder mehr als 366 Tage),
+steht die Meldung direkt am Feld, und die Tabelle wird nicht angezeigt:
+
+| Meldung | Bedeutung |
+|---|---|
+| „Das Datum „bis“ darf nicht vor dem Datum „von“ liegen.“ | Tauschen oder korrigieren Sie die Daten. |
+| „Der Zeitraum darf höchstens 366 Tage umfassen.“ | Wählen Sie einen kürzeren Zeitraum. |
+
+### Filter in der Adresszeile
+
+Reiter, Filter und Seite stehen in der Adresszeile des Browsers, z. B.
+`/benutzerverwaltung?reiter=aenderungsprotokoll&von=2026-10-01&bis=2026-10-31&aktion=Status`.
+
+- **Teilen und merken:** Sie können die Adresse als Lesezeichen speichern oder an andere
+  Administratoren weitergeben. Beim Öffnen erscheinen dieselben Filter. Der Name eines gefilterten
+  Benutzers steht nie in der Adresse, nur eine interne Kennung; der Chip zeigt den Namen aus den
+  geladenen Einträgen, ohne Einträge „Benutzer: unbekannt“.
+- **Zurück-Schaltfläche:** Jede Filteränderung und jedes Blättern ist ein eigener Schritt im
+  Browserverlauf. Mit **Zurück** kehren Sie zum vorigen Filterstand zurück. Der Wechsel zwischen den
+  Reitern legt keinen eigenen Schritt an.
+- Die Filter bleiben beim Wechsel zum Reiter **Benutzer** in der Adresse und gelten wieder, sobald Sie
+  zum Änderungsprotokoll zurückwechseln.
+
+Öffnen Sie eine Seite, die es nicht (mehr) gibt, steht dort „Auf dieser Seite gibt es keine
+Einträge.“; mit **Vorherige Seite** kommen Sie zurück.
 
 | Spalte | Inhalt |
 |---|---|
 | Zeitpunkt | Datum und Uhrzeit der Änderung in deutscher Zeit, z. B. „05.10.2026, 14:34 Uhr“; mit der Maus darüber erscheinen auch die Sekunden |
-| Geändert von | wer die Änderung vorgenommen hat; „System (Bootstrap)“ beim ersten Administrator, der beim Einrichten automatisch angelegt wurde |
+| Geändert von | wer die Änderung vorgenommen hat; „System (Ersteinrichtung)“ beim ersten Administrator, der beim Einrichten automatisch angelegt wurde |
 | Benutzer | wessen Konto geändert wurde |
 | Änderung | „Rolle“ oder „Status“ |
 | Vorher, Nachher | z. B. „Keine Rolle“ → „Betrachter“ oder „Aktiv“ → „Deaktiviert“ |
 
-Einträge im Audit-Log können nicht geändert oder gelöscht werden. Sie werden vorerst unbegrenzt
+Einträge im Änderungsprotokoll können nicht geändert oder gelöscht werden. Sie werden vorerst unbegrenzt
 aufbewahrt. Ohne Einträge steht dort „Noch keine Einträge.“
